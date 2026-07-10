@@ -257,3 +257,56 @@ model StyleCategory {
 
   @@map("style_categories")
 }
+
+// --- Booking engine (Chapter 7) ---
+
+enum BookingStatus {
+  held
+  confirmed
+  completed
+  cancelled
+  no_show
+
+  @@map("booking_status")
+}
+
+enum BookingDepositStatus {
+  pending
+  paid
+  refunded
+  forfeited
+
+  @@map("booking_deposit_status")
+}
+
+enum BookingSource {
+  ai_agent
+  dashboard_manual
+  client_direct
+
+  @@map("booking_source")
+}
+
+model Booking {
+  id                     String               @id @default(uuid()) @db.Uuid
+  stylistId              String               @map("stylist_id") @db.Uuid
+  clientId               String               @map("client_id") @db.Uuid
+  serviceOfferingId      String               @map("service_offering_id") @db.Uuid
+  status                 BookingStatus        @default(held)
+  startTime              DateTime             @map("start_time") @db.Timestamptz(6)
+  endTime                DateTime             @map("end_time") @db.Timestamptz(6)
+  agreedPrice            Decimal              @map("agreed_price") @db.Decimal(10, 2)
+  agreedDurationMinutes  Int                  @map("agreed_duration_minutes")
+  depositAmount          Decimal              @map("deposit_amount") @db.Decimal(10, 2)
+  depositStatus          BookingDepositStatus @default(pending) @map("deposit_status")
+  holdExpiresAt          DateTime?            @map("hold_expires_at") @db.Timestamptz(6)
+  source                 BookingSource
+  createdAt              DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  cancelledAt            DateTime?            @map("cancelled_at") @db.Timestamptz(6)
+  cancellationReason     String?              @map("cancellation_reason")
+
+  @@index([stylistId, status, startTime, endTime])
+  @@index([clientId, status])
+  @@index([holdExpiresAt])
+  @@map("bookings")
+}

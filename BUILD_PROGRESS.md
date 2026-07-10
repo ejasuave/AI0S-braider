@@ -2,37 +2,37 @@
 
 **Started:** 2026-07-10  
 **Objective:** Production-quality MVP per Product Blueprint + Prompt Library Back Matter  
-**Current milestone:** Chapter 6 complete — awaiting approval to begin Chapter 7
+**Current milestone:** Chapter 7 complete — awaiting approval to begin Chapter 8
 
 ---
 
 ## Completed chapters
 
-| Chapter                  | Status   | Notes                                          |
-| ------------------------ | -------- | ---------------------------------------------- |
-| 1 — Project Setup        | Complete | `aba627c`                                      |
-| 2 — Architecture         | Complete | `13b6544`                                      |
-| 3 — Authentication       | Complete | `921b99f`                                      |
-| 4 — User Roles (4.1–4.2) | Complete | `ef0cb45`                                      |
-| 6 — Stylist Features     | Complete | Profile, portfolio, pricing taxonomy, policies |
+| Chapter                  | Status   | Notes                                              |
+| ------------------------ | -------- | -------------------------------------------------- |
+| 1 — Project Setup        | Complete | `aba627c`                                          |
+| 2 — Architecture         | Complete | `13b6544`                                          |
+| 3 — Authentication       | Complete | `921b99f`                                          |
+| 4 — User Roles (4.1–4.2) | Complete | `ef0cb45`                                          |
+| 6 — Stylist Features     | Complete | `7ef6e26`                                          |
+| 7 — Booking Engine       | Complete | State machine, holds, concurrency, manual bookings |
 
-### Chapter 6 deliverables (MVP scope)
+### Chapter 7 deliverables (MVP scope)
 
-| Prompt | Deliverable                                                          |
-| ------ | -------------------------------------------------------------------- |
-| 6.1    | `stylist_profiles` + `GET/PATCH /api/v1/profile/me`                  |
-| 6.2    | Manual portfolio CRUD + multipart upload via `StorageProvider`       |
-| 6.3    | Deferred V2 — Instagram import                                       |
-| 6.4    | `service_offerings` + seeded taxonomy + deterministic pricing lookup |
-| 6.5    | Deposit & cancellation policy JSON on profile                        |
-| 6.6    | Working hours + buffer minutes on profile                            |
+| Prompt | Deliverable                                                     |
+| ------ | --------------------------------------------------------------- |
+| 7.1    | Booking state machine with guarded transitions                  |
+| 7.2    | TTL holds + `FOR UPDATE` overlap detection + expiry job         |
+| 7.3    | `POST /bookings/:id/confirm` (deposit capture deferred to Ch.9) |
+| 7.4    | Cancel + no-show endpoints                                      |
+| 7.5    | `POST /bookings/manual` for stylist dashboard bookings          |
+| 7.6    | Conflict detection + concurrency integration test               |
 
 ## Pending chapters (MVP critical path)
 
 | Chapter | Name                | MVP                         |
 | ------- | ------------------- | --------------------------- |
-| 7       | Booking Engine      | Pending (awaiting approval) |
-| 8       | Calendar (8.1, 8.3) | Pending                     |
+| 8       | Calendar (8.1, 8.3) | Pending (awaiting approval) |
 | 9       | Payments            | Pending                     |
 | 11      | Messaging (SMS)     | Pending                     |
 | 12      | Notifications       | Pending                     |
@@ -43,20 +43,20 @@
 
 ## Architectural decisions
 
-| Date       | Decision                                  | Rationale                                       |
-| ---------- | ----------------------------------------- | ----------------------------------------------- |
-| 2026-07-10 | `auth.stylistId` = `stylist_profiles.id`  | True tenant key; resolves via profile module    |
-| 2026-07-10 | `LocalStorageProvider` for dev uploads    | Supabase Storage adapter deferred to deployment |
-| 2026-07-10 | Pricing lookup returns confidence scores  | Feeds Ch.13 escalation threshold (0.8)          |
-| 2026-07-10 | `style_categories` reference table + seed | Guided onboarding per Playbook §3.5             |
+| Date       | Decision                                             | Rationale                          |
+| ---------- | ---------------------------------------------------- | ---------------------------------- |
+| 2026-07-10 | Price/duration snapshotted on booking create         | Blueprint pricing integrity        |
+| 2026-07-10 | `SELECT … FOR UPDATE` overlap check in transaction   | Playbook 7.6 concurrency guarantee |
+| 2026-07-10 | Expired holds → `cancelled` + `hold_expired` reason  | Matches playbook state machine     |
+| 2026-07-10 | Booking service calls `profileService` for offerings | Cross-module boundary rule         |
 
 ## Technical debt
 
-| Item                                       | Chapter | Notes                              |
-| ------------------------------------------ | ------- | ---------------------------------- |
-| Supabase `StorageProvider` production impl | 6       | Local disk only for now            |
-| PostGIS `location` on profile              | 6       | Using `locationArea` text for MVP  |
-| Instagram portfolio import                 | 6.3 V2  | Schema has `instagram` source enum |
+| Item                         | Chapter | Notes                                       |
+| ---------------------------- | ------- | ------------------------------------------- |
+| Deposit capture on confirm   | 9       | `deposit_status` stays `pending` until Ch.9 |
+| Availability slot generation | 8       | Ch.7 accepts explicit `startTime` only      |
+| Google Calendar sync         | 8 V2    | Not in MVP                                  |
 
 ## Blockers
 

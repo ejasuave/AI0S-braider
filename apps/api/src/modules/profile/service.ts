@@ -289,6 +289,27 @@ export class ProfileService {
 
     await prisma.portfolioItem.delete({ where: { id: itemId } });
   }
+
+  async getActiveServiceOffering(stylistId: string, offeringId: string) {
+    const offering = await prisma.serviceOffering.findFirst({
+      where: { id: offeringId, stylistId, active: true },
+    });
+    if (!offering) {
+      throw ApiError.notFound('Service offering not found');
+    }
+    return offering;
+  }
+
+  async getSchedulingSettings(stylistId: string): Promise<{
+    bufferMinutes: number;
+    depositPolicy: { type: 'flat' | 'percent'; value: number } | null;
+  }> {
+    const profile = await getStylistProfileById(stylistId);
+    return {
+      bufferMinutes: profile.bufferMinutes,
+      depositPolicy: profile.depositPolicy as { type: 'flat' | 'percent'; value: number } | null,
+    };
+  }
 }
 
 export const profileService = new ProfileService();

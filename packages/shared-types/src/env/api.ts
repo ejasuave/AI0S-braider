@@ -23,6 +23,7 @@ export const apiEnvSchema = z.object({
   OTP_MAX_REQUESTS_PER_HOUR: z.coerce.number().int().positive().default(5),
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(20),
   AUTH_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
+  BOOKING_HOLD_TTL_MINUTES: z.coerce.number().int().positive().default(15),
 });
 
 export type ApiEnv = z.infer<typeof apiEnvSchema>;

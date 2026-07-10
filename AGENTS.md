@@ -60,4 +60,4 @@ SMS-only client channel. Dashboard + onboarding web UI. No web booking widget/fo
 
 ## Current phase
 
-**Chapter 6 complete** (committed). Awaiting founder approval before **Chapter 7 — Booking Engine**.
+**Chapter 7 complete** (committed). Awaiting founder approval before **Chapter 8 — Calendar & Availability** (MVP 8.1, 8.3).
