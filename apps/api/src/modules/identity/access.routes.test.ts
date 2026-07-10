@@ -112,8 +112,12 @@ describe('access routes', () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(response.json().data.stylistId).toBe(users.stylist.id);
+    expect(response.json().data.stylistId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
+    expect(response.json().data.stylistId).not.toBe(users.stylist.id);
 
+    await prisma.stylistProfile.deleteMany({ where: { userId: users.stylist.id } });
     await app.close();
   });
 });

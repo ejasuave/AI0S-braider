@@ -74,6 +74,7 @@ model User {
   passwordResetTokens   PasswordResetToken[]
   accountRecoveryRequests AccountRecoveryRequest[]
   stylistMembership     StylistMembership?
+  stylistProfile        StylistProfile?
 
   @@index([role])
   @@map("users")
@@ -169,4 +170,90 @@ model AccountRecoveryRequest {
   @@index([email])
   @@index([status])
   @@map("account_recovery_requests")
+}
+
+// --- Stylist profile (Chapter 6) ---
+
+enum OnboardingStatus {
+  in_progress
+  complete
+
+  @@map("onboarding_status")
+}
+
+enum PortfolioSource {
+  manual
+  instagram
+
+  @@map("portfolio_source")
+}
+
+model StylistProfile {
+  id                  String           @id @default(uuid()) @db.Uuid
+  userId              String           @unique @map("user_id") @db.Uuid
+  businessName        String           @default("") @map("business_name")
+  bio                 String?
+  locationArea        String?          @map("location_area")
+  serviceAreaRadiusKm Decimal?         @map("service_area_radius_km") @db.Decimal(6, 2)
+  cancellationPolicy  Json?            @map("cancellation_policy")
+  depositPolicy       Json?            @map("deposit_policy")
+  workingHours        Json?            @map("working_hours")
+  bufferMinutes       Int              @default(0) @map("buffer_minutes")
+  onboardingStatus    OnboardingStatus @default(in_progress) @map("onboarding_status")
+  createdAt           DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  portfolioItems   PortfolioItem[]
+  serviceOfferings ServiceOffering[]
+
+  @@map("stylist_profiles")
+}
+
+model PortfolioItem {
+  id           String          @id @default(uuid()) @db.Uuid
+  stylistId    String          @map("stylist_id") @db.Uuid
+  imageUrl     String          @map("image_url")
+  storageKey   String?         @map("storage_key")
+  source       PortfolioSource @default(manual)
+  displayOrder Int             @default(0) @map("display_order")
+  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  stylist StylistProfile @relation(fields: [stylistId], references: [id], onDelete: Cascade)
+
+  @@index([stylistId, displayOrder])
+  @@map("portfolio_items")
+}
+
+model ServiceOffering {
+  id                       String   @id @default(uuid()) @db.Uuid
+  stylistId                String   @map("stylist_id") @db.Uuid
+  styleName                String   @map("style_name")
+  sizeTier                 String?  @map("size_tier")
+  lengthTier               String?  @map("length_tier")
+  basePrice                Decimal  @map("base_price") @db.Decimal(10, 2)
+  estimatedDurationMinutes Int      @map("estimated_duration_minutes")
+  hairIncluded             Boolean  @default(false) @map("hair_included")
+  isCustomStyle            Boolean  @default(false) @map("is_custom_style")
+  active                   Boolean  @default(true)
+  createdAt                DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  stylist StylistProfile @relation(fields: [stylistId], references: [id], onDelete: Cascade)
+
+  @@index([stylistId, active])
+  @@index([stylistId, styleName])
+  @@map("service_offerings")
+}
+
+/// Seeded reference taxonomy for guided pricing setup (Ch.6.4).
+model StyleCategory {
+  id          String @id @default(uuid()) @db.Uuid
+  name        String @unique
+  slug        String @unique
+  sizeTiers   Json   @default("[]") @map("size_tiers")
+  lengthTiers Json   @default("[]") @map("length_tiers")
+  sortOrder   Int    @default(0) @map("sort_order")
+
+  @@map("style_categories")
 }

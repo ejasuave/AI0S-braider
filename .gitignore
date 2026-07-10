@@ -4,6 +4,7 @@ dist/
 .next/
 out/
 .turbo/
+uploads/
 *.tsbuildinfo
 .env
 .env.local

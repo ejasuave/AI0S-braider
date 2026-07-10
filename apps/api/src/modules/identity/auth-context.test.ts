@@ -9,12 +9,36 @@ vi.mock('../../lib/db.js', () => ({
   },
 }));
 
+vi.mock('../profile/service.js', () => ({
+  profileService: {
+    getOrCreateProfile: vi.fn(),
+  },
+}));
+
 import { prisma } from '../../lib/db.js';
+import { profileService } from '../profile/service.js';
 
 describe('resolveStylistId', () => {
-  it('uses user id for stylist_owner', async () => {
-    const id = '11111111-1111-1111-1111-111111111111';
-    await expect(resolveStylistId(id, 'stylist_owner')).resolves.toBe(id);
+  it('uses stylist profile id for stylist_owner', async () => {
+    const userId = '11111111-1111-1111-1111-111111111111';
+    const profileId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+    vi.mocked(profileService.getOrCreateProfile).mockResolvedValue({
+      id: profileId,
+      userId,
+      businessName: '',
+      bio: null,
+      locationArea: null,
+      serviceAreaRadiusKm: null,
+      cancellationPolicy: null,
+      depositPolicy: null,
+      workingHours: null,
+      bufferMinutes: 0,
+      onboardingStatus: 'in_progress',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    await expect(resolveStylistId(userId, 'stylist_owner')).resolves.toBe(profileId);
   });
 
   it('loads membership for stylist_staff', async () => {

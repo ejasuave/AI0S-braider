@@ -60,4 +60,4 @@ SMS-only client channel. Dashboard + onboarding web UI. No web booking widget/fo
 
 ## Current phase
 
-**Chapter 4 complete** (committed). Awaiting founder approval before **Chapter 6 — Stylist Features** (MVP starts at 6.4 pricing per Back Matter).
+**Chapter 6 complete** (committed). Awaiting founder approval before **Chapter 7 — Booking Engine**.

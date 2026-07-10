@@ -1,11 +1,12 @@
 import type { UserRole } from '@prisma/client';
 import { prisma } from '../../lib/db.js';
+import { profileService } from '../profile/service.js';
 
 /**
  * Resolves the tenant `stylist_id` for the authenticated user.
  *
- * - stylist_owner: user.id until Ch.6 `stylist_profiles` exists (interim tenant key)
- * - stylist_staff: from `stylist_memberships` (Ch.4.3 expands permission scoping)
+ * - stylist_owner: `stylist_profiles.id` for the owner user
+ * - stylist_staff: from `stylist_memberships`
  * - client / admin: null (platform-wide scope)
  */
 export async function resolveStylistId(
@@ -13,7 +14,8 @@ export async function resolveStylistId(
   role: UserRole,
 ): Promise<string | null> {
   if (role === 'stylist_owner') {
-    return userId;
+    const profile = await profileService.getOrCreateProfile(userId);
+    return profile.id;
   }
 
   if (role === 'stylist_staff') {

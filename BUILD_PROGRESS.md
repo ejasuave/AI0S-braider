@@ -2,64 +2,61 @@
 
 **Started:** 2026-07-10  
 **Objective:** Production-quality MVP per Product Blueprint + Prompt Library Back Matter  
-**Current milestone:** Chapter 4 complete — awaiting approval to begin Chapter 6
+**Current milestone:** Chapter 6 complete — awaiting approval to begin Chapter 7
 
 ---
 
 ## Completed chapters
 
-| Chapter                  | Status   | Notes                                   |
-| ------------------------ | -------- | --------------------------------------- |
-| 1 — Project Setup        | Complete | `aba627c`                               |
-| 2 — Architecture         | Complete | `13b6544`                               |
-| 3 — Authentication       | Complete | `921b99f`                               |
-| 4 — User Roles (4.1–4.2) | Complete | Guards, tenant context, permissions doc |
+| Chapter                  | Status   | Notes                                          |
+| ------------------------ | -------- | ---------------------------------------------- |
+| 1 — Project Setup        | Complete | `aba627c`                                      |
+| 2 — Architecture         | Complete | `13b6544`                                      |
+| 3 — Authentication       | Complete | `921b99f`                                      |
+| 4 — User Roles (4.1–4.2) | Complete | `ef0cb45`                                      |
+| 6 — Stylist Features     | Complete | Profile, portfolio, pricing taxonomy, policies |
 
-### Chapter 4 deliverables (MVP scope)
+### Chapter 6 deliverables (MVP scope)
 
-| Prompt | Deliverable                                                                |
-| ------ | -------------------------------------------------------------------------- |
-| 4.1    | `user_role` enum formalized; `stylist_memberships` table for staff linkage |
-| 4.2    | `requireRoles` guards, `auth.stylistId` context, `/api/v1/access/*` probes |
-| 4.3    | Deferred V2 — multi-staff permission scoping                               |
-| 4.4    | Deferred V2 — admin impersonation                                          |
+| Prompt | Deliverable                                                          |
+| ------ | -------------------------------------------------------------------- |
+| 6.1    | `stylist_profiles` + `GET/PATCH /api/v1/profile/me`                  |
+| 6.2    | Manual portfolio CRUD + multipart upload via `StorageProvider`       |
+| 6.3    | Deferred V2 — Instagram import                                       |
+| 6.4    | `service_offerings` + seeded taxonomy + deterministic pricing lookup |
+| 6.5    | Deposit & cancellation policy JSON on profile                        |
+| 6.6    | Working hours + buffer minutes on profile                            |
 
 ## Pending chapters (MVP critical path)
 
-| Chapter | Name                                 | MVP                         |
-| ------- | ------------------------------------ | --------------------------- |
-| 6       | Stylist Features (6.4 pricing first) | Pending (awaiting approval) |
-| 7       | Booking Engine                       | Pending                     |
-| 8       | Calendar (8.1, 8.3)                  | Pending                     |
-| 9       | Payments                             | Pending                     |
-| 11      | Messaging (SMS)                      | Pending                     |
-| 12      | Notifications                        | Pending                     |
-| 13      | AI Receptionist                      | Pending                     |
-| 17      | Dashboards (17.1–17.3)               | Pending                     |
-| 23      | Deployment                           | Pending                     |
-| 24      | Mobile (24.1)                        | Pending                     |
+| Chapter | Name                | MVP                         |
+| ------- | ------------------- | --------------------------- |
+| 7       | Booking Engine      | Pending (awaiting approval) |
+| 8       | Calendar (8.1, 8.3) | Pending                     |
+| 9       | Payments            | Pending                     |
+| 11      | Messaging (SMS)     | Pending                     |
+| 12      | Notifications       | Pending                     |
+| 13      | AI Receptionist     | Pending                     |
+| 17      | Dashboards          | Pending                     |
+| 23      | Deployment          | Pending                     |
+| 24      | Mobile (24.1)       | Pending                     |
 
 ## Architectural decisions
 
-| Date       | Decision                                    | Rationale                                         |
-| ---------- | ------------------------------------------- | ------------------------------------------------- |
-| 2026-07-10 | `stylist_owner` tenant id = user.id interim | `stylist_profiles` arrives in Ch.6                |
-| 2026-07-10 | `stylist_memberships` schema only for staff | Full scoping in Ch.4.3 (V2)                       |
-| 2026-07-10 | Guards in `identity/guards.ts`              | Auth + authorization colocated until split needed |
-| 2026-07-10 | `/access/*` probe routes                    | Verifies guards without building Ch.6+ features   |
-
-## Assumptions
-
-- Feature routes import guards from `identity/guards.ts`
-- `auth.stylistId` is the tenant filter for all stylist-scoped queries
+| Date       | Decision                                  | Rationale                                       |
+| ---------- | ----------------------------------------- | ----------------------------------------------- |
+| 2026-07-10 | `auth.stylistId` = `stylist_profiles.id`  | True tenant key; resolves via profile module    |
+| 2026-07-10 | `LocalStorageProvider` for dev uploads    | Supabase Storage adapter deferred to deployment |
+| 2026-07-10 | Pricing lookup returns confidence scores  | Feeds Ch.13 escalation threshold (0.8)          |
+| 2026-07-10 | `style_categories` reference table + seed | Guided onboarding per Playbook §3.5             |
 
 ## Technical debt
 
-| Item                                   | Chapter | Notes                                          |
-| -------------------------------------- | ------- | ---------------------------------------------- |
-| stylist_owner `stylistId` uses user.id | 4       | Replace with `stylist_profiles.id` in Ch.6     |
-| Multi-staff permissions                | 4.3 V2  | Membership table exists; scoping logic pending |
-| Admin impersonation                    | 4.4 V2  | Not in MVP                                     |
+| Item                                       | Chapter | Notes                              |
+| ------------------------------------------ | ------- | ---------------------------------- |
+| Supabase `StorageProvider` production impl | 6       | Local disk only for now            |
+| PostGIS `location` on profile              | 6       | Using `locationArea` text for MVP  |
+| Instagram portfolio import                 | 6.3 V2  | Schema has `instagram` source enum |
 
 ## Blockers
 

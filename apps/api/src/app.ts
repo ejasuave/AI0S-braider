@@ -2,6 +2,8 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import cookie from '@fastify/cookie';
 import sensible from '@fastify/sensible';
+import fastifyStatic from '@fastify/static';
+import path from 'node:path';
 import { getEnv } from './config/env.js';
 import { createLogger } from './lib/logger.js';
 import { initSentry, Sentry } from './lib/sentry.js';
@@ -26,6 +28,14 @@ export async function buildApp() {
   });
   await app.register(cookie);
   await app.register(sensible);
+
+  if (env.NODE_ENV !== 'test') {
+    await app.register(fastifyStatic, {
+      root: path.resolve(process.cwd(), 'uploads'),
+      prefix: '/uploads/',
+      decorateReply: false,
+    });
+  }
 
   await app.register(healthRoutes);
   await app.register(v1Routes, { prefix: '/api/v1' });

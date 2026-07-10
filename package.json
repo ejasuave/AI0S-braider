@@ -21,6 +21,7 @@
   },
   "devDependencies": {
     "@prisma/client": "^6.9.0",
+    "@project-braids/shared-types": "workspace:*",
     "eslint": "^9.28.0",
     "husky": "^9.1.7",
     "lint-staged": "^15.5.0",
