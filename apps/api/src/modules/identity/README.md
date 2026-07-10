@@ -1,34 +1,41 @@
 # Identity module
 
-Authentication, sessions, OTP, and OAuth for all user roles.
+Authentication, sessions, OTP, OAuth, roles, and route guards.
 
-## Routes (`/api/v1/auth`)
+## Routes
 
-| Method | Path                | Description                                     |
-| ------ | ------------------- | ----------------------------------------------- |
-| POST   | `/register/stylist` | Stylist signup (phone + email + password) → OTP |
-| POST   | `/register/client`  | Client signup (phone only) → OTP                |
-| POST   | `/login`            | Email/phone + password                          |
-| POST   | `/otp/request`      | Request 6-digit SMS OTP                         |
-| POST   | `/otp/verify`       | Verify OTP; may issue session                   |
-| POST   | `/refresh`          | Rotate refresh token                            |
-| POST   | `/logout`           | Revoke session                                  |
-| GET    | `/me`               | Current user (Bearer token)                     |
-| POST   | `/oauth/google`     | Google OAuth code exchange (PKCE)               |
-| POST   | `/oauth/apple`      | Apple Sign In id_token verification             |
-| POST   | `/password/forgot`  | Email password reset                            |
-| POST   | `/password/reset`   | Reset password with token                       |
-| POST   | `/recovery/request` | Support-assisted account recovery ticket        |
+### Auth (`/api/v1/auth`)
 
-## Web clients
+See route table in this folder's prior docs — registration, login, OTP, OAuth, recovery.
 
-Send `X-Client-Type: web` to receive HttpOnly refresh cookie instead of refresh token in JSON.
+### Access probes (`/api/v1/access`) — Ch.4 guard verification
+
+| Method | Path             | Guard                                     |
+| ------ | ---------------- | ----------------------------------------- |
+| GET    | `/admin`         | `requireAdmin`                            |
+| GET    | `/stylist`       | `requireStylist` + `requireStylistTenant` |
+| GET    | `/client`        | `requireClient`                           |
+| GET    | `/authenticated` | `requireAuthenticated`                    |
+
+## Guards
+
+Import from `guards.ts`:
+
+```typescript
+import { requireStylist, requireStylistTenant } from './guards.js';
+
+app.get('/example', { preHandler: [requireStylist, requireStylistTenant] }, handler);
+```
+
+`authenticate` populates `request.auth` with `{ user, sessionId, stylistId }`.
+
+See [docs/PERMISSIONS.md](../../../../docs/PERMISSIONS.md).
 
 ## Security
 
 - Passwords: Argon2
-- OTP: SHA-256 hashed at rest, 5-minute expiry, 5 requests/hour/phone
-- Refresh tokens: rotated on every use; reuse revokes session family
-- Access tokens: JWT HS256, 15-minute default expiry
+- OTP: SHA-256 hashed, 5-minute expiry, 5 requests/hour/phone
+- Refresh tokens: rotated; reuse revokes session family
+- Access tokens: JWT HS256, 15-minute default
 
-Role-based route guards are added in Chapter 4.
+Role-based guards: Chapter 4. Multi-staff scoping (4.3) and impersonation (4.4) are V2.

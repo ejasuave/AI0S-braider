@@ -46,7 +46,7 @@ Each module owns its domain logic, database tables, and HTTP routes. **Never que
 
 ### Cross-module rules
 
-1. **Tenant scoping:** All stylist-owned data includes `stylist_id`. Enforced in auth middleware + repository layer (from Ch.3).
+1. **Tenant scoping:** Stylist-owned data uses `request.auth.stylistId` from identity middleware (Ch.4). Never trust client-supplied tenant ids.
 2. **Platform-wide clients:** Client identity keyed by E.164 phone in `users` (Ch.3).
 3. **Idempotency:** All webhooks and retriable writes use `processed_webhook_events` or domain-specific idempotency keys.
 4. **Validation:** Zod schemas live in `@project-braids/shared-types`. API validates on ingress; web imports types only.

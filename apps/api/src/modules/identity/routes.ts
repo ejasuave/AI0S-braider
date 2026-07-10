@@ -142,7 +142,7 @@ export const identityRoutes: FastifyPluginAsync = async (app) => {
 
   app.get('/me', { preHandler: authenticate }, async (request, reply) => {
     const auth = (request as AuthenticatedRequest).auth;
-    sendData(reply, { user: auth.user });
+    sendData(reply, { user: auth.user, stylistId: auth.stylistId });
   });
 
   app.post('/oauth/google', async (request, reply) => {

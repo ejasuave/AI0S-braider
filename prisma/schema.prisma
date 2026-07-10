@@ -73,9 +73,23 @@ model User {
   otpChallenges         OtpChallenge[]
   passwordResetTokens   PasswordResetToken[]
   accountRecoveryRequests AccountRecoveryRequest[]
+  stylistMembership     StylistMembership?
 
   @@index([role])
   @@map("users")
+}
+
+/// Links stylist_staff users to a stylist tenant. Expanded in Ch.4.3 (V2).
+model StylistMembership {
+  id        String   @id @default(uuid()) @db.Uuid
+  stylistId String   @map("stylist_id") @db.Uuid
+  userId    String   @unique @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([stylistId])
+  @@map("stylist_memberships")
 }
 
 model Session {

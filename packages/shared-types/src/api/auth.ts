@@ -28,6 +28,22 @@ export const authUserSchema = z.object({
 
 export type AuthUser = z.infer<typeof authUserSchema>;
 
+export const authContextSchema = z.object({
+  user: authUserSchema,
+  sessionId: z.string().uuid(),
+  stylistId: z.string().uuid().nullable(),
+});
+
+export type AuthContext = z.infer<typeof authContextSchema>;
+
+export const accessProbeResponseSchema = z.object({
+  role: userRoleSchema,
+  stylistId: z.string().uuid().nullable(),
+  scope: z.string(),
+});
+
+export type AccessProbeResponse = z.infer<typeof accessProbeResponseSchema>;
+
 export const authTokensSchema = z.object({
   accessToken: z.string(),
   expiresIn: z.number().int().positive(),

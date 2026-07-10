@@ -1,15 +1,13 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { getEnv } from '../../config/env.js';
 import { ApiError } from '../../lib/errors.js';
+import type { AuthContext } from '@project-braids/shared-types/api';
 import { verifyAccessToken } from './tokens.js';
 import { identityService } from './service.js';
-import type { AuthUser } from '@project-braids/shared-types/api';
+import { resolveStylistId } from './auth-context.js';
 
 export type AuthenticatedRequest = FastifyRequest & {
-  auth: {
-    user: AuthUser;
-    sessionId: string;
-  };
+  auth: AuthContext;
 };
 
 export async function authenticate(request: FastifyRequest, _reply: FastifyReply): Promise<void> {
@@ -27,11 +25,15 @@ export async function authenticate(request: FastifyRequest, _reply: FastifyReply
       throw new ApiError('UNAUTHORIZED', 'User not found', 401);
     }
 
+    const stylistId = await resolveStylistId(user.id, user.role);
+
     (request as AuthenticatedRequest).auth = {
       user,
       sessionId: payload.sid,
+      stylistId,
     };
-  } catch {
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
     throw new ApiError('UNAUTHORIZED', 'Invalid or expired access token', 401);
   }
 }
