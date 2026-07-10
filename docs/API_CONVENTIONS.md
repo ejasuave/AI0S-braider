@@ -81,11 +81,15 @@ Implementation: `ApiError` class in `apps/api/src/lib/errors.ts`.
 
 ---
 
-## Authentication (from Ch.3)
+## Authentication (Chapter 3)
 
-- **Web:** HttpOnly refresh cookie + short-lived access token
-- **Native (future):** `Authorization: Bearer <access_token>`
-- All authenticated routes receive `stylist_id` from middleware
+- **Web:** Send `X-Client-Type: web`; refresh token returned as HttpOnly cookie on `/api/v1/auth/*`
+- **Native:** Refresh token in JSON response body
+- **Access:** `Authorization: Bearer <jwt>` on protected routes
+- **OTP:** `POST /api/v1/auth/otp/request` then `/otp/verify`
+- **Roles:** Enforced in middleware from Chapter 4 onward
+
+Implementation: `apps/api/src/modules/identity/`
 
 ---
 

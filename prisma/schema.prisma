@@ -37,3 +37,122 @@ model ExampleJobRun {
 
   @@map("example_job_runs")
 }
+
+// --- Identity (Chapter 3) ---
+
+enum UserRole {
+  stylist_owner
+  stylist_staff
+  client
+  admin
+
+  @@map("user_role")
+}
+
+enum OtpPurpose {
+  phone_verify
+  login
+  password_reset
+
+  @@map("otp_purpose")
+}
+
+model User {
+  id              String    @id @default(uuid()) @db.Uuid
+  role            UserRole
+  phoneNumber     String    @unique @map("phone_number")
+  email           String?   @unique
+  passwordHash    String?   @map("password_hash")
+  phoneVerifiedAt DateTime? @map("phone_verified_at") @db.Timestamptz(6)
+  emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  deactivatedAt   DateTime? @map("deactivated_at") @db.Timestamptz(6)
+
+  sessions              Session[]
+  oauthAccounts         OAuthAccount[]
+  otpChallenges         OtpChallenge[]
+  passwordResetTokens   PasswordResetToken[]
+  accountRecoveryRequests AccountRecoveryRequest[]
+
+  @@index([role])
+  @@map("users")
+}
+
+model Session {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  familyId         String    @map("family_id") @db.Uuid
+  refreshTokenHash String    @map("refresh_token_hash")
+  expiresAt        DateTime  @map("expires_at") @db.Timestamptz(6)
+  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz(6)
+  deviceMetadata   Json?     @map("device_metadata")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model OtpChallenge {
+  id          String     @id @default(uuid()) @db.Uuid
+  phoneNumber String     @map("phone_number")
+  purpose     OtpPurpose
+  codeHash    String     @map("code_hash")
+  expiresAt   DateTime   @map("expires_at") @db.Timestamptz(6)
+  consumedAt  DateTime?  @map("consumed_at") @db.Timestamptz(6)
+  attempts    Int        @default(0)
+  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  userId String? @map("user_id") @db.Uuid
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([phoneNumber, purpose, createdAt])
+  @@map("otp_challenges")
+}
+
+model OAuthAccount {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @map("user_id") @db.Uuid
+  provider          String
+  providerAccountId String   @map("provider_account_id")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("oauth_accounts")
+}
+
+model PasswordResetToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  tokenHash  String    @map("token_hash")
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(6)
+  consumedAt DateTime? @map("consumed_at") @db.Timestamptz(6)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+model AccountRecoveryRequest {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String?  @map("user_id") @db.Uuid
+  email       String
+  phoneNumber String?  @map("phone_number")
+  reason      String
+  status      String   @default("pending")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([email])
+  @@index([status])
+  @@map("account_recovery_requests")
+}

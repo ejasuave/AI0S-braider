@@ -6,6 +6,7 @@ describe('parseApiEnv', () => {
     const env = parseApiEnv({
       DATABASE_URL: 'postgresql://user:pass@localhost:5432/braids',
       REDIS_URL: 'redis://localhost:6379',
+      JWT_SECRET: 'test-jwt-secret-at-least-32-characters-long',
     });
     expect(env.PORT).toBe(3001);
     expect(env.DATABASE_URL).toContain('postgresql');

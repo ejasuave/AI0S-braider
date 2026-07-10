@@ -2,34 +2,34 @@
 
 **Started:** 2026-07-10  
 **Objective:** Production-quality MVP per Product Blueprint + Prompt Library Back Matter  
-**Current milestone:** Chapter 2 complete — awaiting approval to begin Chapter 3
+**Current milestone:** Chapter 3 complete — awaiting approval to begin Chapter 4
 
 ---
 
 ## Completed chapters
 
-| Chapter           | Status   | Notes                                      |
-| ----------------- | -------- | ------------------------------------------ |
-| 1 — Project Setup | Complete | Commit `aba627c`                           |
-| 2 — Architecture  | Complete | Service boundaries, v1 API, jobs, webhooks |
+| Chapter            | Status   | Notes                                           |
+| ------------------ | -------- | ----------------------------------------------- |
+| 1 — Project Setup  | Complete | Commit `aba627c`                                |
+| 2 — Architecture   | Complete | Commit `13b6544`                                |
+| 3 — Authentication | Complete | Identity module, sessions, OTP, OAuth, recovery |
 
-### Chapter 2 deliverables
+### Chapter 3 deliverables
 
-| Prompt | Deliverable                                                                     |
-| ------ | ------------------------------------------------------------------------------- |
-| 2.1    | `docs/ARCHITECTURE.md` — module boundaries, anti-patterns                       |
-| 2.2    | `/api/v1/*` versioning, `ApiError` envelope, `docs/API_CONVENTIONS.md`          |
-| 2.3    | `shared-types/api/*` schemas, `apiFetchData`, `usePing` hook                    |
-| 2.4    | `docs/BFF.md` — thin-client boundary, no business logic in Next routes          |
-| 2.5    | BullMQ + Redis worker (`worker:dev`), example job end-to-end                    |
-| 2.6    | `processed_webhook_events` table, `processWebhookIdempotently`, example webhook |
+| Prompt | Deliverable                                                                   |
+| ------ | ----------------------------------------------------------------------------- |
+| 3.1    | `users` schema, Argon2 passwords, stylist/client registration, login          |
+| 3.2    | OTP challenges (6-digit, 5 min), SMS provider abstraction, 5/hour limit       |
+| 3.3    | Google (PKCE code exchange) + Apple (id_token) OAuth endpoints                |
+| 3.4    | JWT access tokens (15 min) + rotating refresh tokens, HttpOnly cookie for web |
+| 3.5    | Password reset email flow, account recovery request tickets                   |
+| 3.6    | `@fastify/rate-limit` on auth routes + OTP service-level limits               |
 
 ## Pending chapters (MVP critical path)
 
 | Chapter | Name                   | MVP                         |
 | ------- | ---------------------- | --------------------------- |
-| 3       | Authentication         | Pending (awaiting approval) |
-| 4       | User Roles (4.1–4.2)   | Pending                     |
+| 4       | User Roles (4.1–4.2)   | Pending (awaiting approval) |
 | 6       | Stylist Features       | Pending                     |
 | 7       | Booking Engine         | Pending                     |
 | 8       | Calendar (8.1, 8.3)    | Pending                     |
@@ -43,35 +43,34 @@
 
 ## Architectural decisions
 
-| Date       | Decision                                   | Rationale                                       |
-| ---------- | ------------------------------------------ | ----------------------------------------------- |
-| 2026-07-10 | pnpm workspaces + Turborepo                | Prompt Library Ch.1                             |
-| 2026-07-10 | Prisma at repo root (`prisma/`)            | Matches Blueprint §7                            |
-| 2026-07-10 | Scope `@project-braids/*`                  | Internal packages                               |
-| 2026-07-10 | Env validation in `shared-types`           | Single Zod source for API + web                 |
-| 2026-07-10 | `pnpm approve-builds --all` in CI          | pnpm 11 blocks postinstall scripts              |
-| 2026-07-10 | BullMQ connection options object           | Avoids ioredis duplicate-type issue with BullMQ |
-| 2026-07-10 | Health at `/health`, business at `/api/v1` | Infra probes unversioned; product API versioned |
-| 2026-07-10 | Worker as separate process                 | Matches production deploy (api + workers)       |
+| Date       | Decision                                                | Rationale                           |
+| ---------- | ------------------------------------------------------- | ----------------------------------- |
+| 2026-07-10 | Argon2 for passwords, SHA-256 for OTP/refresh hashes    | Playbook §2.7                       |
+| 2026-07-10 | Session `familyId` for refresh rotation theft detection | Playbook §2.7                       |
+| 2026-07-10 | `X-Client-Type: web` for HttpOnly refresh cookie        | BFF.md; native gets token in body   |
+| 2026-07-10 | Console SMS/email providers in dev/test                 | Twilio wired in Ch.11               |
+| 2026-07-10 | OAuth requires pre-existing account link                | Stylists must verify phone first    |
+| 2026-07-10 | In-memory rate limit in test env                        | Avoids Redis coupling in unit tests |
 
 ## Assumptions
 
-- Node.js ≥ 20; pnpm 11+
-- Docker for local Postgres + Redis
-- `REDIS_URL` required for job queue features
+- `JWT_SECRET` ≥ 32 chars required in all environments
+- Docker required for full integration test suite (4 auth tests skip without DB)
+- Google/Apple OAuth env vars optional until configured
 
 ## Technical debt
 
-| Item                                                | Chapter | Notes                                         |
-| --------------------------------------------------- | ------- | --------------------------------------------- |
-| Prisma `package.json#prisma` seed config deprecated | 1       | Migrate to `prisma.config.ts` before Prisma 7 |
-| Next.js ESLint plugin detection warning on build    | 1       | Cosmetic only                                 |
-| `example_job_runs` table is demonstration-only      | 2       | Remove or repurpose when real jobs ship       |
+| Item                                            | Chapter | Notes                                      |
+| ----------------------------------------------- | ------- | ------------------------------------------ |
+| Twilio SMS provider replaces console provider   | 11      | OTP currently logs to console in dev       |
+| Email provider (Resend/Postmark) for production | 12      | Console provider in dev                    |
+| Role-based route guards                         | 4       | `/me` uses authenticate only; RBAC in Ch.4 |
+| PII encryption at rest                          | 20      | Playbook requirement; not yet implemented  |
 
 ## Future improvements
 
-- V2/V3 per Back Matter and Blueprint
-- OpenAPI spec generation from shared-types (Ch.22+)
+- Passkey/WebAuthn (Playbook §2.8)
+- OpenAPI spec from shared-types
 
 ## Blockers
 

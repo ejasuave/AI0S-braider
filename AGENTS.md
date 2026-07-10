@@ -60,4 +60,4 @@ SMS-only client channel. Dashboard + onboarding web UI. No web booking widget/fo
 
 ## Current phase
 
-**Chapter 2 complete** (committed). Awaiting founder approval before **Chapter 3 — Authentication** (prompts 3.1–3.6).
+**Chapter 3 complete** (committed). Awaiting founder approval before **Chapter 4 — User Roles & Permissions** (prompts 4.1–4.2 for MVP).
