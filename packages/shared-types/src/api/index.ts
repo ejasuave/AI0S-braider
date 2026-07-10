@@ -5,3 +5,4 @@ export * from './permissions.js';
 export * from './profile.js';
 export * from './style-taxonomy.js';
 export * from './booking.js';
+export * from './availability.js';

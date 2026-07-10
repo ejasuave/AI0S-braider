@@ -24,6 +24,9 @@ export const apiEnvSchema = z.object({
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(20),
   AUTH_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
   BOOKING_HOLD_TTL_MINUTES: z.coerce.number().int().positive().default(15),
+  PLATFORM_TIMEZONE: z.string().default('Europe/London'),
+  AVAILABILITY_SLOT_INTERVAL_MINUTES: z.coerce.number().int().positive().default(15),
+  AVAILABILITY_MAX_DAYS: z.coerce.number().int().positive().max(90).default(14),
 });
 
 export type ApiEnv = z.infer<typeof apiEnvSchema>;

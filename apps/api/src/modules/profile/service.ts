@@ -11,7 +11,9 @@ import type {
   UpdatePortfolioItemRequest,
   UpdateServiceOfferingRequest,
   UpdateStylistProfileRequest,
+  Weekday,
 } from '@project-braids/shared-types/api';
+import { DEFAULT_WORKING_HOURS } from '@project-braids/shared-types/api';
 import { prisma } from '../../lib/db.js';
 import { ApiError } from '../../lib/errors.js';
 import { getStorageProvider } from '../../lib/storage/index.js';
@@ -308,6 +310,21 @@ export class ProfileService {
     return {
       bufferMinutes: profile.bufferMinutes,
       depositPolicy: profile.depositPolicy as { type: 'flat' | 'percent'; value: number } | null,
+    };
+  }
+
+  async getAvailabilityContext(stylistId: string): Promise<{
+    bufferMinutes: number;
+    workingHours: Record<Weekday, { enabled: boolean; start: string; end: string }>;
+  }> {
+    const profile = await getStylistProfileById(stylistId);
+    return {
+      bufferMinutes: profile.bufferMinutes,
+      workingHours:
+        (profile.workingHours as Record<
+          Weekday,
+          { enabled: boolean; start: string; end: string }
+        >) ?? DEFAULT_WORKING_HOURS,
     };
   }
 }

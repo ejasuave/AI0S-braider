@@ -22,3 +22,7 @@ Owns `booking` domain logic per `docs/ARCHITECTURE.md` (Chapter 7).
 Stylist routes filter by `auth.stylistId`. Client holds use authenticated `client` user id.
 
 Do not capture payments here — deposit status remains `pending` until Chapter 9.
+
+## Availability (Ch.8)
+
+`GET /api/v1/bookings/availability` — duration + buffer-aware slot generation from profile working hours.

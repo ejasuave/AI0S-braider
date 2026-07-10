@@ -1,12 +1,18 @@
 import type { FastifyPluginAsync } from 'fastify';
 import {
+  availabilityQuerySchema,
   bookingListQuerySchema,
   cancelBookingRequestSchema,
   createBookingHoldRequestSchema,
   createManualBookingRequestSchema,
 } from '@project-braids/shared-types/api';
 import { sendData } from '../../lib/http.js';
-import { requireClient, requireStylist, requireStylistTenant } from '../identity/guards.js';
+import {
+  requireAuthenticated,
+  requireClient,
+  requireStylist,
+  requireStylistTenant,
+} from '../identity/guards.js';
 import type { AuthenticatedRequest } from '../identity/middleware.js';
 import { bookingService } from './service.js';
 
@@ -19,6 +25,16 @@ export const bookingRoutes: FastifyPluginAsync = async (app) => {
       const query = bookingListQuerySchema.parse(request.query);
       const bookings = await bookingService.listBookings(auth.stylistId!, query);
       sendData(reply, bookings);
+    },
+  );
+
+  app.get(
+    '/availability',
+    { preHandler: [requireAuthenticated] },
+    async (request, reply) => {
+      const query = availabilityQuerySchema.parse(request.query);
+      const availability = await bookingService.getAvailability(query);
+      sendData(reply, availability);
     },
   );
 

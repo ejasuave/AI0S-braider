@@ -39,3 +39,11 @@ Invalid transitions return `VALIDATION_ERROR`. Terminal states: `completed`, `ca
 | `POST` | `/api/v1/bookings/:id/no-show`  | Stylist |
 
 Deposit capture is Chapter 9 — `confirm` does not charge yet.
+
+## Availability (Chapter 8)
+
+```
+GET /api/v1/bookings/availability?stylistId=...&serviceOfferingId=...&from=...&to=...&limit=20
+```
+
+See [`docs/CALENDAR.md`](./CALENDAR.md) for slot generation rules.

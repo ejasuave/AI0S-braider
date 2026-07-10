@@ -1,4 +1,6 @@
 import type {
+  AvailabilityQuery,
+  AvailabilityResponse,
   Booking,
   BookingListQuery,
   CancelBookingRequest,
@@ -18,6 +20,7 @@ import {
   toBooking,
 } from './mappers.js';
 import { assertBookingTransition } from './state-machine.js';
+import { generateAvailabilitySlots, slotMatchesAvailability } from './availability.js';
 
 type CreateBookingInput = {
   stylistId: string;
@@ -94,10 +97,67 @@ export class BookingService {
       startTime: new Date(input.startTime),
       source: 'dashboard_manual',
       status: input.confirmImmediately ? 'confirmed' : 'held',
+      skipAvailabilityCheck: true,
     });
   }
 
-  private async createBookingRecord(input: CreateBookingInput): Promise<Booking> {
+  async getAvailability(query: AvailabilityQuery): Promise<AvailabilityResponse> {
+    const env = getEnv();
+    const from = query.from ? new Date(query.from) : new Date();
+    const maxRangeMs = env.AVAILABILITY_MAX_DAYS * 24 * 60 * 60 * 1000;
+    const to = query.to ? new Date(query.to) : new Date(from.getTime() + maxRangeMs);
+
+    if (to <= from) {
+      throw ApiError.validation('`to` must be after `from`');
+    }
+
+    const offering = await profileService.getActiveServiceOffering(
+      query.stylistId,
+      query.serviceOfferingId,
+    );
+    const availabilityContext = await profileService.getAvailabilityContext(query.stylistId);
+    const blockingBookings = await this.getBlockingBookings(query.stylistId, from, to);
+
+    const slots = generateAvailabilitySlots({
+      from,
+      to,
+      timeZone: env.PLATFORM_TIMEZONE,
+      workingHours: availabilityContext.workingHours,
+      durationMinutes: offering.estimatedDurationMinutes,
+      bufferMinutes: availabilityContext.bufferMinutes,
+      slotIntervalMinutes: env.AVAILABILITY_SLOT_INTERVAL_MINUTES,
+      blockingBookings,
+      limit: query.limit,
+    });
+
+    return {
+      stylistId: query.stylistId,
+      serviceOfferingId: query.serviceOfferingId,
+      timezone: env.PLATFORM_TIMEZONE,
+      slots,
+    };
+  }
+
+  private async getBlockingBookings(stylistId: string, from: Date, to: Date) {
+    await prisma.$transaction(async (tx) => {
+      await expireStaleHolds(tx, stylistId);
+    });
+
+    return prisma.booking.findMany({
+      where: {
+        stylistId,
+        status: { in: ['held', 'confirmed'] },
+        OR: [{ holdExpiresAt: null }, { holdExpiresAt: { gt: new Date() } }],
+        startTime: { lt: to },
+        endTime: { gt: from },
+      },
+      select: { startTime: true, endTime: true },
+    });
+  }
+
+  private async createBookingRecord(
+    input: CreateBookingInput & { skipAvailabilityCheck?: boolean },
+  ): Promise<Booking> {
     const offering = await profileService.getActiveServiceOffering(
       input.stylistId,
       input.serviceOfferingId,
@@ -112,6 +172,19 @@ export class BookingService {
 
     if (endTime <= startTime) {
       throw ApiError.validation('Invalid booking duration');
+    }
+
+    if (!input.skipAvailabilityCheck) {
+      const availability = await this.getAvailability({
+        stylistId: input.stylistId,
+        serviceOfferingId: input.serviceOfferingId,
+        from: startTime.toISOString(),
+        to: new Date(startTime.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+        limit: 100,
+      });
+      if (!slotMatchesAvailability(availability.slots, startTime)) {
+        throw new ApiError('CONFLICT', 'Requested slot is not available', 409);
+      }
     }
 
     const agreedPrice = offering.basePrice.toNumber();
