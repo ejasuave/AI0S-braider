@@ -1,4 +1,5 @@
 export * from './env/index.js';
+export * from './api/index.js';
 
 export type HealthResponse = {
   status: 'ok';

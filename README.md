@@ -17,11 +17,13 @@ docker compose -f infrastructure/docker-compose.yml up -d
 cp .env.example .env
 pnpm db:generate
 pnpm db:migrate
-pnpm dev
+pnpm dev          # terminal 1: API + web
+pnpm worker:dev   # terminal 2: background job worker
 ```
 
 - Web: http://localhost:3000
 - API: http://localhost:3001/health
+- API ping: http://localhost:3001/api/v1/ping
 
 ## Monorepo layout
 
@@ -36,12 +38,13 @@ infrastructure/        Docker Compose for local dev
 
 ## Scripts
 
-| Command | Description |
-|---------|-------------|
-| `pnpm dev` | Start all apps in development |
-| `pnpm lint` | ESLint across workspace |
-| `pnpm typecheck` | TypeScript check |
-| `pnpm test` | Vitest test suites |
-| `pnpm build` | Production build |
+| Command           | Description                    |
+| ----------------- | ------------------------------ |
+| `pnpm dev`        | Start API + web in development |
+| `pnpm worker:dev` | Start background job worker    |
+| `pnpm lint`       | ESLint across workspace        |
+| `pnpm typecheck`  | TypeScript check               |
+| `pnpm test`       | Vitest test suites             |
+| `pnpm build`      | Production build               |
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) and [BUILD_PROGRESS.md](BUILD_PROGRESS.md).

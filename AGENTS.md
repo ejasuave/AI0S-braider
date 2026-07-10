@@ -7,7 +7,7 @@ AI receptionist and operating system for independent UK hair braiders and hairst
 1. [reference/requirements/product-blueprint.md](reference/requirements/product-blueprint.md) — **start here**
 2. Relevant [Engineering Playbook](reference/requirements/engineering-playbook.md) chapter
 3. [Prompt Library](reference/prompt-library/) outline + back matter for build order
-4. `docs/ARCHITECTURE.md` (created in Ch.2)
+4. `docs/ARCHITECTURE.md` — service boundaries (Ch.2)
 
 Read every relevant document **completely** before making changes.
 
@@ -60,4 +60,4 @@ SMS-only client channel. Dashboard + onboarding web UI. No web booking widget/fo
 
 ## Current phase
 
-**Chapter 1 complete** (committed). Awaiting founder approval before **Chapter 2 — Architecture** (prompts 2.1–2.6).
+**Chapter 2 complete** (committed). Awaiting founder approval before **Chapter 3 — Authentication** (prompts 3.1–3.6).

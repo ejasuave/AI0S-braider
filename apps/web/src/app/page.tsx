@@ -1,4 +1,5 @@
 import { getWebEnv } from '@/env';
+import { ApiStatus } from '@/features/system/ApiStatus';
 
 export default function HomePage() {
   const env = getWebEnv();
@@ -10,9 +11,10 @@ export default function HomePage() {
         {env.NEXT_PUBLIC_PLATFORM_DISPLAY_NAME}
       </h1>
       <p className="text-lg text-brand-ink/80">
-        Chapter 1 complete — monorepo, API health checks, and web shell are wired. Business features
-        begin in Chapter 2.
+        Chapter 2 complete — architectural conventions, versioned API, background jobs, and webhook
+        idempotency are in place.
       </p>
+      <ApiStatus />
     </main>
   );
 }

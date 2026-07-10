@@ -14,15 +14,19 @@ src/
       routes.ts      (future)
       service.ts       (future)
       repository.ts    (future)
-  routes/       Cross-cutting routes (health, webhooks)
-  server.ts     Process entrypoint
+  routes/       Cross-cutting routes (health, v1 aggregator)
+  jobs/         Background job processors
+  worker.ts     Background worker entrypoint
 ```
 
 **Rules:**
+
 - Business logic lives in `modules/<feature>/service.ts`
 - Never query another module's Prisma tables directly
 - All tenant data scoped by `stylist_id` (from Ch.3 onward)
-- Webhooks must be idempotent
+- Webhooks must be idempotent (use `lib/webhooks/idempotent-handler.ts`)
+- All business endpoints under `/api/v1/` with standard error envelope
+- Register new modules in `routes/v1.ts`; update `docs/ARCHITECTURE.md`
 
 ### Frontend (`apps/web`)
 
@@ -36,6 +40,7 @@ src/
 ```
 
 **Rules:**
+
 - No business logic in React components
 - All data fetching via TanStack Query + `api-client.ts`
 - No Server Actions as canonical write path

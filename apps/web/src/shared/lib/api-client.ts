@@ -1,4 +1,7 @@
+import type { ApiSuccessEnvelope, PingResponse } from '@project-braids/shared-types/api';
 import { getWebEnv } from '@/env';
+
+const API_V1_PREFIX = '/api/v1';
 
 export class ApiClientError extends Error {
   constructor(
@@ -13,7 +16,8 @@ export class ApiClientError extends Error {
 
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const baseUrl = getWebEnv().NEXT_PUBLIC_API_URL;
-  const response = await fetch(`${baseUrl}${path}`, {
+  const normalizedPath = path.startsWith('/api/') ? path : `${API_V1_PREFIX}${path}`;
+  const response = await fetch(`${baseUrl}${normalizedPath}`, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
@@ -31,5 +35,15 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
     throw new ApiClientError(`API request failed: ${response.status}`, response.status, body);
   }
 
-  return (await response.json()) as T;
+  const json = (await response.json()) as T;
+  return json;
+}
+
+export async function apiFetchData<T>(path: string, init?: RequestInit): Promise<T> {
+  const envelope = await apiFetch<ApiSuccessEnvelope<T>>(path, init);
+  return envelope.data;
+}
+
+export async function fetchPing(): Promise<PingResponse> {
+  return apiFetchData<PingResponse>('/ping');
 }

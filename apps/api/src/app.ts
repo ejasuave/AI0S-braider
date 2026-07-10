@@ -5,6 +5,9 @@ import { getEnv } from './config/env.js';
 import { createLogger } from './lib/logger.js';
 import { initSentry, Sentry } from './lib/sentry.js';
 import { healthRoutes } from './routes/health.js';
+import { v1Routes } from './routes/v1.js';
+import { ApiError } from './lib/errors.js';
+import { isApiError, sendApiError } from './lib/http.js';
 
 export async function buildApp() {
   initSentry();
@@ -20,26 +23,22 @@ export async function buildApp() {
     credentials: true,
   });
   await app.register(sensible);
+
   await app.register(healthRoutes);
+  await app.register(v1Routes, { prefix: '/api/v1' });
 
   app.setErrorHandler((error, request, reply) => {
+    if (isApiError(error)) {
+      sendApiError(reply, error);
+      return;
+    }
+
     Sentry.captureException(error, {
       extra: { url: request.url, method: request.method },
     });
     request.log.error({ err: error }, 'Unhandled error');
 
-    const statusCode =
-      typeof error === 'object' && error !== null && 'statusCode' in error
-        ? Number((error as { statusCode?: number }).statusCode) || 500
-        : 500;
-    const message =
-      typeof error === 'object' && error !== null && 'message' in error
-        ? String((error as { message?: string }).message)
-        : 'Internal Server Error';
-
-    void reply.status(statusCode).send({
-      error: statusCode >= 500 ? 'Internal Server Error' : message,
-    });
+    sendApiError(reply, ApiError.internal());
   });
 
   return app;
