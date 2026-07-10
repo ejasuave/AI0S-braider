@@ -1,0 +1,17 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Chapter 3+ will expand this schema. Minimal bootstrap model for migration wiring.
+model SchemaVersion {
+  id        String   @id @default(uuid()) @db.Uuid
+  label     String   @unique
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("schema_versions")
+}

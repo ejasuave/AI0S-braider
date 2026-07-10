@@ -1,0 +1,17 @@
+---
+description: Design system and mobile-first UI rules
+globs: apps/web/**
+alwaysApply: false
+---
+
+# Design system (Project Braids)
+
+Read `reference/design/visual-identity-and-ux.md` before UI work.
+
+- **Mobile-first:** design small screen first; min 44px touch targets
+- **Stack:** Tailwind + shadcn/ui themed to project tokens (gold `#B8860B`, Fraunces + DM Sans)
+- **Components:** one primary CTA per viewport; skeleton loading; status = text + colour
+- **Dashboard:** bottom nav on mobile; escalations highest priority
+- **AI UI:** purple accent `#6B4C9A`; label AI on first interaction
+- **a11y:** WCAG 2.1 AA, focus rings, `aria-live` for dynamic updates
+- British English copy; warm, direct tone

@@ -1,0 +1,31 @@
+{
+  "name": "@project-braids/shared-types",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./env": {
+      "types": "./dist/env/index.d.ts",
+      "default": "./dist/env/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint src/",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "zod": "^3.25.56"
+  },
+  "devDependencies": {
+    "@project-braids/config": "workspace:*",
+    "eslint": "^9.28.0",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.3"
+  }
+}

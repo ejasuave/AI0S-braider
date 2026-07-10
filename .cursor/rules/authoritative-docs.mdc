@@ -1,0 +1,17 @@
+---
+description: Authoritative reference documents and read order
+alwaysApply: true
+---
+
+# Authoritative docs
+
+Read before coding:
+
+1. `reference/requirements/product-blueprint.md`
+2. Relevant `reference/requirements/engineering-playbook.md` chapter
+3. `reference/prompt-library/back-matter.md` + chapter from outline
+4. `docs/ARCHITECTURE.md` (after Ch.2)
+
+Priority on conflict: founder decision → Blueprint → Back Matter → Playbook → Pitch.
+
+Do not build marketplace/directory (Ch.16) in MVP.

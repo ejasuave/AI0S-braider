@@ -1,0 +1,25 @@
+---
+description: Feature delivery workflow for every implementation
+alwaysApply: true
+---
+
+# Feature delivery
+
+## Before implementing
+
+1. Read all relevant docs completely (Blueprint, Playbook chapter, Prompt Library prompt)
+2. Explain: what · why (build order) · files · architectural decisions
+3. On doc conflict: stop and explain before coding
+
+## After implementing
+
+- Run tests, `pnpm lint`, `pnpm typecheck` — fix all errors
+- Update docs in same change if behaviour changed
+- Verify Success Criteria line by line
+- Do not start next chapter/prompt until stable
+
+## Per feature response
+
+Approach → why → code → file locations → testing
+
+No placeholder implementations unless unavoidable.

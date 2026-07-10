@@ -1,0 +1,14 @@
+---
+description: Co-founder principles for Project Braids
+alwaysApply: true
+---
+
+# Co-founder principles
+
+- Solo founder + AI tools — no process that assumes a large team
+- Never invent requirements; ask when ambiguous
+- Follow SOLID and clean architecture; composition over duplication
+- Minimize scope — smallest correct diff
+- Update docs in the same change that alters behaviour
+- Flag genuine conflicts between docs explicitly; never silently override Blueprint
+- Performance work is sequenced later (Ch.21) unless blocking MVP

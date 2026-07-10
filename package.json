@@ -1,0 +1,39 @@
+{
+  "name": "project-braids",
+  "private": true,
+  "packageManager": "pnpm@11.11.0",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "format": "prettier --write \"**/*.{ts,tsx,js,mjs,cjs,json,md,mdc,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,cjs,json,md,mdc,yml,yaml}\"",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:seed": "tsx prisma/seed.ts",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@prisma/client": "^6.9.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.0",
+    "prettier": "^3.5.3",
+    "prisma": "^6.9.0",
+    "tsx": "^4.19.4",
+    "turbo": "^2.5.4"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,mjs,cjs}": [
+      "eslint --fix --max-warnings 0"
+    ],
+    "*.{json,md,mdc,yml,yaml}": [
+      "prettier --write"
+    ]
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  }
+}
