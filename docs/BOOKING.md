@@ -1,6 +1,8 @@
 # Booking engine (Chapter 7)
 
-## State machine
+See [`BOOKING_STATE_MACHINE.md`](./BOOKING_STATE_MACHINE.md) for the full state diagram and [`PAYMENTS_INTEGRATION.md`](./PAYMENTS_INTEGRATION.md) for Ch.9 contracts.
+
+## State machine (summary)
 
 ```
 held ──► confirmed ──► completed

@@ -37,7 +37,7 @@ export class NotificationsRepository {
         select: { userId: true, businessName: true },
       }),
       prisma.serviceOffering.findUnique({
-        where: { id: booking.serviceOfferingId },
+        where: { id: booking.serviceOfferingId ?? undefined },
         select: { styleName: true },
       }),
       prisma.stylistProfile
@@ -50,15 +50,23 @@ export class NotificationsRepository {
               })
             : null,
         ),
-      prisma.user.findUnique({
-        where: { id: booking.clientId },
-        select: { id: true, phoneNumber: true },
-      }),
+      booking.clientId
+        ? prisma.user.findUnique({
+            where: { id: booking.clientId },
+            select: { id: true, phoneNumber: true },
+          })
+        : Promise.resolve(null),
     ]);
 
-    if (!stylistProfile || !serviceOffering || !stylistUser || !clientUser) {
+    if (!stylistProfile || !stylistUser) {
       return null;
     }
+
+    if (!booking.clientId || !clientUser) {
+      return null;
+    }
+
+    const styleName = serviceOffering?.styleName ?? 'Appointment';
 
     return {
       id: booking.id,
@@ -71,7 +79,7 @@ export class NotificationsRepository {
       stylistPhone: stylistUser.phoneNumber,
       clientPhone: clientUser.phoneNumber,
       businessName: stylistProfile.businessName || 'your stylist',
-      styleName: serviceOffering.styleName,
+      styleName,
     };
   }
 

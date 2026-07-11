@@ -2,8 +2,10 @@ import type {
   AvailabilityQuery,
   AvailabilityResponse,
   Booking,
+  BookingActionResult,
   BookingListQuery,
   CancelBookingRequest,
+  ConfirmBookingResult,
   CreateBookingHoldRequest,
   CreateManualBookingRequest,
 } from '@project-braids/shared-types/api';
@@ -13,19 +15,25 @@ import { ApiError } from '../../lib/errors.js';
 import { getEnv } from '../../config/env.js';
 import { getSystemQueue, JOB_NAMES } from '../../lib/queue.js';
 import { profileService } from '../profile/service.js';
+import { getBusinessPolicyByStylistId } from '../stylist-profile/policy.js';
 import { notificationsService } from '../notifications/service.js';
 import { expireStaleHolds, findConflictingBookingIds } from './conflict.js';
 import { calculateBookingEndTime, calculateDepositAmount, toBooking } from './mappers.js';
-import { assertBookingTransition } from './state-machine.js';
+import { evaluateCancellationDeposit, evaluateNoShowDeposit } from './policy.js';
+import { transitionBookingStatus } from './state-machine.js';
 import { generateAvailabilitySlots, slotMatchesAvailability } from './availability.js';
+import { pushToExternalCalendar } from './external-calendar.js';
 
 type CreateBookingInput = {
   stylistId: string;
-  clientId: string;
-  serviceOfferingId: string;
+  clientId?: string | null;
+  serviceOfferingId?: string | null;
   startTime: Date;
+  durationMinutes: number;
+  agreedPrice: number;
   source: BookingSource;
   status: 'held' | 'confirmed';
+  skipAvailabilityCheck?: boolean;
 };
 
 export class BookingService {
@@ -92,11 +100,17 @@ export class BookingService {
   }
 
   async createHold(clientId: string, input: CreateBookingHoldRequest): Promise<Booking> {
+    const offering = await profileService.getActiveServiceOffering(
+      input.stylistId,
+      input.serviceOfferingId,
+    );
     return this.createBookingRecord({
       stylistId: input.stylistId,
       clientId,
       serviceOfferingId: input.serviceOfferingId,
       startTime: new Date(input.startTime),
+      durationMinutes: offering.estimatedDurationMinutes,
+      agreedPrice: offering.basePrice.toNumber(),
       source: input.source as BookingSource,
       status: 'held',
     });
@@ -106,13 +120,28 @@ export class BookingService {
     stylistId: string,
     input: CreateManualBookingRequest,
   ): Promise<Booking> {
+    let durationMinutes = input.durationMinutes ?? 60;
+    let agreedPrice = 0;
+    const serviceOfferingId: string | null = input.serviceOfferingId ?? null;
+
+    if (input.serviceOfferingId) {
+      const offering = await profileService.getActiveServiceOffering(
+        stylistId,
+        input.serviceOfferingId,
+      );
+      durationMinutes = offering.estimatedDurationMinutes;
+      agreedPrice = offering.basePrice.toNumber();
+    }
+
     return this.createBookingRecord({
       stylistId,
-      clientId: input.clientId,
-      serviceOfferingId: input.serviceOfferingId,
+      clientId: input.clientId ?? null,
+      serviceOfferingId,
       startTime: new Date(input.startTime),
+      durationMinutes,
+      agreedPrice,
       source: 'dashboard_manual',
-      status: input.confirmImmediately ? 'confirmed' : 'held',
+      status: 'confirmed',
       skipAvailabilityCheck: true,
     });
   }
@@ -171,18 +200,12 @@ export class BookingService {
     });
   }
 
-  private async createBookingRecord(
-    input: CreateBookingInput & { skipAvailabilityCheck?: boolean },
-  ): Promise<Booking> {
-    const offering = await profileService.getActiveServiceOffering(
-      input.stylistId,
-      input.serviceOfferingId,
-    );
+  private async createBookingRecord(input: CreateBookingInput): Promise<Booking> {
     const scheduling = await profileService.getSchedulingSettings(input.stylistId);
     const startTime = input.startTime;
     const endTime = calculateBookingEndTime(
       startTime,
-      offering.estimatedDurationMinutes,
+      input.durationMinutes,
       scheduling.bufferMinutes,
     );
 
@@ -190,7 +213,7 @@ export class BookingService {
       throw ApiError.validation('Invalid booking duration');
     }
 
-    if (!input.skipAvailabilityCheck) {
+    if (!input.skipAvailabilityCheck && input.serviceOfferingId) {
       const availability = await this.getAvailability({
         stylistId: input.stylistId,
         serviceOfferingId: input.serviceOfferingId,
@@ -199,12 +222,14 @@ export class BookingService {
         limit: 100,
       });
       if (!slotMatchesAvailability(availability.slots, startTime)) {
-        throw new ApiError('CONFLICT', 'Requested slot is not available', 409);
+        throw new ApiError('SLOT_UNAVAILABLE', 'Requested slot is not available', 409);
       }
     }
 
-    const agreedPrice = offering.basePrice.toNumber();
-    const depositAmount = calculateDepositAmount(agreedPrice, scheduling.depositPolicy);
+    const depositAmount =
+      input.status === 'held'
+        ? calculateDepositAmount(input.agreedPrice, scheduling.depositPolicy)
+        : 0;
     const holdExpiresAt = input.status === 'held' ? new Date(Date.now() + this.holdTtlMs()) : null;
 
     const booking = await prisma.$transaction(async (tx) => {
@@ -216,21 +241,21 @@ export class BookingService {
         endTime,
       });
       if (conflicts.length > 0) {
-        throw new ApiError('CONFLICT', 'Requested slot is no longer available', 409);
+        throw new ApiError('SLOT_UNAVAILABLE', 'Requested slot is no longer available', 409);
       }
 
       return tx.booking.create({
         data: {
           stylistId: input.stylistId,
-          clientId: input.clientId,
-          serviceOfferingId: input.serviceOfferingId,
+          clientId: input.clientId ?? null,
+          serviceOfferingId: input.serviceOfferingId ?? null,
           status: input.status,
           startTime,
           endTime,
-          agreedPrice,
-          agreedDurationMinutes: offering.estimatedDurationMinutes,
+          agreedPrice: input.agreedPrice,
+          agreedDurationMinutes: input.durationMinutes,
           depositAmount,
-          depositStatus: 'pending',
+          depositStatus: input.status === 'confirmed' ? 'pending' : 'pending',
           holdExpiresAt,
           source: input.source,
         },
@@ -245,24 +270,20 @@ export class BookingService {
           { bookingId: booking.id },
           { jobId: `booking-expire-${booking.id}`, delay },
         )
-        .catch(() => {
-          // Redis unavailable in some dev/test environments — lazy expiry still applies.
-        });
+        .catch(() => {});
     }
 
     if (booking.status === 'confirmed') {
-      void notificationsService.onBookingConfirmed(booking.id).catch(() => {
-        // Notification scheduling is best-effort when Redis/worker is offline.
-      });
+      void pushToExternalCalendar(booking.id).catch(() => {});
+      void notificationsService.onBookingConfirmed(booking.id).catch(() => {});
     }
 
     return toBooking(booking);
   }
 
-  async confirmBookingAfterDeposit(bookingId: string): Promise<Booking> {
-    const booking = await prisma.booking.findUnique({
-      where: { id: bookingId },
-    });
+  /** Ch.7.3 — documented integration point for Chapter 9 payment webhooks. */
+  async confirmBooking(bookingId: string): Promise<ConfirmBookingResult> {
+    const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
     if (!booking) {
       throw ApiError.notFound('Booking not found');
     }
@@ -273,32 +294,50 @@ export class BookingService {
           where: { id: booking.id },
           data: { depositStatus: 'paid', holdExpiresAt: null },
         });
-        return toBooking(updated);
+        return { outcome: 'confirmed', booking: toBooking(updated) };
       }
-      return toBooking(booking);
+      return { outcome: 'confirmed', booking: toBooking(booking) };
     }
 
     if (booking.status !== 'held') {
       throw new ApiError('CONFLICT', 'Booking cannot be confirmed from current status', 409);
     }
 
-    assertBookingTransition(booking.status, 'confirmed');
+    if (booking.holdExpiresAt && booking.holdExpiresAt.getTime() <= Date.now()) {
+      return {
+        outcome: 'hold_expired',
+        booking: toBooking(booking),
+        refundRequired: true,
+      };
+    }
 
-    const updated = await prisma.booking.update({
-      where: { id: booking.id },
-      data: {
-        status: 'confirmed',
+    const updated = await prisma.$transaction(async (tx) => {
+      const row = await transitionBookingStatus(tx, booking.id, 'held', 'confirmed', {
         depositStatus: 'paid',
         holdExpiresAt: null,
-      },
+      });
+      return row;
     });
 
+    void pushToExternalCalendar(updated.id).catch(() => {});
     void notificationsService.onBookingConfirmed(updated.id).catch(() => {});
 
-    return toBooking(updated);
+    return { outcome: 'confirmed', booking: toBooking(updated) };
   }
 
-  async confirmBooking(stylistId: string, bookingId: string): Promise<Booking> {
+  /** Alias retained for Chapter 9 integration. */
+  async confirmBookingAfterDeposit(bookingId: string): Promise<Booking> {
+    const result = await this.confirmBooking(bookingId);
+    if (result.outcome === 'hold_expired') {
+      throw new ApiError('HOLD_EXPIRED', 'Booking hold expired before confirmation', 409, {
+        refundRequired: true,
+        bookingId,
+      });
+    }
+    return result.booking;
+  }
+
+  async confirmBookingAsStylist(stylistId: string, bookingId: string): Promise<Booking> {
     const booking = await prisma.booking.findFirst({
       where: { id: bookingId, stylistId },
     });
@@ -306,71 +345,51 @@ export class BookingService {
       throw ApiError.notFound('Booking not found');
     }
 
-    assertBookingTransition(booking.status, 'confirmed');
-
-    const updated = await prisma.booking.update({
-      where: { id: booking.id },
-      data: {
-        status: 'confirmed',
-        holdExpiresAt: null,
-      },
-    });
-
-    void notificationsService.onBookingConfirmed(updated.id).catch(() => {});
-
-    return toBooking(updated);
-  }
-
-  async confirmBookingAsClient(clientId: string, bookingId: string): Promise<Booking> {
-    const booking = await prisma.booking.findFirst({
-      where: { id: bookingId, clientId },
-    });
-    if (!booking) {
-      throw ApiError.notFound('Booking not found');
+    const result = await this.confirmBooking(bookingId);
+    if (result.outcome === 'hold_expired') {
+      throw new ApiError('HOLD_EXPIRED', 'Booking hold expired', 409);
     }
-
-    assertBookingTransition(booking.status, 'confirmed');
-
-    const updated = await prisma.booking.update({
-      where: { id: booking.id },
-      data: {
-        status: 'confirmed',
-        holdExpiresAt: null,
-      },
-    });
-
-    void notificationsService.onBookingConfirmed(updated.id).catch(() => {});
-
-    return toBooking(updated);
+    return result.booking;
   }
 
   async cancelBooking(
-    stylistId: string,
+    actor: { stylistId?: string; clientId?: string },
     bookingId: string,
     input: CancelBookingRequest,
-  ): Promise<Booking> {
+  ): Promise<BookingActionResult> {
     const booking = await prisma.booking.findFirst({
-      where: { id: bookingId, stylistId },
+      where: {
+        id: bookingId,
+        ...(actor.stylistId ? { stylistId: actor.stylistId } : {}),
+        ...(actor.clientId ? { clientId: actor.clientId } : {}),
+      },
     });
     if (!booking) {
       throw ApiError.notFound('Booking not found');
     }
 
-    assertBookingTransition(booking.status, 'cancelled');
+    const cancelledBy = actor.clientId ? 'client' : 'stylist';
+    const reason =
+      input.reason ??
+      (cancelledBy === 'client' ? 'cancelled_by_client' : 'cancelled_by_stylist');
 
-    const updated = await prisma.booking.update({
-      where: { id: booking.id },
-      data: {
-        status: 'cancelled',
+    const policy = await getBusinessPolicyByStylistId(booking.stylistId);
+    const depositDisposition = evaluateCancellationDeposit(policy, booking, new Date());
+
+    const updated = await prisma.$transaction(async (tx) => {
+      return transitionBookingStatus(tx, booking.id, booking.status, 'cancelled', {
         cancelledAt: new Date(),
-        cancellationReason: input.reason ?? 'cancelled_by_stylist',
+        cancellationReason: reason,
         holdExpiresAt: null,
-      },
+      });
     });
 
     void notificationsService.onBookingCancelled(updated.id).catch(() => {});
 
-    return toBooking(updated);
+    return {
+      booking: toBooking(updated),
+      depositDisposition,
+    };
   }
 
   async completeBooking(stylistId: string, bookingId: string): Promise<Booking> {
@@ -381,17 +400,14 @@ export class BookingService {
       throw ApiError.notFound('Booking not found');
     }
 
-    assertBookingTransition(booking.status, 'completed');
-
-    const updated = await prisma.booking.update({
-      where: { id: booking.id },
-      data: { status: 'completed' },
+    const updated = await prisma.$transaction(async (tx) => {
+      return transitionBookingStatus(tx, booking.id, 'confirmed', 'completed');
     });
 
     return toBooking(updated);
   }
 
-  async markNoShow(stylistId: string, bookingId: string): Promise<Booking> {
+  async markNoShow(stylistId: string, bookingId: string): Promise<BookingActionResult> {
     const booking = await prisma.booking.findFirst({
       where: { id: bookingId, stylistId },
     });
@@ -399,16 +415,19 @@ export class BookingService {
       throw ApiError.notFound('Booking not found');
     }
 
-    assertBookingTransition(booking.status, 'no_show');
+    const policy = await getBusinessPolicyByStylistId(booking.stylistId);
+    const depositDisposition = evaluateNoShowDeposit(policy);
 
-    const updated = await prisma.booking.update({
-      where: { id: booking.id },
-      data: { status: 'no_show' },
+    const updated = await prisma.$transaction(async (tx) => {
+      return transitionBookingStatus(tx, booking.id, 'confirmed', 'no_show');
     });
 
     void notificationsService.onBookingNoShow(updated.id).catch(() => {});
 
-    return toBooking(updated);
+    return {
+      booking: toBooking(updated),
+      depositDisposition,
+    };
   }
 }
 

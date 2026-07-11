@@ -123,6 +123,7 @@ model Business {
   portfolioItems       PortfolioItem[]
   serviceOfferings     ServiceOffering[]
   instagramConnection  InstagramConnection?
+  calendarConflicts    CalendarConflict[]
 
   @@map("businesses")
 }
@@ -475,8 +476,8 @@ enum BookingSource {
 model Booking {
   id                     String               @id @default(uuid()) @db.Uuid
   stylistId              String               @map("stylist_id") @db.Uuid
-  clientId               String               @map("client_id") @db.Uuid
-  serviceOfferingId      String               @map("service_offering_id") @db.Uuid
+  clientId               String?              @map("client_id") @db.Uuid
+  serviceOfferingId      String?              @map("service_offering_id") @db.Uuid
   status                 BookingStatus        @default(held)
   startTime              DateTime             @map("start_time") @db.Timestamptz(6)
   endTime                DateTime             @map("end_time") @db.Timestamptz(6)
@@ -490,12 +491,37 @@ model Booking {
   cancelledAt            DateTime?            @map("cancelled_at") @db.Timestamptz(6)
   cancellationReason     String?              @map("cancellation_reason")
 
-  notifications Notification[]
+  notifications      Notification[]
+  calendarConflicts  CalendarConflict[]
 
   @@index([stylistId, status, startTime, endTime])
   @@index([clientId, status])
   @@index([holdExpiresAt])
   @@map("bookings")
+}
+
+enum CalendarConflictResolution {
+  kept_platform_booking
+  kept_external_event
+  manual_other
+
+  @@map("calendar_conflict_resolution")
+}
+
+model CalendarConflict {
+  id              String                      @id @default(uuid()) @db.Uuid
+  businessId      String                      @map("business_id") @db.Uuid
+  bookingId       String?                     @map("booking_id") @db.Uuid
+  externalEventId String                      @map("external_event_id")
+  detectedAt      DateTime                    @default(now()) @map("detected_at") @db.Timestamptz(6)
+  resolvedAt      DateTime?                   @map("resolved_at") @db.Timestamptz(6)
+  resolution      CalendarConflictResolution? @map("resolution")
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  booking  Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  @@index([businessId, resolvedAt])
+  @@map("calendar_conflicts")
 }
 
 // --- Payments (Chapter 9) ---

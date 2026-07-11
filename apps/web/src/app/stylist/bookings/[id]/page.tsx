@@ -35,9 +35,14 @@ export default function StylistBookingDetailPage() {
             : action === 'complete'
               ? `/bookings/${params.id}/complete`
               : `/bookings/${params.id}/no-show`;
+      if (action === 'cancel' || action === 'no-show') {
+        return apiFetchData<{ booking: Booking }>(path, {
+          method: 'POST',
+          json: action === 'cancel' ? {} : undefined,
+        });
+      }
       return apiFetchData<Booking>(path, {
         method: 'POST',
-        json: action === 'cancel' ? {} : undefined,
       });
     },
     onSuccess: () => {

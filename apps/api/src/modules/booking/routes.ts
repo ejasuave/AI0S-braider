@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync } from 'fastify';
+import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import {
   availabilityQuerySchema,
   bookingListQuerySchema,
@@ -7,7 +7,12 @@ import {
   createManualBookingRequestSchema,
 } from '@project-braids/shared-types/api';
 import { sendData } from '../../lib/http.js';
-import { requireAuthenticated, requireClient, requireStylist } from '../identity/guards.js';
+import {
+  requireAuthenticated,
+  requireBusinessPermission,
+  requireClient,
+  requireStylist,
+} from '../identity/guards.js';
 import type { AuthenticatedRequest } from '../identity/middleware.js';
 import { bookingService } from './service.js';
 
@@ -46,24 +51,31 @@ export const bookingRoutes: FastifyPluginAsync = async (app) => {
     sendData(reply, booking);
   });
 
-  app.post('/holds', { preHandler: [requireClient] }, async (request, reply) => {
+  const holdHandler = async (request: FastifyRequest, reply: FastifyReply) => {
     const auth = (request as AuthenticatedRequest).auth;
     const body = createBookingHoldRequestSchema.parse(request.body);
     const booking = await bookingService.createHold(auth.user.id, body);
     sendData(reply, booking, 201);
-  });
+  };
 
-  app.post('/manual', { preHandler: [requireStylist] }, async (request, reply) => {
-    const auth = (request as AuthenticatedRequest).auth;
-    const body = createManualBookingRequestSchema.parse(request.body);
-    const booking = await bookingService.createManualBooking(auth.stylistId!, body);
-    sendData(reply, booking, 201);
-  });
+  app.post('/holds', { preHandler: [requireClient] }, holdHandler);
+  app.post('/hold', { preHandler: [requireClient] }, holdHandler);
+
+  app.post(
+    '/manual',
+    { preHandler: [requireBusinessPermission('can_manage_bookings')] },
+    async (request, reply) => {
+      const auth = (request as AuthenticatedRequest).auth;
+      const body = createManualBookingRequestSchema.parse(request.body);
+      const booking = await bookingService.createManualBooking(auth.stylistId!, body);
+      sendData(reply, booking, 201);
+    },
+  );
 
   app.post('/:id/confirm', { preHandler: [requireStylist] }, async (request, reply) => {
     const auth = (request as AuthenticatedRequest).auth;
     const { id } = request.params as { id: string };
-    const booking = await bookingService.confirmBooking(auth.stylistId!, id);
+    const booking = await bookingService.confirmBookingAsStylist(auth.stylistId!, id);
     sendData(reply, booking);
   });
 
@@ -71,8 +83,20 @@ export const bookingRoutes: FastifyPluginAsync = async (app) => {
     const auth = (request as AuthenticatedRequest).auth;
     const { id } = request.params as { id: string };
     const body = cancelBookingRequestSchema.parse(request.body ?? {});
-    const booking = await bookingService.cancelBooking(auth.stylistId!, id, body);
-    sendData(reply, booking);
+    const result = await bookingService.cancelBooking(
+      { stylistId: auth.stylistId! },
+      id,
+      body,
+    );
+    sendData(reply, result);
+  });
+
+  app.post('/mine/:id/cancel', { preHandler: [requireClient] }, async (request, reply) => {
+    const auth = (request as AuthenticatedRequest).auth;
+    const { id } = request.params as { id: string };
+    const body = cancelBookingRequestSchema.parse(request.body ?? {});
+    const result = await bookingService.cancelBooking({ clientId: auth.user.id }, id, body);
+    sendData(reply, result);
   });
 
   app.post('/:id/complete', { preHandler: [requireStylist] }, async (request, reply) => {
@@ -82,10 +106,14 @@ export const bookingRoutes: FastifyPluginAsync = async (app) => {
     sendData(reply, booking);
   });
 
-  app.post('/:id/no-show', { preHandler: [requireStylist] }, async (request, reply) => {
-    const auth = (request as AuthenticatedRequest).auth;
-    const { id } = request.params as { id: string };
-    const booking = await bookingService.markNoShow(auth.stylistId!, id);
-    sendData(reply, booking);
-  });
+  app.post(
+    '/:id/no-show',
+    { preHandler: [requireBusinessPermission('can_manage_bookings')] },
+    async (request, reply) => {
+      const auth = (request as AuthenticatedRequest).auth;
+      const { id } = request.params as { id: string };
+      const result = await bookingService.markNoShow(auth.stylistId!, id);
+      sendData(reply, result);
+    },
+  );
 };

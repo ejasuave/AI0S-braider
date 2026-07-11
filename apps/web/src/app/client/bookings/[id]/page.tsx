@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
-import type { Booking, Payment } from '@project-braids/shared-types/api';
+import type { Booking, BookingActionResult, Payment } from '@project-braids/shared-types/api';
 import { apiFetchData, ApiClientError, getApiErrorMessage } from '@/shared/lib/api-client';
 import {
   bookingStatusLabel,
@@ -40,6 +40,18 @@ export default function ClientBookingDetailPage() {
     retry: false,
   });
 
+  const cancelMutation = useMutation({
+    mutationFn: () =>
+      apiFetchData<BookingActionResult>(`/bookings/mine/${params.id}/cancel`, {
+        method: 'POST',
+        json: {},
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['bookings', 'client', params.id] });
+      void queryClient.invalidateQueries({ queryKey: ['bookings', 'client'] });
+    },
+  });
+
   const payMutation = useMutation({
     mutationFn: async () => {
       const existing = paymentQuery.data;
@@ -72,8 +84,8 @@ export default function ClientBookingDetailPage() {
   const booking = bookingQuery.data;
   const payment = paymentQuery.data;
   const error =
-    payMutation.error || simulateMutation.error
-      ? getApiErrorMessage(payMutation.error ?? simulateMutation.error)
+    payMutation.error || simulateMutation.error || cancelMutation.error
+      ? getApiErrorMessage(payMutation.error ?? simulateMutation.error ?? cancelMutation.error)
       : null;
 
   const needsDeposit = booking?.status === 'held' && booking.depositStatus === 'pending';
@@ -166,6 +178,17 @@ export default function ClientBookingDetailPage() {
             <Card className="bg-success/5">
               <p className="text-sm text-success">Booking confirmed. See you soon!</p>
             </Card>
+          ) : null}
+
+          {booking.status === 'held' || booking.status === 'confirmed' ? (
+            <Button
+              variant="danger"
+              fullWidth
+              onClick={() => cancelMutation.mutate()}
+              disabled={cancelMutation.isPending}
+            >
+              {cancelMutation.isPending ? 'Cancelling…' : 'Cancel booking'}
+            </Button>
           ) : null}
         </div>
       ) : (

@@ -33,24 +33,24 @@ Mobile-first Next.js app at `apps/web` — tokens from `reference/design/visual-
 
 ## Completed chapters
 
-| Chapter                          | Status   | Notes                                                                                   |
-| -------------------------------- | -------- | --------------------------------------------------------------------------------------- |
-| 1 — Project Setup                | Complete | `aba627c`                                                                               |
-| 2 — Architecture                 | Complete | `13b6544`                                                                               |
-| 3 — Authentication               | Complete | `921b99f`                                                                               |
-| 4 — User Roles (4.1–4.4)         | Complete | businesses, staff API, guards, impersonation, `/stylist/staff`                          |
-| 6 — Stylist Features (6.1–6.6)   | Complete | `/businesses/me/*`, policies, hours, Instagram, portfolio                               |
-| 7 — Booking Engine               | Complete | `5e43991`                                                                               |
-| 8 — Calendar (8.1, 8.3)          | Complete | `d387b9b`                                                                               |
-| 9 — Payments (9.1–9.4)           | Complete | Stripe Connect, deposits, idempotent webhooks                                           |
-| 11 — Messaging (11.1–11.2, 11.5) | Complete | Conversations schema, Twilio SMS, stylist handoff                                       |
-| 13 — AI Receptionist (13.1–13.8) | Complete | Claude structured turns, escalation, booking dispatch, tests                            |
-| 12 — Notifications (12.1–12.4)   | Complete | Schema, reminder worker, confirmation/cancel notices, STOP compliance                   |
-| Beta directory                   | Complete | Opt-in `directory_visible`, search API, `/directory` web UI (Ch.16 deferred)            |
-| 17 — Dashboards (17.1–17.3)      | Complete | Week calendar, escalation-first home, inbox badge, AI message styling                   |
-| 23 — Deployment (23.1–23.4)      | Complete | CI/CD, staging/prod workflows, ops-status, kill switch, migration safety                |
-| 24 — Mobile (24.1)               | Complete | Layout audit, 5-tab nav, calendar/inbox fixes — [MOBILE_AUDIT.md](docs/MOBILE_AUDIT.md) |
-| 25 — Future Features             | Complete | Deferred-feature registry — [FUTURE_FEATURES.md](docs/FUTURE_FEATURES.md) (docs only)   |
+| Chapter                          | Status   | Notes                                                                                                     |
+| -------------------------------- | -------- | --------------------------------------------------------------------------------------------------------- |
+| 1 — Project Setup                | Complete | `aba627c`                                                                                                 |
+| 2 — Architecture                 | Complete | `13b6544`                                                                                                 |
+| 3 — Authentication               | Complete | `921b99f`                                                                                                 |
+| 4 — User Roles (4.1–4.4)         | Complete | businesses, staff API, guards, impersonation, `/stylist/staff`                                            |
+| 6 — Stylist Features (6.1–6.6)   | Complete | `/businesses/me/*`, policies, hours, Instagram, portfolio                                                 |
+| 7 — Booking Engine               | Complete | State machine, holds, policy cancel, manual bookings, calendar conflicts — aligned to Ch.7 prompt library |
+| 8 — Calendar (8.1, 8.3)          | Complete | `d387b9b`                                                                                                 |
+| 9 — Payments (9.1–9.4)           | Complete | Stripe Connect, deposits, idempotent webhooks                                                             |
+| 11 — Messaging (11.1–11.2, 11.5) | Complete | Conversations schema, Twilio SMS, stylist handoff                                                         |
+| 13 — AI Receptionist (13.1–13.8) | Complete | Claude structured turns, escalation, booking dispatch, tests                                              |
+| 12 — Notifications (12.1–12.4)   | Complete | Schema, reminder worker, confirmation/cancel notices, STOP compliance                                     |
+| Beta directory                   | Complete | Opt-in `directory_visible`, search API, `/directory` web UI (Ch.16 deferred)                              |
+| 17 — Dashboards (17.1–17.3)      | Complete | Week calendar, escalation-first home, inbox badge, AI message styling                                     |
+| 23 — Deployment (23.1–23.4)      | Complete | CI/CD, staging/prod workflows, ops-status, kill switch, migration safety                                  |
+| 24 — Mobile (24.1)               | Complete | Layout audit, 5-tab nav, calendar/inbox fixes — [MOBILE_AUDIT.md](docs/MOBILE_AUDIT.md)                   |
+| 25 — Future Features             | Complete | Deferred-feature registry — [FUTURE_FEATURES.md](docs/FUTURE_FEATURES.md) (docs only)                     |
 
 ### Chapter 25 deliverables (documentation only)
 

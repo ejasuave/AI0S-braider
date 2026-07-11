@@ -104,13 +104,12 @@ describe('booking routes', () => {
         clientId: clientUserId,
         serviceOfferingId: offeringId,
         startTime: '2026-08-01T10:00:00.000Z',
-        confirmImmediately: true,
       },
     });
 
     expect(createResponse.statusCode).toBe(201);
     expect(createResponse.json().data.status).toBe('confirmed');
-    expect(createResponse.json().data.agreedPrice).toBe('150');
+    expect(createResponse.json().data.holdExpiresAt).toBeNull();
 
     const bookingId = createResponse.json().data.id;
 

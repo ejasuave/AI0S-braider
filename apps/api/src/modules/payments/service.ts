@@ -183,6 +183,10 @@ export class PaymentService {
       throw ApiError.validation('Deposit amount must be greater than zero');
     }
 
+    if (!booking.clientId) {
+      throw ApiError.validation('Booking has no client — deposits require a linked client');
+    }
+
     const intent = await stripe.createDepositPaymentIntent({
       bookingId: booking.id,
       amountPence,
@@ -248,8 +252,12 @@ export class PaymentService {
     }
 
     if (payment.status === 'captured') {
-      const booking = await bookingService.confirmBookingAfterDeposit(bookingId);
-      return { payment: toPayment(payment), bookingConfirmed: booking.status === 'confirmed' };
+      const result = await bookingService.confirmBooking(bookingId);
+      if (result.outcome === 'hold_expired') {
+        await this.refundCapturedDeposit(bookingId);
+        return { payment: toPayment(payment), bookingConfirmed: false };
+      }
+      return { payment: toPayment(payment), bookingConfirmed: result.booking.status === 'confirmed' };
     }
 
     const captured = await prisma.$transaction(async (tx) => {
@@ -264,12 +272,36 @@ export class PaymentService {
       return updatedPayment;
     });
 
-    const booking = await bookingService.confirmBookingAfterDeposit(bookingId);
+    const result = await bookingService.confirmBooking(bookingId);
+    if (result.outcome === 'hold_expired') {
+      await this.refundCapturedDeposit(bookingId);
+      return { payment: toPayment(captured), bookingConfirmed: false };
+    }
 
     return {
       payment: toPayment(captured),
-      bookingConfirmed: booking.status === 'confirmed',
+      bookingConfirmed: result.booking.status === 'confirmed',
     };
+  }
+
+  private async refundCapturedDeposit(bookingId: string): Promise<void> {
+    const payment = await prisma.payment.findFirst({
+      where: { bookingId, status: 'captured' },
+    });
+    if (!payment) {
+      return;
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.payment.update({
+        where: { id: payment.id },
+        data: { status: 'refunded' },
+      });
+      await tx.booking.update({
+        where: { id: bookingId },
+        data: { depositStatus: 'refunded' },
+      });
+    });
   }
 
   async markPaymentFailed(paymentIntentId: string): Promise<void> {

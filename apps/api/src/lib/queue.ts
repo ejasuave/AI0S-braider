@@ -87,6 +87,15 @@ export async function scheduleRecurringJobs(): Promise<void> {
       jobId: 'recurring-instagram-refresh-tokens',
     },
   );
+
+  await queue.add(
+    JOB_NAMES.BOOKING_SWEEP_HOLDS,
+    {},
+    {
+      repeat: { every: 60_000 },
+      jobId: 'recurring-booking-sweep-holds',
+    },
+  );
 }
 
 export async function closeQueues(): Promise<void> {

@@ -1,6 +1,6 @@
 import type { Job } from 'bullmq';
 import { prisma } from '../lib/db.js';
-import { expireStaleHolds } from '../modules/booking/conflict.js';
+import { transitionBookingStatus } from '../modules/booking/state-machine.js';
 
 export type BookingExpireHoldJobData = {
   bookingId: string;
@@ -18,20 +18,19 @@ export async function processBookingExpireHoldJob(
     return { expired: false };
   }
 
-  await prisma.booking.update({
-    where: { id: booking.id },
-    data: {
-      status: 'cancelled',
+  await prisma.$transaction(async (tx) => {
+    await transitionBookingStatus(tx, booking.id, 'held', 'cancelled', {
       cancelledAt: new Date(),
       cancellationReason: 'hold_expired',
       holdExpiresAt: null,
-    },
+    });
   });
 
   return { expired: true };
 }
 
 export async function processBookingSweepHoldsJob(): Promise<{ expiredCount: number }> {
+  const { expireStaleHolds } = await import('../modules/booking/conflict.js');
   const expiredCount = await prisma.$transaction(async (tx) => expireStaleHolds(tx));
   return { expiredCount };
 }

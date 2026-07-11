@@ -2,9 +2,11 @@
 
 import { useState } from 'react';
 import { BookingCard } from '@/features/booking/booking-card';
+import { ManualBookingForm } from '@/features/booking/manual-booking-form';
 import { WeekCalendar } from '@/features/dashboard/week-calendar';
 import { useStylistBookings } from '@/features/dashboard/use-stylist-bookings';
 import { bookingOnDateKey, getWeekRangeIso, todayDateKey } from '@/shared/lib/week-dates';
+import { Button } from '@/shared/ui/button';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { CardSkeleton } from '@/shared/ui/skeleton';
 import { PageHeader, PageShell } from '@/shared/ui/page-shell';
@@ -12,6 +14,7 @@ import { PageHeader, PageShell } from '@/shared/ui/page-shell';
 export default function StylistBookingsPage() {
   const [selectedDateKey, setSelectedDateKey] = useState(todayDateKey);
   const [weekAnchor, setWeekAnchor] = useState(() => new Date());
+  const [showManualForm, setShowManualForm] = useState(false);
   const weekRange = getWeekRangeIso(weekAnchor);
 
   const bookingsQuery = useStylistBookings({
@@ -27,6 +30,20 @@ export default function StylistBookingsPage() {
   return (
     <PageShell>
       <PageHeader title="Calendar" subtitle="Week view — tap a day to see appointments." />
+
+      <PageHeader title="Calendar" subtitle="Week view — tap a day to see appointments." />
+
+      <div className="mt-4">
+        <Button variant="secondary" onClick={() => setShowManualForm((open) => !open)}>
+          {showManualForm ? 'Hide manual booking' : 'Block time manually'}
+        </Button>
+      </div>
+
+      {showManualForm ? (
+        <div className="mt-4">
+          <ManualBookingForm onCreated={() => setShowManualForm(false)} />
+        </div>
+      ) : null}
 
       <div className="mt-6 space-y-4">
         <WeekCalendar

@@ -12,10 +12,12 @@ import {
   updateBusinessProfileRequestSchema,
   updateBusinessServiceRequestSchema,
   updateScheduleExceptionRequestSchema,
+  resolveCalendarConflictRequestSchema,
 } from '@project-braids/shared-types/api';
 import { sendData } from '../../lib/http.js';
 import { requireRole, requireBusinessPermission } from '../roles/guards.js';
 import type { AuthenticatedRequest } from '../identity/middleware.js';
+import { calendarConflictService } from '../booking/calendar-conflicts.js';
 import { stylistProfileService } from './service.js';
 
 async function resolveMe(request: FastifyRequest): Promise<{ businessId: string; stylistId: string }> {
@@ -246,6 +248,28 @@ export const stylistProfileRoutes: FastifyPluginAsync = async (app) => {
       const { exceptionId } = request.params as { exceptionId: string };
       await stylistProfileService.deleteScheduleException(businessId, exceptionId);
       sendData(reply, { status: 'deleted' });
+    },
+  );
+
+  app.get(
+    '/me/calendar-conflicts',
+    { preHandler: [requireBusinessPermission('can_manage_bookings')] },
+    async (request, reply) => {
+      const { businessId } = await resolveMe(request);
+      const conflicts = await calendarConflictService.listUnresolved(businessId);
+      sendData(reply, conflicts);
+    },
+  );
+
+  app.post(
+    '/me/calendar-conflicts/:conflictId/resolve',
+    { preHandler: [requireBusinessPermission('can_manage_bookings')] },
+    async (request, reply) => {
+      const { businessId } = await resolveMe(request);
+      const { conflictId } = request.params as { conflictId: string };
+      const body = resolveCalendarConflictRequestSchema.parse(request.body);
+      const conflict = await calendarConflictService.resolveConflict(businessId, conflictId, body);
+      sendData(reply, conflict);
     },
   );
 };

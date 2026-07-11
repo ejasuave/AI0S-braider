@@ -2,27 +2,24 @@
 
 Owns `booking` domain logic per `docs/ARCHITECTURE.md` (Chapter 7).
 
-- **Table:** `bookings`
-- **Routes:** `/api/v1/bookings/*`
-- **Jobs:** `booking.expire-hold`, `booking.sweep-expired-holds`
+- **Table:** `bookings`, `calendar_conflicts`
+- **Routes:** `/api/v1/bookings/*`, calendar conflicts on `/api/v1/businesses/me/calendar-conflicts`
+- **Jobs:** `booking.expire-hold`, `booking.sweep-expired-holds` (every minute)
+- **Docs:** [`docs/BOOKING_STATE_MACHINE.md`](../../../docs/BOOKING_STATE_MACHINE.md), [`docs/PAYMENTS_INTEGRATION.md`](../../../docs/PAYMENTS_INTEGRATION.md)
 
-## MVP scope (Ch.7)
+## Chapter 7 deliverables
 
-| Prompt | Deliverable                                                                    |
-| ------ | ------------------------------------------------------------------------------ |
-| 7.1    | State machine (`held` → `confirmed` → `completed` \| `cancelled` \| `no_show`) |
-| 7.2    | TTL holds + `FOR UPDATE` conflict detection                                    |
-| 7.3    | `POST /bookings/:id/confirm` (payment wiring in Ch.9)                          |
-| 7.4    | Cancel + no-show endpoints                                                     |
-| 7.5    | `POST /bookings/manual` for dashboard-created bookings                         |
-| 7.6    | Overlap detection + concurrency test                                           |
+| Prompt | Deliverable                                                              |
+| ------ | ------------------------------------------------------------------------ |
+| 7.1    | `transitionBookingStatus()` — centralized state machine                  |
+| 7.2    | TTL holds, `FOR UPDATE` conflicts, `POST /bookings/hold`                 |
+| 7.3    | `confirmBooking()` + expired-hold contract for Ch.9                      |
+| 7.4    | Policy-driven cancel/no-show with `depositDisposition`                   |
+| 7.5    | `POST /bookings/manual` — confirmed immediately, optional client/service |
+| 7.6    | `hasConflictingBooking`, `calendar_conflicts` + flag/resolve API         |
 
 ## Tenant scoping
 
-Stylist routes filter by `auth.stylistId`. Client holds use authenticated `client` user id.
+Stylist routes filter by `auth.stylistId`. Client holds/cancels use authenticated client user id.
 
-Do not capture payments here — deposit status remains `pending` until Chapter 9.
-
-## Availability (Ch.8)
-
-`GET /api/v1/bookings/availability` — duration + buffer-aware slot generation from profile working hours.
+Do not capture payments here — use `confirmBooking()` from Payments on deposit capture.
