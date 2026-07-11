@@ -10,7 +10,40 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  quality:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm approve-builds --all
+      - run: pnpm db:generate
+      - run: pnpm format:check
+      - run: pnpm lint
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm approve-builds --all
+      - run: pnpm db:generate
+      - run: pnpm typecheck
+
+  test:
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -45,36 +78,17 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: pnpm/action-setup@v4
         with:
           version: 11
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Approve dependency build scripts
-        run: pnpm approve-builds --all
-
-      - name: Generate Prisma client
-        run: pnpm db:generate
-
-      - name: Run migrations
-        run: pnpm db:migrate:deploy
-
-      - name: Lint
-        run: pnpm lint
-
-      - name: Typecheck
-        run: pnpm typecheck
-
-      - name: Test
-        run: pnpm test
-
-      - name: Build
-        run: pnpm build
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm approve-builds --all
+      - run: pnpm db:generate
+      - run: pnpm db:migrate:deploy
+      - run: bash scripts/ops/check-migrations.sh
+      - run: pnpm test
+      - run: pnpm build

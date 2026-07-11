@@ -18,6 +18,26 @@ Project Braids uses a **thin-client architecture**, not a full Backend-for-Front
 - Calls `apps/api` directly via `src/shared/lib/api-client.ts`
 - Prefixes all business calls with `/api/v1/`
 - Uses TanStack Query hooks in `src/features/<module>/`
+- **No `fetch` in components** — all data access goes through the typed client and hooks
+
+## TanStack Query key convention (Ch.2.4)
+
+Use hierarchical array keys so cache invalidation is predictable:
+
+| Pattern                                   | Example                                         | Invalidate with                               |
+| ----------------------------------------- | ----------------------------------------------- | --------------------------------------------- |
+| `['<domain>', '<action>']`                | `['system', 'ping']`                            | `queryKey: ['system']`                        |
+| `['<domain>', '<action>', params]`        | `['system', 'ping', { page, pageSize }]`        | `queryKey: ['system', 'ping']`                |
+| `['messaging', 'conversations', filters]` | `['messaging', 'conversations', 'escalated']`   | `queryKey: ['messaging']`                     |
+| `['messaging', 'conversation', id]`       | `['messaging', 'conversation', conversationId]` | `queryKey: ['messaging', 'conversation', id]` |
+
+**Proof:** `usePing` → `['system', 'ping']`; `usePingWithPagination` → `['system', 'ping', { page, pageSize }]`.
+
+## Typed client errors
+
+`ApiClientError` carries `status` and `code` from the standard error envelope. UI layers use `getApiErrorMessage()` — never parse raw `fetch` responses in components.
+
+**Proof:** `apps/web/src/shared/lib/api-client.test.ts` — 401 surfaces `code: 'UNAUTHORIZED'`.
 
 ## Allowed Next.js route handlers (BFF)
 

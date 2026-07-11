@@ -8,3 +8,7 @@ export function getEnv(): ApiEnv {
   }
   return cachedEnv;
 }
+
+export function resetEnvCache(): void {
+  cachedEnv = undefined;
+}

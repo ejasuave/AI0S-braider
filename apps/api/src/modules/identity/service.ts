@@ -1,10 +1,18 @@
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 import type { OtpPurpose, UserRole } from '@prisma/client';
 import { prisma } from '../../lib/db.js';
 import { ApiError } from '../../lib/errors.js';
 import { getEnv } from '../../config/env.js';
 import { getSmsProvider } from '../../lib/sms/sms-provider.js';
 import { getEmailProvider } from '../../lib/email/email-provider.js';
+import {
+  assertRateLimit,
+  buildRateLimitKey,
+  normalizeEmail,
+  normalizePhoneNumber,
+} from '../../lib/security/rate-limit.js';
+import { encryptAtRest } from '../../lib/security/encryption.js';
+import { AUTH_RATE_LIMITS, PASSWORD_RESET_EXPIRY_MS } from './auth-rate-limits.js';
 import {
   generateOtpCode,
   generateRefreshToken,
@@ -47,22 +55,36 @@ function refreshExpiryDate(): Date {
   return new Date(Date.now() + env.JWT_REFRESH_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
 }
 
+function syntheticOAuthPhone(provider: string, providerAccountId: string): string {
+  const digest = createHash('sha256').update(`${provider}:${providerAccountId}`).digest('hex');
+  const digits = digest.replace(/\D/g, '').slice(0, 9).padEnd(9, '0');
+  return `+447${digits}`;
+}
+
 export class IdentityService {
   async registerStylist(input: {
     phoneNumber: string;
     email: string;
     password: string;
-  }): Promise<{ userId: string }> {
+  }): Promise<{ userId: string; otpPurpose: OtpPurpose }> {
     const existingPhone = await prisma.user.findUnique({
       where: { phoneNumber: input.phoneNumber },
     });
     if (existingPhone) {
-      throw ApiError.validation('Phone number already registered');
+      if (existingPhone.phoneVerifiedAt) {
+        throw new ApiError('CONFLICT', 'This phone number is already registered.', 409);
+      }
+      await this.sendOtp({
+        phoneNumber: input.phoneNumber,
+        purpose: 'phone_verify',
+        userId: existingPhone.id,
+      });
+      return { userId: existingPhone.id, otpPurpose: 'phone_verify' };
     }
 
     const existingEmail = await prisma.user.findUnique({ where: { email: input.email } });
     if (existingEmail) {
-      throw ApiError.validation('Email already registered');
+      throw new ApiError('CONFLICT', 'This email is already registered.', 409);
     }
 
     const user = await prisma.user.create({
@@ -74,31 +96,55 @@ export class IdentityService {
       },
     });
 
-    await this.sendOtp({ phoneNumber: input.phoneNumber, purpose: 'phone_verify', userId: user.id });
+    await this.sendOtp({
+      phoneNumber: input.phoneNumber,
+      purpose: 'phone_verify',
+      userId: user.id,
+    });
 
-    return { userId: user.id };
+    return { userId: user.id, otpPurpose: 'phone_verify' };
   }
 
-  async registerClient(input: { phoneNumber: string }): Promise<{ userId: string }> {
+  async registerClient(input: {
+    phoneNumber: string;
+  }): Promise<{ otpPurpose: OtpPurpose }> {
     const existing = await prisma.user.findUnique({
       where: { phoneNumber: input.phoneNumber },
     });
 
+    const purpose: OtpPurpose = existing ? 'login' : 'phone_verify';
+    await this.sendOtp({
+      phoneNumber: input.phoneNumber,
+      purpose,
+      userId: existing?.id,
+    });
+
+    return { otpPurpose: purpose };
+  }
+
+  /** Lightweight client record for SMS ingress (Ch.11) — no OTP sent. */
+  async findOrCreateClientByPhone(
+    phoneNumber: string,
+  ): Promise<{ userId: string; created: boolean }> {
+    const existing = await prisma.user.findUnique({
+      where: { phoneNumber },
+    });
+
     if (existing) {
-      await this.sendOtp({ phoneNumber: input.phoneNumber, purpose: 'login', userId: existing.id });
-      return { userId: existing.id };
+      if (existing.role !== 'client') {
+        throw new ApiError('CONFLICT', 'Phone number belongs to a non-client account', 409);
+      }
+      return { userId: existing.id, created: false };
     }
 
     const user = await prisma.user.create({
       data: {
         role: 'client',
-        phoneNumber: input.phoneNumber,
+        phoneNumber,
       },
     });
 
-    await this.sendOtp({ phoneNumber: input.phoneNumber, purpose: 'phone_verify', userId: user.id });
-
-    return { userId: user.id };
+    return { userId: user.id, created: true };
   }
 
   async login(input: {
@@ -107,9 +153,20 @@ export class IdentityService {
     password: string;
     deviceMetadata?: Record<string, unknown>;
   }): Promise<{ user: AuthUser; tokens: AuthTokens; refreshToken: string }> {
+    const loginKey = input.email
+      ? buildRateLimitKey('login-email', normalizeEmail(input.email))
+      : buildRateLimitKey('login-phone', normalizePhoneNumber(input.phoneNumber!));
+
+    await assertRateLimit(
+      loginKey,
+      AUTH_RATE_LIMITS.LOGIN.limit,
+      AUTH_RATE_LIMITS.LOGIN.windowMs,
+      'Too many login attempts. Try again later.',
+    );
+
     const user = input.email
-      ? await prisma.user.findUnique({ where: { email: input.email } })
-      : await prisma.user.findUnique({ where: { phoneNumber: input.phoneNumber } });
+      ? await prisma.user.findUnique({ where: { email: normalizeEmail(input.email) } })
+      : await prisma.user.findUnique({ where: { phoneNumber: normalizePhoneNumber(input.phoneNumber!) } });
 
     if (!user || !user.passwordHash || user.deactivatedAt) {
       throw new ApiError('UNAUTHORIZED', 'Invalid credentials', 401);
@@ -132,18 +189,12 @@ export class IdentityService {
     purpose: OtpPurpose;
     userId?: string;
   }): Promise<{ expiresInSeconds: number }> {
-    const env = getEnv();
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-    const recentCount = await prisma.otpChallenge.count({
-      where: {
-        phoneNumber: input.phoneNumber,
-        createdAt: { gte: oneHourAgo },
-      },
-    });
-
-    if (recentCount >= env.OTP_MAX_REQUESTS_PER_HOUR) {
-      throw new ApiError('RATE_LIMITED', 'Too many OTP requests. Try again later.', 429);
-    }
+    await assertRateLimit(
+      buildRateLimitKey('otp', normalizePhoneNumber(input.phoneNumber)),
+      AUTH_RATE_LIMITS.OTP_REQUEST.limit,
+      AUTH_RATE_LIMITS.OTP_REQUEST.windowMs,
+      'Too many OTP requests. Try again later.',
+    );
 
     const code = generateOtpCode();
     const expiresAt = otpExpiresAt();
@@ -157,6 +208,8 @@ export class IdentityService {
         userId: input.userId,
       },
     });
+
+    const env = getEnv();
 
     await getSmsProvider().send({
       to: input.phoneNumber,
@@ -176,14 +229,22 @@ export class IdentityService {
       where: {
         phoneNumber: input.phoneNumber,
         purpose: input.purpose,
-        consumedAt: null,
-        expiresAt: { gt: new Date() },
       },
       orderBy: { createdAt: 'desc' },
     });
 
     if (!challenge) {
       throw new ApiError('UNAUTHORIZED', 'Invalid or expired OTP', 401);
+    }
+
+    if (challenge.consumedAt) {
+      throw new ApiError('CONFLICT', 'Verification code already used', 409, {
+        reason: 'OTP_ALREADY_CONSUMED',
+      });
+    }
+
+    if (challenge.expiresAt <= new Date()) {
+      throw new ApiError('UNAUTHORIZED', 'Verification code expired', 401, { reason: 'OTP_EXPIRED' });
     }
 
     if (challenge.attempts >= 5) {
@@ -215,7 +276,7 @@ export class IdentityService {
           phoneVerifiedAt: new Date(),
         },
       });
-    } else if (input.purpose === 'phone_verify' && !user.phoneVerifiedAt) {
+    } else if (!user.phoneVerifiedAt) {
       user = await prisma.user.update({
         where: { id: user.id },
         data: { phoneVerifiedAt: new Date() },
@@ -224,13 +285,6 @@ export class IdentityService {
 
     if (input.purpose === 'password_reset') {
       return { verified: true };
-    }
-
-    if (!user.phoneVerifiedAt) {
-      user = await prisma.user.update({
-        where: { id: user.id },
-        data: { phoneVerifiedAt: new Date() },
-      });
     }
 
     return this.issueSession(user, input.deviceMetadata);
@@ -319,7 +373,11 @@ export class IdentityService {
       throw new ApiError('UNAUTHORIZED', 'Google OAuth exchange failed', 401);
     }
 
-    const tokenJson = (await tokenResponse.json()) as { id_token?: string };
+    const tokenJson = (await tokenResponse.json()) as {
+      id_token?: string;
+      access_token?: string;
+      refresh_token?: string;
+    };
     if (!tokenJson.id_token) {
       throw new ApiError('UNAUTHORIZED', 'Google OAuth exchange failed', 401);
     }
@@ -340,6 +398,8 @@ export class IdentityService {
       providerAccountId,
       email,
       deviceMetadata: input.deviceMetadata,
+      accessToken: tokenJson.access_token,
+      refreshToken: tokenJson.refresh_token,
     });
   }
 
@@ -373,13 +433,20 @@ export class IdentityService {
   }
 
   async requestPasswordReset(email: string): Promise<void> {
-    const user = await prisma.user.findUnique({ where: { email } });
+    await assertRateLimit(
+      buildRateLimitKey('password-reset', normalizeEmail(email)),
+      AUTH_RATE_LIMITS.PASSWORD_RESET.limit,
+      AUTH_RATE_LIMITS.PASSWORD_RESET.windowMs,
+      'Too many password reset requests. Try again later.',
+    );
+
+    const user = await prisma.user.findUnique({ where: { email: normalizeEmail(email) } });
     if (!user || user.deactivatedAt) {
       return;
     }
 
     const token = generateResetToken();
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + PASSWORD_RESET_EXPIRY_MS);
 
     await prisma.passwordResetToken.create({
       data: {
@@ -390,10 +457,10 @@ export class IdentityService {
     });
 
     const env = getEnv();
-    const resetUrl = `${env.WEB_APP_URL}/auth/reset-password?token=${token}`;
+    const resetUrl = `${env.WEB_APP_URL}/reset-password?token=${token}`;
 
     await getEmailProvider().send({
-      to: email,
+      to: normalizeEmail(email),
       subject: `${env.PLATFORM_DISPLAY_NAME} password reset`,
       body: `Reset your password: ${resetUrl}`,
     });
@@ -429,6 +496,66 @@ export class IdentityService {
     ]);
   }
 
+  async requestPhoneNumberChange(input: {
+    userId: string;
+    requestedPhoneNumber: string;
+  }): Promise<{ requestId: string }> {
+    const phoneTaken = await prisma.user.findUnique({
+      where: { phoneNumber: input.requestedPhoneNumber },
+    });
+    if (phoneTaken) {
+      throw new ApiError('CONFLICT', 'That phone number is already in use.', 409);
+    }
+
+    const request = await prisma.phoneNumberChangeRequest.create({
+      data: {
+        userId: input.userId,
+        requestedPhoneNumber: input.requestedPhoneNumber,
+      },
+    });
+
+    return { requestId: request.id };
+  }
+
+  /**
+   * Admin approval for phone changes — route exposed in Ch.19 Admin Panel.
+   * TODO(Ch.19): wire to admin-only HTTP route with requireAdmin guard.
+   */
+  async approvePhoneChangeRequest(requestId: string, adminUserId: string): Promise<void> {
+    const changeRequest = await prisma.phoneNumberChangeRequest.findUnique({
+      where: { id: requestId },
+    });
+
+    if (!changeRequest || changeRequest.status !== 'pending') {
+      throw ApiError.notFound('Phone change request not found or already resolved');
+    }
+
+    const phoneTaken = await prisma.user.findUnique({
+      where: { phoneNumber: changeRequest.requestedPhoneNumber },
+    });
+    if (phoneTaken && phoneTaken.id !== changeRequest.userId) {
+      throw new ApiError('CONFLICT', 'Requested phone number is no longer available.', 409);
+    }
+
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: changeRequest.userId },
+        data: {
+          phoneNumber: changeRequest.requestedPhoneNumber,
+          phoneVerifiedAt: new Date(),
+        },
+      }),
+      prisma.phoneNumberChangeRequest.update({
+        where: { id: requestId },
+        data: {
+          status: 'approved',
+          resolvedAt: new Date(),
+          resolvedById: adminUserId,
+        },
+      }),
+    ]);
+  }
+
   async requestAccountRecovery(input: {
     email: string;
     phoneNumber?: string;
@@ -453,7 +580,13 @@ export class IdentityService {
     providerAccountId: string;
     email?: string;
     deviceMetadata?: Record<string, unknown>;
+    accessToken?: string;
+    refreshToken?: string;
   }): Promise<{ user: AuthUser; tokens: AuthTokens; refreshToken: string }> {
+    const env = getEnv();
+    const encryptToken = (value: string | undefined) =>
+      value ? encryptAtRest(value, env.JWT_SECRET) : undefined;
+
     const oauthAccount = await prisma.oAuthAccount.findUnique({
       where: {
         provider_providerAccountId: {
@@ -465,28 +598,54 @@ export class IdentityService {
     });
 
     if (oauthAccount) {
+      if (input.accessToken || input.refreshToken) {
+        await prisma.oAuthAccount.update({
+          where: { id: oauthAccount.id },
+          data: {
+            accessTokenEnc: encryptToken(input.accessToken) ?? oauthAccount.accessTokenEnc,
+            refreshTokenEnc: encryptToken(input.refreshToken) ?? oauthAccount.refreshTokenEnc,
+          },
+        });
+      }
       return this.issueSession(oauthAccount.user, input.deviceMetadata);
     }
 
     if (input.email) {
-      const existingByEmail = await prisma.user.findUnique({ where: { email: input.email } });
+      const existingByEmail = await prisma.user.findUnique({
+        where: { email: normalizeEmail(input.email) },
+      });
       if (existingByEmail) {
         await prisma.oAuthAccount.create({
           data: {
             userId: existingByEmail.id,
             provider: input.provider,
             providerAccountId: input.providerAccountId,
+            accessTokenEnc: encryptToken(input.accessToken),
+            refreshTokenEnc: encryptToken(input.refreshToken),
           },
         });
         return this.issueSession(existingByEmail, input.deviceMetadata);
       }
     }
 
-    throw new ApiError(
-      'FORBIDDEN',
-      'No linked account found. Register with phone verification first, then link OAuth.',
-      403,
-    );
+    const newUser = await prisma.user.create({
+      data: {
+        role: 'stylist_owner',
+        phoneNumber: syntheticOAuthPhone(input.provider, input.providerAccountId),
+        email: input.email ? normalizeEmail(input.email) : null,
+        emailVerifiedAt: input.email ? new Date() : null,
+        oauthAccounts: {
+          create: {
+            provider: input.provider,
+            providerAccountId: input.providerAccountId,
+            accessTokenEnc: encryptToken(input.accessToken),
+            refreshTokenEnc: encryptToken(input.refreshToken),
+          },
+        },
+      },
+    });
+
+    return this.issueSession(newUser, input.deviceMetadata);
   }
 
   private async issueSession(

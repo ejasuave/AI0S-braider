@@ -34,6 +34,7 @@ describe('resolveStylistId', () => {
       workingHours: null,
       bufferMinutes: 0,
       onboardingStatus: 'in_progress',
+      directoryVisible: false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });

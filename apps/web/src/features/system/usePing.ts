@@ -6,7 +6,7 @@ import { fetchPing } from '@/shared/lib/api-client';
 export function usePing() {
   return useQuery({
     queryKey: ['system', 'ping'],
-    queryFn: fetchPing,
+    queryFn: () => fetchPing(),
     staleTime: 10_000,
   });
 }

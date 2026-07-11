@@ -52,9 +52,7 @@ describe('generateAvailabilitySlots', () => {
       limit: 20,
     });
 
-    expect(
-      slots.some((slot) => slot.startTime === blockingStart.toISOString()),
-    ).toBe(false);
+    expect(slots.some((slot) => slot.startTime === blockingStart.toISOString())).toBe(false);
   });
 
   it('matches a generated slot by exact start time', () => {

@@ -1,4 +1,9 @@
-import type { Booking, BookingDepositStatus, BookingSource, BookingStatus } from '@project-braids/shared-types/api';
+import type {
+  Booking,
+  BookingDepositStatus,
+  BookingSource,
+  BookingStatus,
+} from '@project-braids/shared-types/api';
 import type { Booking as DbBooking } from '@prisma/client';
 
 function toIso(date: Date): string {

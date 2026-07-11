@@ -1,4 +1,5 @@
 # The Prompt Library
+
 ## A Complete Engineering Handbook for Building [Platform Name] with Claude Code and Cursor
 
 **Document status:** Outline for approval — no chapter content written yet
@@ -46,7 +47,7 @@
 
 ## Front Matter: How to Use This Library
 
-Explains the numbering system (Chapter.Prompt, e.g. 7.3), the fixed structure every prompt follows (Objective, Context, Prompt, Expected Output, Success Criteria, Dependencies), how prompts assume an existing codebase, and how to navigate between this library and the Engineering Playbook (system-design reference) produced earlier — the Playbook defines *what* to build; this library defines *how to instruct the AI to build it*.
+Explains the numbering system (Chapter.Prompt, e.g. 7.3), the fixed structure every prompt follows (Objective, Context, Prompt, Expected Output, Success Criteria, Dependencies), how prompts assume an existing codebase, and how to navigate between this library and the Engineering Playbook (system-design reference) produced earlier — the Playbook defines _what_ to build; this library defines _how to instruct the AI to build it_.
 
 ---
 
@@ -55,6 +56,7 @@ Explains the numbering system (Chapter.Prompt, e.g. 7.3), the fixed structure ev
 Each entry below shows: chapter purpose, and the full ordered prompt list that chapter will contain once written.
 
 ### Chapter 1 — Project Setup
+
 **Purpose:** Establish the repository, tooling, and conventions every later prompt will assume exist.
 1.1 Initialize monorepo/project structure
 1.2 Configure TypeScript, linting, and formatting standards
@@ -66,6 +68,7 @@ Each entry below shows: chapter purpose, and the full ordered prompt list that c
 1.8 Set up error tracking and logging baseline
 
 ### Chapter 2 — Architecture
+
 **Purpose:** Encode the service boundaries and architectural principles from the Engineering Playbook into instructions the AI must follow on every subsequent build.
 2.1 Define service boundary documentation the AI must respect
 2.2 Establish API layer conventions (REST/GraphQL standards, versioning)
@@ -75,6 +78,7 @@ Each entry below shows: chapter purpose, and the full ordered prompt list that c
 2.6 Establish event/webhook handling conventions (idempotency, retries)
 
 ### Chapter 3 — Authentication
+
 **Purpose:** Build the identity foundation every other feature depends on.
 3.1 Implement core user schema and password auth
 3.2 Implement phone-based OTP verification
@@ -84,6 +88,7 @@ Each entry below shows: chapter purpose, and the full ordered prompt list that c
 3.6 Implement rate limiting on auth endpoints
 
 ### Chapter 4 — User Roles & Permissions
+
 **Purpose:** Define who can do what, before any feature that depends on role checks is built.
 4.1 Implement role schema (client, stylist_owner, stylist_staff, admin)
 4.2 Implement role-based route/API guards
@@ -91,6 +96,7 @@ Each entry below shows: chapter purpose, and the full ordered prompt list that c
 4.4 Implement admin impersonation/support access (with audit logging)
 
 ### Chapter 5 — Customer Features
+
 **Purpose:** Everything a client-side user interacts with outside of booking itself.
 5.1 Client signup/lightweight account creation
 5.2 Client profile and booking history view
@@ -98,6 +104,7 @@ Each entry below shows: chapter purpose, and the full ordered prompt list that c
 5.4 Client notification preferences management
 
 ### Chapter 6 — Stylist Features
+
 **Purpose:** Everything a stylist configures about their business.
 6.1 Stylist profile creation and editing
 6.2 Portfolio upload and management (manual)
@@ -107,6 +114,7 @@ Each entry below shows: chapter purpose, and the full ordered prompt list that c
 6.6 Working hours and availability rules
 
 ### Chapter 7 — Booking Engine
+
 **Purpose:** The core transactional system of the platform.
 7.1 Booking state machine implementation
 7.2 Slot hold creation with TTL expiry
@@ -116,6 +124,7 @@ Each entry below shows: chapter purpose, and the full ordered prompt list that c
 7.6 Booking conflict detection and resolution
 
 ### Chapter 8 — Calendar & Availability
+
 **Purpose:** Keep the platform's schedule truthful against both internal and external calendars.
 8.1 Availability computation engine
 8.2 Google Calendar two-way sync
@@ -123,6 +132,7 @@ Each entry below shows: chapter purpose, and the full ordered prompt list that c
 8.4 Calendar reconciliation background job
 
 ### Chapter 9 — Payments & Deposits
+
 **Purpose:** Move money correctly, safely, and idempotently.
 9.1 Stripe Connect onboarding for stylists
 9.2 Deposit PaymentIntent creation and capture
@@ -132,6 +142,7 @@ Each entry below shows: chapter purpose, and the full ordered prompt list that c
 9.6 Chargeback/dispute evidence handling
 
 ### Chapter 10 — Reviews
+
 **Purpose:** Build trust signals into the directory.
 10.1 Review submission flow (post-appointment only)
 10.2 Review moderation and fraud detection
@@ -139,6 +150,7 @@ Each entry below shows: chapter purpose, and the full ordered prompt list that c
 10.4 Review aggregation and rating computation
 
 ### Chapter 11 — Messaging
+
 **Purpose:** The conversational substrate the AI Receptionist and human-to-human chat both use.
 11.1 Conversation and message schema
 11.2 SMS channel integration (Twilio)
@@ -147,6 +159,7 @@ Each entry below shows: chapter purpose, and the full ordered prompt list that c
 11.5 Conversation handoff between AI and human stylist
 
 ### Chapter 12 — Notifications
+
 **Purpose:** Timely, non-duplicative communication across channels.
 12.1 Notification schema and delivery worker
 12.2 Appointment reminder scheduling
@@ -154,6 +167,7 @@ Each entry below shows: chapter purpose, and the full ordered prompt list that c
 12.4 Opt-out/compliance handling (STOP keyword, etc.)
 
 ### Chapter 13 — AI Receptionist
+
 **Purpose:** The platform's primary differentiator — the conversational booking agent.
 13.1 Core conversation state management
 13.2 Structured-output contract and schema validation
@@ -165,6 +179,7 @@ Each entry below shows: chapter purpose, and the full ordered prompt list that c
 13.8 Conversation evaluation/regression test harness
 
 ### Chapter 14 — AI Hairstyle Recognition
+
 **Purpose:** The long-term moat feature — image-based style, price, and duration estimation.
 14.1 Image upload and preprocessing pipeline
 14.2 Style classification against structured taxonomy
@@ -173,6 +188,7 @@ Each entry below shows: chapter purpose, and the full ordered prompt list that c
 14.5 Model evaluation benchmark harness
 
 ### Chapter 15 — AI Business Assistant
+
 **Purpose:** Phase 2 capability — natural-language business insights for stylists.
 15.1 Natural-language query interface for stylist data
 15.2 Read-only scoped data access layer for the assistant
@@ -180,6 +196,7 @@ Each entry below shows: chapter purpose, and the full ordered prompt list that c
 15.4 Revenue and schedule-gap query handling
 
 ### Chapter 16 — Search
+
 **Purpose:** Public discovery layer.
 16.1 Search index schema and sync pipeline
 16.2 Location/style/price filter implementation
@@ -187,6 +204,7 @@ Each entry below shows: chapter purpose, and the full ordered prompt list that c
 16.4 Search abuse/scraping protection
 
 ### Chapter 17 — Dashboards
+
 **Purpose:** The human control surfaces for stylists and clients.
 17.1 Stylist dashboard shell and navigation
 17.2 Booking/calendar dashboard view
@@ -195,12 +213,14 @@ Each entry below shows: chapter purpose, and the full ordered prompt list that c
 17.5 Real-time update layer (WebSocket/SSE)
 
 ### Chapter 18 — Analytics
+
 **Purpose:** Business intelligence for stylists and for the platform itself.
 18.1 Stylist-facing analytics (revenue, repeat rate, popular styles)
 18.2 Platform-level analytics and metrics pipeline
 18.3 Funnel/conversion tracking for booking flow
 
 ### Chapter 19 — Admin Panel
+
 **Purpose:** Internal tooling for platform operations and support.
 19.1 Admin authentication and access control
 19.2 Stylist account management and support tools
@@ -208,6 +228,7 @@ Each entry below shows: chapter purpose, and the full ordered prompt list that c
 19.4 Platform-wide monitoring dashboard
 
 ### Chapter 20 — Security
+
 **Purpose:** Cross-cutting hardening pass applied after core features exist.
 20.1 Security audit prompt for auth flows
 20.2 PII encryption and access-control audit
@@ -215,6 +236,7 @@ Each entry below shows: chapter purpose, and the full ordered prompt list that c
 20.4 Dependency and vulnerability scanning setup
 
 ### Chapter 21 — Performance
+
 **Purpose:** Cross-cutting optimization pass.
 21.1 Database query and index audit
 21.2 API response time optimization
@@ -222,6 +244,7 @@ Each entry below shows: chapter purpose, and the full ordered prompt list that c
 21.4 Caching strategy implementation
 
 ### Chapter 22 — Testing
+
 **Purpose:** Establish and backfill test coverage across the codebase.
 22.1 Unit test coverage baseline and gap analysis
 22.2 Integration test suite for booking/payment flows
@@ -229,6 +252,7 @@ Each entry below shows: chapter purpose, and the full ordered prompt list that c
 22.4 End-to-end test suite (critical user journeys)
 
 ### Chapter 23 — Deployment
+
 **Purpose:** Ship safely and repeatably.
 23.1 CI/CD pipeline finalization
 23.2 Staging environment configuration
@@ -236,6 +260,7 @@ Each entry below shows: chapter purpose, and the full ordered prompt list that c
 23.4 Database migration safety practices
 
 ### Chapter 24 — Mobile Optimisation
+
 **Purpose:** Ensure the responsive web app performs as a primary mobile experience.
 24.1 Responsive layout audit across core flows
 24.2 Touch/interaction optimization
@@ -243,6 +268,7 @@ Each entry below shows: chapter purpose, and the full ordered prompt list that c
 24.4 PWA/installability considerations
 
 ### Chapter 25 — Future Features
+
 **Purpose:** Documented but deliberately deferred capabilities, written so a future team (or future you) can pick them up without re-deriving context.
 25.1 Waitlist functionality
 25.2 Multi-staff salon support expansion
@@ -269,6 +295,7 @@ Each entry below shows: chapter purpose, and the full ordered prompt list that c
 This outline plans for **~115 prompts** across 25 chapters (ranging from 4 prompts in smaller chapters like Reviews to 8 in larger ones like AI Receptionist), satisfying the 100-prompt minimum with room for the back matter to reference all of them meaningfully in the build order and dependency map.
 
 Each chapter, once written, will follow this per-prompt structure for every numbered prompt:
+
 - **Objective** — what this prompt accomplishes
 - **Context** — what must already exist in the codebase for this prompt to make sense
 - **Prompt** — the full copy-pasteable instruction for Claude Code / Cursor

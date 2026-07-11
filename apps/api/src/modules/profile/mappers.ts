@@ -35,6 +35,7 @@ export function toStylistProfile(profile: {
   workingHours: Prisma.JsonValue | null;
   bufferMinutes: number;
   onboardingStatus: OnboardingStatus;
+  directoryVisible: boolean;
   createdAt: Date;
   updatedAt: Date;
 }): StylistProfile {
@@ -50,6 +51,7 @@ export function toStylistProfile(profile: {
     workingHours: profile.workingHours as StylistProfile['workingHours'],
     bufferMinutes: profile.bufferMinutes,
     onboardingStatus: profile.onboardingStatus,
+    directoryVisible: profile.directoryVisible,
     createdAt: toIso(profile.createdAt),
     updatedAt: toIso(profile.updatedAt),
   };

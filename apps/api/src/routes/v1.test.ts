@@ -11,6 +11,20 @@ describe('v1 routes', () => {
     expect(body.data.pong).toBe(true);
     expect(body.data.service).toBe('api');
     expect(body.data.timestamp).toBeDefined();
+    expect(body.data.meta).toEqual({ page: 1, pageSize: 20 });
+
+    await app.close();
+  });
+
+  it('returns VALIDATION_ERROR for invalid pagination on GET /api/v1/ping', async () => {
+    const app = await buildApp();
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/v1/ping?pageSize=500',
+    });
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('VALIDATION_ERROR');
+    expect(response.json().error.details).toBeDefined();
 
     await app.close();
   });

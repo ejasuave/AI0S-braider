@@ -23,7 +23,6 @@ export function requireStylistTenant(request: FastifyRequest, _reply: FastifyRep
 }
 
 export const requireAdmin = requireRoles('admin');
-export const requireStylist = requireRoles('stylist_owner', 'stylist_staff');
 export const requireClient = requireRoles('client');
 export const requireAuthenticated = requireRoles(
   'admin',
@@ -31,3 +30,10 @@ export const requireAuthenticated = requireRoles(
   'stylist_staff',
   'client',
 );
+
+const requireStylistRoles = requireRoles('stylist_owner', 'stylist_staff');
+
+export async function requireStylist(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  await requireStylistRoles(request, reply);
+  requireStylistTenant(request, reply);
+}

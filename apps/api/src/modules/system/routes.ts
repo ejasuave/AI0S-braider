@@ -1,14 +1,21 @@
 import type { FastifyPluginAsync } from 'fastify';
-import type {
-  ExampleJobEnqueueResponse,
-  ExampleJobStatusResponse,
+import {
+  exampleDelayedJobRequestSchema,
+  type ExampleDelayedJobResponse,
+  type ExampleJobEnqueueResponse,
+  type ExampleJobStatusResponse,
 } from '@project-braids/shared-types/api';
 import { ApiError } from '../../lib/errors.js';
 import { sendApiError, sendData } from '../../lib/http.js';
 import { JOB_NAMES, getSystemQueue } from '../../lib/queue.js';
 import { prisma } from '../../lib/db.js';
+import { buildOpsStatus, requireOpsToken } from './ops.js';
 
 export const systemRoutes: FastifyPluginAsync = async (app) => {
+  app.get('/ops-status', { preHandler: [requireOpsToken] }, async (_request, reply) => {
+    sendData(reply, buildOpsStatus());
+  });
+
   app.post('/example-job', async (request, reply) => {
     try {
       const queue = getSystemQueue();
@@ -60,5 +67,35 @@ export const systemRoutes: FastifyPluginAsync = async (app) => {
       result: run?.result ?? undefined,
     };
     sendData(reply, body);
+  });
+
+  app.post('/example-delayed-job', async (request, reply) => {
+    try {
+      const body = exampleDelayedJobRequestSchema.parse(request.body ?? {});
+      const queue = getSystemQueue();
+      const job = await queue.add(
+        JOB_NAMES.EXAMPLE_DELAYED,
+        { message: body.message },
+        { delay: body.delayMs },
+      );
+
+      if (!job.id) {
+        throw ApiError.internal('Failed to enqueue delayed job');
+      }
+
+      const response: ExampleDelayedJobResponse = {
+        jobId: job.id,
+        delayMs: body.delayMs,
+        status: 'queued',
+      };
+      sendData(reply, response, 202);
+    } catch (error) {
+      if (error instanceof ApiError) {
+        sendApiError(reply, error);
+        return;
+      }
+      request.log.error({ err: error }, 'Failed to enqueue delayed example job');
+      sendApiError(reply, ApiError.serviceUnavailable('Job queue unavailable'));
+    }
   });
 };

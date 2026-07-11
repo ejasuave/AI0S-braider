@@ -10,12 +10,12 @@
 
 ## How this document relates to other references
 
-| Document | Role | When to read |
-|----------|------|--------------|
-| **This Product Blueprint** | Single source of truth for product, brand, UX, stack, and behavioural rules | Every session — before any product or implementation decision |
-| [Engineering Playbook](engineering-playbook.md) | Per-system architecture: schemas, flows, edge cases, security, testing | Before building a specific system (Identity, Booking, AI, etc.) |
-| [Prompt Library Outline](../prompt-library/outline.md) + [Back Matter](../prompt-library/back-matter.md) | How to instruct AI to build it: prompts, build order, milestones | When executing a chapter/prompt |
-| [Detailed Pitch](detailed-pitch.md) | GTM narrative and business context | Strategy and positioning only — Blueprint supersedes for build decisions |
+| Document                                                                                                 | Role                                                                        | When to read                                                             |
+| -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| **This Product Blueprint**                                                                               | Single source of truth for product, brand, UX, stack, and behavioural rules | Every session — before any product or implementation decision            |
+| [Engineering Playbook](engineering-playbook.md)                                                          | Per-system architecture: schemas, flows, edge cases, security, testing      | Before building a specific system (Identity, Booking, AI, etc.)          |
+| [Prompt Library Outline](../prompt-library/outline.md) + [Back Matter](../prompt-library/back-matter.md) | How to instruct AI to build it: prompts, build order, milestones            | When executing a chapter/prompt                                          |
+| [Detailed Pitch](detailed-pitch.md)                                                                      | GTM narrative and business context                                          | Strategy and positioning only — Blueprint supersedes for build decisions |
 
 **Conflict resolution:** If documents disagree, flag explicitly. Priority: **founder decision → Product Blueprint → Back Matter → Playbook → Pitch**. Never silently override a settled decision.
 
@@ -29,7 +29,7 @@ An **AI receptionist and operating system** for independent hair braiders and ha
 
 ### Design north star
 
-*"Your business finally has a front desk."* — Structured and trustworthy like a booking platform; warm and culturally fluent like the beauty world; never cold or corporate.
+_"Your business finally has a front desk."_ — Structured and trustworthy like a booking platform; warm and culturally fluent like the beauty world; never cold or corporate.
 
 ### Ten product principles
 
@@ -63,40 +63,40 @@ An **AI receptionist and operating system** for independent hair braiders and ha
 
 ### Positioning
 
-| vs | They feel like | We feel like |
-|----|----------------|--------------|
-| Instagram DMs | Visual, chaotic, no structure | Structured booking with portfolio warmth |
-| WhatsApp | Personal, no guardrails | Conversational warmth + deposits + calendar truth |
-| StyleSeat / Vagaro | Calendar-first, salon-generic | Intelligence-first receptionist for braiders |
+| vs                 | They feel like                | We feel like                                      |
+| ------------------ | ----------------------------- | ------------------------------------------------- |
+| Instagram DMs      | Visual, chaotic, no structure | Structured booking with portfolio warmth          |
+| WhatsApp           | Personal, no guardrails       | Conversational warmth + deposits + calendar truth |
+| StyleSeat / Vagaro | Calendar-first, salon-generic | Intelligence-first receptionist for braiders      |
 
 **One line:** The professionalism of a booking platform, with the warmth of a DM — minus the chaos.
 
 ### Brand personality
 
-| Audience | Primary feeling |
-|----------|----------------|
-| Stylist | "My business runs even when I'm at the chair" |
-| Client | "This is easy and I know what I'm paying" |
-| Both | Trust, warmth, control |
+| Audience | Primary feeling                               |
+| -------- | --------------------------------------------- |
+| Stylist  | "My business runs even when I'm at the chair" |
+| Client   | "This is easy and I know what I'm paying"     |
+| Both     | Trust, warmth, control                        |
 
 ### Voice and tone
 
 - British English
 - Clear, warm, direct — like a brilliant receptionist
 - No corporate jargon; no excessive emoji
-- Example: *"Your booking is confirmed — Friday, 2pm. £30 deposit paid."*
+- Example: _"Your booking is confirmed — Friday, 2pm. £30 deposit paid."_
 
 ### Visual identity (summary)
 
 Full tokens in [design/visual-identity-and-ux.md](../design/visual-identity-and-ux.md).
 
-| Element | Rule |
-|---------|------|
-| Palette | Warm neutrals + cocoa ink + honey-gold primary (`#B8860B`); AI accent purple (`#6B4C9A`) |
-| Typography | Fraunces (headings) + DM Sans (UI) |
-| Components | shadcn/ui themed to design tokens |
-| Stylist override | `--color-stylist-accent` on their client-facing surfaces (V2) |
-| Phase 1 UI | Light mode only; dashboard + onboarding (web surfaces V2) |
+| Element          | Rule                                                                                     |
+| ---------------- | ---------------------------------------------------------------------------------------- |
+| Palette          | Warm neutrals + cocoa ink + honey-gold primary (`#B8860B`); AI accent purple (`#6B4C9A`) |
+| Typography       | Fraunces (headings) + DM Sans (UI)                                                       |
+| Components       | shadcn/ui themed to design tokens                                                        |
+| Stylist override | `--color-stylist-accent` on their client-facing surfaces (V2)                            |
+| Phase 1 UI       | Light mode only; dashboard + onboarding (web surfaces V2)                                |
 
 ---
 
@@ -136,7 +136,7 @@ Sign up → verify phone (SMS OTP) → upload portfolio (manual) → set structu
 
 Texts stylist's number → AI identifies style → looks up price from taxonomy → checks availability → proposes slots → client picks → OTP → deposit link → confirmation SMS.
 
-**Stylist sees:** *"New booking confirmed — Friday 2pm, £30 deposit paid."*
+**Stylist sees:** _"New booking confirmed — Friday 2pm, £30 deposit paid."_
 
 ### Journey C — Stylist handles escalation (MVP)
 
@@ -162,52 +162,52 @@ Authoritative classification from [back-matter.md](../prompt-library/back-matter
 
 ### MVP (~weeks 1–14 → public beta M7)
 
-| Ch | Feature | Key prompts |
-|----|---------|-------------|
-| 1 | Project setup | 1.1–1.8 |
-| 2 | Architecture conventions | 2.1–2.6 |
-| 3 | Authentication | 3.1–3.6 |
-| 4 | Roles (basic) | 4.1–4.2 only |
-| 6 | Stylist profile, manual portfolio, **pricing taxonomy**, policies, hours | 6.1–6.2, 6.4–6.6 |
-| 7 | Booking engine (state machine, holds, concurrency) | 7.1–7.6 |
-| 8 | Availability (core) | 8.1, 8.3 only |
-| 9 | Stripe Connect, deposits, webhooks | 9.1–9.5 |
-| 11 | SMS messaging | 11.1, 11.2, 11.5 |
-| 12 | Notifications, reminders, STOP compliance | 12.1–12.4 |
-| 13 | **AI Receptionist** | 13.1–13.8 (never skip 13.6, 13.7) |
-| 17 | Stylist dashboard (minimal) | 17.1–17.3 |
-| 23 | Deployment | 23.1–23.4 |
-| 24 | Mobile baseline | 24.1 |
+| Ch  | Feature                                                                  | Key prompts                       |
+| --- | ------------------------------------------------------------------------ | --------------------------------- |
+| 1   | Project setup                                                            | 1.1–1.8                           |
+| 2   | Architecture conventions                                                 | 2.1–2.6                           |
+| 3   | Authentication                                                           | 3.1–3.6                           |
+| 4   | Roles (basic)                                                            | 4.1–4.2 only                      |
+| 6   | Stylist profile, manual portfolio, **pricing taxonomy**, policies, hours | 6.1–6.2, 6.4–6.6                  |
+| 7   | Booking engine (state machine, holds, concurrency)                       | 7.1–7.6                           |
+| 8   | Availability (core)                                                      | 8.1, 8.3 only                     |
+| 9   | Stripe Connect, deposits, webhooks                                       | 9.1–9.5                           |
+| 11  | SMS messaging                                                            | 11.1, 11.2, 11.5                  |
+| 12  | Notifications, reminders, STOP compliance                                | 12.1–12.4                         |
+| 13  | **AI Receptionist**                                                      | 13.1–13.8 (never skip 13.6, 13.7) |
+| 17  | Stylist dashboard (minimal)                                              | 17.1–17.3                         |
+| 23  | Deployment                                                               | 23.1–23.4                         |
+| 24  | Mobile baseline                                                          | 24.1                              |
 
 **MVP client channel:** SMS only.  
 **MVP monetization:** All stylists free during pilot; paid tiers at beta transition per Back Matter §10.
 
 ### V2 (months 5–8, post-pilot feedback)
 
-| Ch | Feature |
-|----|---------|
-| 4.3–4.4 | Multi-staff, admin impersonation |
-| 5 | Customer app features |
-| 6.3 | Instagram import |
-| 8.2, 8.4 | Google Calendar two-way sync |
-| 9.6 | Chargeback/dispute automation |
-| 10 | Reviews |
-| 11.3–11.4 | WhatsApp, web chat widget |
-| — | Shareable booking form page |
-| 15 | AI business assistant |
-| 16 | Public search/directory |
-| 17.4–17.5 | Client dashboard, real-time updates |
-| 18 | Analytics (8 metrics + funnel) |
-| 19 | Admin panel |
-| 20–22 | Security audit, performance, test consolidation |
-| 24.2–24.4 | Mobile polish, PWA |
+| Ch        | Feature                                         |
+| --------- | ----------------------------------------------- |
+| 4.3–4.4   | Multi-staff, admin impersonation                |
+| 5         | Customer app features                           |
+| 6.3       | Instagram import                                |
+| 8.2, 8.4  | Google Calendar two-way sync                    |
+| 9.6       | Chargeback/dispute automation                   |
+| 10        | Reviews                                         |
+| 11.3–11.4 | WhatsApp, web chat widget                       |
+| —         | Shareable booking form page                     |
+| 15        | AI business assistant                           |
+| 16        | Public search/directory                         |
+| 17.4–17.5 | Client dashboard, real-time updates             |
+| 18        | Analytics (8 metrics + funnel)                  |
+| 19        | Admin panel                                     |
+| 20–22     | Security audit, performance, test consolidation |
+| 24.2–24.4 | Mobile polish, PWA                              |
 
 ### V3 (opportunistic, trigger-conditioned per Ch.25)
 
-| Ch | Feature |
-|----|---------|
-| 14 | AI hairstyle recognition |
-| 25 | Waitlist, take-rate, salon expansion, affiliate marketplace, training — each gated by its own trigger |
+| Ch  | Feature                                                                                               |
+| --- | ----------------------------------------------------------------------------------------------------- |
+| 14  | AI hairstyle recognition                                                                              |
+| 25  | Waitlist, take-rate, salon expansion, affiliate marketplace, training — each gated by its own trigger |
 
 ### Critical path (cannot shorten)
 
@@ -217,15 +217,15 @@ Ch1 → Ch2 → Ch3 → Ch4(4.1-4.2) → Ch6(6.4) → Ch7 → Ch9(9.1-9.2) → C
 
 ### Milestones
 
-| Milestone | Exit criteria |
-|-----------|---------------|
-| M1 Foundation | Ch 1–2; CI green; `ARCHITECTURE.md` accurate |
-| M3 Auth | Ch 3–4; role scoping tested |
-| M4 Booking | Ch 6–8 MVP; concurrency hold test passes |
-| M5 Payments | Ch 9; webhook audit passes |
-| M6 AI | Ch 11–13; golden + adversarial suites pass |
-| M7 Public beta | 10–20 stylists; 1 week no P0/P1 |
-| M8 Public launch | Production readiness checklist complete |
+| Milestone        | Exit criteria                                |
+| ---------------- | -------------------------------------------- |
+| M1 Foundation    | Ch 1–2; CI green; `ARCHITECTURE.md` accurate |
+| M3 Auth          | Ch 3–4; role scoping tested                  |
+| M4 Booking       | Ch 6–8 MVP; concurrency hold test passes     |
+| M5 Payments      | Ch 9; webhook audit passes                   |
+| M6 AI            | Ch 11–13; golden + adversarial suites pass   |
+| M7 Public beta   | 10–20 stylists; 1 week no P0/P1              |
+| M8 Public launch | Production readiness checklist complete      |
 
 ---
 
@@ -235,15 +235,15 @@ Ch1 → Ch2 → Ch3 → Ch4(4.1-4.2) → Ch6(6.4) → Ch7 → Ch9(9.1-9.2) → C
 
 **The product launches as a responsive web application** — not a native app, not desktop-only. Independent stylists overwhelmingly manage their business from phones; every page and component must be designed and built **mobile-first** (small screen → tablet → desktop), not desktop with a responsive afterthought.
 
-| Rule | Requirement |
-|------|-------------|
-| Design order | Mobile layout first in every feature; desktop is enhancement |
-| Touch | Min 44×44px targets; no hover-only interactions on touch surfaces |
-| Navigation | Bottom nav on mobile dashboard; thumb-zone primary CTAs |
-| Forms | Single column on mobile; fixed bottom CTA where appropriate |
-| Calendar | Week view default on mobile; tappable slot pills |
-| Performance | LCP < 2.5s on 4G for client-facing pages (Ch.24.3 budget) |
-| Ch.24 MVP | 24.1 baseline layout correctness ships with beta |
+| Rule         | Requirement                                                       |
+| ------------ | ----------------------------------------------------------------- |
+| Design order | Mobile layout first in every feature; desktop is enhancement      |
+| Touch        | Min 44×44px targets; no hover-only interactions on touch surfaces |
+| Navigation   | Bottom nav on mobile dashboard; thumb-zone primary CTAs           |
+| Forms        | Single column on mobile; fixed bottom CTA where appropriate       |
+| Calendar     | Week view default on mobile; tappable slot pills                  |
+| Performance  | LCP < 2.5s on 4G for client-facing pages (Ch.24.3 budget)         |
+| Ch.24 MVP    | 24.1 baseline layout correctness ships with beta                  |
 
 **V2:** PWA/installability (Ch.24.4), deeper mobile polish (24.2–24.3).  
 **Future:** Native iOS/Android apps consume the same API — see §7 Client architecture.
@@ -272,12 +272,12 @@ Implement via Tailwind + shadcn/ui theme in `packages/config` or `apps/web`. Ful
 
 ### UX rules by surface
 
-| Surface | Rule |
-|---------|------|
-| Onboarding | Incremental save; checklist progress; sensible defaults |
-| Dashboard | Escalations top priority; glanceable home |
-| SMS booking | Under 3 minutes to confirmed booking |
-| Payments | Policy visible before deposit; Stripe-hosted only |
+| Surface     | Rule                                                    |
+| ----------- | ------------------------------------------------------- |
+| Onboarding  | Incremental save; checklist progress; sensible defaults |
+| Dashboard   | Escalations top priority; glanceable home               |
+| SMS booking | Under 3 minutes to confirmed booking                    |
+| Payments    | Policy visible before deposit; Stripe-hosted only       |
 
 ---
 
@@ -285,19 +285,19 @@ Implement via Tailwind + shadcn/ui theme in `packages/config` or `apps/web`. Ful
 
 ### Stack (settled — do not reinvent)
 
-| Layer | Technology |
-|-------|------------|
-| Frontend | Next.js, TypeScript, Tailwind CSS, shadcn/ui, TanStack Query |
-| Backend | Node.js, Fastify, TypeScript |
-| Database | PostgreSQL via Supabase (hosting only) |
-| ORM | Prisma (singleton client; pooler in production) |
-| Object storage | Supabase Storage Phase 1 via `StorageProvider` abstraction |
-| AI | Anthropic Claude API — stateless orchestration only |
-| Payments | Stripe Connect |
-| Calendar | Google Calendar two-way sync (V2); Outlook out of scope |
-| Messaging | Twilio SMS (MVP) → WhatsApp (V2 fast-follow); email (Resend/Postmark) for account mail |
-| Jobs | Redis (Upstash or platform Redis) + background workers |
-| Hosting | Vercel (web); Railway / Render / Fly.io (api + workers) |
+| Layer          | Technology                                                                             |
+| -------------- | -------------------------------------------------------------------------------------- |
+| Frontend       | Next.js, TypeScript, Tailwind CSS, shadcn/ui, TanStack Query                           |
+| Backend        | Node.js, Fastify, TypeScript                                                           |
+| Database       | PostgreSQL via Supabase (hosting only)                                                 |
+| ORM            | Prisma (singleton client; pooler in production)                                        |
+| Object storage | Supabase Storage Phase 1 via `StorageProvider` abstraction                             |
+| AI             | Anthropic Claude API — stateless orchestration only                                    |
+| Payments       | Stripe Connect                                                                         |
+| Calendar       | Google Calendar two-way sync (V2); Outlook out of scope                                |
+| Messaging      | Twilio SMS (MVP) → WhatsApp (V2 fast-follow); email (Resend/Postmark) for account mail |
+| Jobs           | Redis (Upstash or platform Redis) + background workers                                 |
+| Hosting        | Vercel (web); Railway / Render / Fly.io (api + workers)                                |
 
 ### Excluded permanently (unless founder explicitly revisits)
 
@@ -308,15 +308,15 @@ Implement via Tailwind + shadcn/ui theme in `packages/config` or `apps/web`. Ful
 
 ### Service boundaries (from Playbook §1.4)
 
-| Module | Owns | Does not own |
-|--------|------|--------------|
-| identity | Auth, sessions, roles | Profile content |
-| profile | Bio, portfolio, pricing, policies | Availability logic |
-| booking | Slots, holds, confirmations, cancellations | Payment capture |
-| receptionist | Conversation state, intent, price lookup | Calendar source of truth |
-| payments | Deposits, refunds, payouts | Pricing decisions |
-| notifications | Delivery of reminders | Content generation (delegates to receptionist) |
-| messaging | Channel ingress/egress | Business logic |
+| Module        | Owns                                       | Does not own                                   |
+| ------------- | ------------------------------------------ | ---------------------------------------------- |
+| identity      | Auth, sessions, roles                      | Profile content                                |
+| profile       | Bio, portfolio, pricing, policies          | Availability logic                             |
+| booking       | Slots, holds, confirmations, cancellations | Payment capture                                |
+| receptionist  | Conversation state, intent, price lookup   | Calendar source of truth                       |
+| payments      | Deposits, refunds, payouts                 | Pricing decisions                              |
+| notifications | Delivery of reminders                      | Content generation (delegates to receptionist) |
+| messaging     | Channel ingress/egress                     | Business logic                                 |
 
 ### Cross-module rules
 
@@ -342,17 +342,17 @@ This is **reinforcement** of Ch.2 Architecture + Playbook patterns — not a new
           No business logic in components
 ```
 
-| Principle | Implementation (Ch.2) | Why native-ready |
-|-----------|----------------------|------------------|
-| **API is the product surface** | All mutations/reads via `apps/api` REST endpoints | Native app calls same routes |
-| **Shared contract** | `packages/shared-types` — Zod schemas + TS types for request/response | Generate/consume same shapes on mobile |
-| **Typed API client** | `apps/web/src/shared/lib/api-client.ts` — sole HTTP layer | Mobile reimplements thin client against same OpenAPI/types |
-| **No logic in components** | UI in `features/`; data via TanStack Query hooks calling API client | Business rules stay in API modules |
-| **No Next-only business paths** | No Server Actions as canonical write path; API endpoints are canonical | Native cannot run Server Actions |
-| **Thin web BFF (optional)** | Next.js may set HttpOnly refresh cookies, proxy auth — not business rules | Web-specific transport only |
-| **Auth transport** | Web: HttpOnly cookie + refresh rotation (Playbook Ch.2); API also accepts `Authorization: Bearer` for future native secure storage | Playbook already distinguishes web vs mobile session storage |
-| **Real-time** | SSE/WebSocket endpoints on API (Ch.17.5 V2) | Native subscribes to same events |
-| **Versioning** | `/api/v1/` prefix (Ch.2.2) | Mobile apps pin to stable version |
+| Principle                       | Implementation (Ch.2)                                                                                                              | Why native-ready                                             |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| **API is the product surface**  | All mutations/reads via `apps/api` REST endpoints                                                                                  | Native app calls same routes                                 |
+| **Shared contract**             | `packages/shared-types` — Zod schemas + TS types for request/response                                                              | Generate/consume same shapes on mobile                       |
+| **Typed API client**            | `apps/web/src/shared/lib/api-client.ts` — sole HTTP layer                                                                          | Mobile reimplements thin client against same OpenAPI/types   |
+| **No logic in components**      | UI in `features/`; data via TanStack Query hooks calling API client                                                                | Business rules stay in API modules                           |
+| **No Next-only business paths** | No Server Actions as canonical write path; API endpoints are canonical                                                             | Native cannot run Server Actions                             |
+| **Thin web BFF (optional)**     | Next.js may set HttpOnly refresh cookies, proxy auth — not business rules                                                          | Web-specific transport only                                  |
+| **Auth transport**              | Web: HttpOnly cookie + refresh rotation (Playbook Ch.2); API also accepts `Authorization: Bearer` for future native secure storage | Playbook already distinguishes web vs mobile session storage |
+| **Real-time**                   | SSE/WebSocket endpoints on API (Ch.17.5 V2)                                                                                        | Native subscribes to same events                             |
+| **Versioning**                  | `/api/v1/` prefix (Ch.2.2)                                                                                                         | Mobile apps pin to stable version                            |
 
 **Explicit anti-patterns (forbid in code review):**
 
@@ -409,13 +409,13 @@ prisma/
 
 ### Data retention
 
-| Data | Retention |
-|------|-----------|
-| Conversations | 12 months |
-| Booking history | Indefinite |
-| Portfolio images | Until stylist deletes |
-| Inspiration photos | 30 days after completed appointment |
-| Analytics aggregates | Indefinite |
+| Data                 | Retention                           |
+| -------------------- | ----------------------------------- |
+| Conversations        | 12 months                           |
+| Booking history      | Indefinite                          |
+| Portfolio images     | Until stylist deletes               |
+| Inspiration photos   | 30 days after completed appointment |
+| Analytics aggregates | Indefinite                          |
 
 ### PII
 
@@ -463,13 +463,13 @@ Every model turn returns validated JSON:
 
 ### Confidence and escalation (Ch.13.6)
 
-| Rule | Value |
-|------|-------|
-| Global confidence threshold (Phase 1) | **0.8** |
-| Below threshold | Escalate to stylist — do not guess |
-| Per-stylist overrides | V2 |
-| Always escalate | `dispute`, `complaint`, prompt injection attempts, out-of-scope chit-chat |
-| Reuse | Ch.14 style recognition reuses `shouldEscalate` from 13.6 |
+| Rule                                  | Value                                                                     |
+| ------------------------------------- | ------------------------------------------------------------------------- |
+| Global confidence threshold (Phase 1) | **0.8**                                                                   |
+| Below threshold                       | Escalate to stylist — do not guess                                        |
+| Per-stylist overrides                 | V2                                                                        |
+| Always escalate                       | `dispute`, `complaint`, prompt injection attempts, out-of-scope chit-chat |
+| Reuse                                 | Ch.14 style recognition reuses `shouldEscalate` from 13.6                 |
 
 ### Prompt injection resistance (Ch.13.7)
 
@@ -545,13 +545,13 @@ Every model turn returns validated JSON:
 
 ## 11. Revision log
 
-| Date | Change |
-|------|--------|
+| Date       | Change                                                                                                          |
+| ---------- | --------------------------------------------------------------------------------------------------------------- |
 | 2026-07-10 | Initial blueprint consolidated from stress-test, design direction, stack validation, Back Matter reconciliation |
-| 2026-07-10 | MVP scope: Back Matter wins — SMS-only client channel; web surfaces + analytics V2 |
-| 2026-07-10 | Supabase: Postgres + Storage (abstracted); Auth excluded |
-| 2026-07-10 | Chapter execution protocol and implementation priorities added to governance |
+| 2026-07-10 | MVP scope: Back Matter wins — SMS-only client channel; web surfaces + analytics V2                              |
+| 2026-07-10 | Supabase: Postgres + Storage (abstracted); Auth excluded                                                        |
+| 2026-07-10 | Chapter execution protocol and implementation priorities added to governance                                    |
 
 ---
 
-*No application code until Prompt Library Ch.1 is explicitly approved.*
+_No application code until Prompt Library Ch.1 is explicitly approved._

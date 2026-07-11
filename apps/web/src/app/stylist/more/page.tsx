@@ -1,0 +1,52 @@
+'use client';
+
+import Link from 'next/link';
+import { Scissors, User } from 'lucide-react';
+import { SignOutButton } from '@/features/auth/sign-out-button';
+import { Card } from '@/shared/ui/card';
+import { PageHeader, PageShell } from '@/shared/ui/page-shell';
+import { TOUCH_LINK_CLASS } from '@/shared/lib/touch-target';
+
+const moreLinks = [
+  {
+    href: '/stylist/services',
+    label: 'Services',
+    description: 'Manage styles and booking links',
+    icon: Scissors,
+  },
+  {
+    href: '/stylist/profile',
+    label: 'Profile',
+    description: 'Business details and directory opt-in',
+    icon: User,
+  },
+] as const;
+
+export default function StylistMorePage() {
+  return (
+    <PageShell>
+      <PageHeader title="More" subtitle="Services, profile, and account settings." />
+
+      <div className="mt-6 space-y-3">
+        {moreLinks.map(({ href, label, description, icon: Icon }) => (
+          <Link key={href} href={href} className="block active:opacity-90">
+            <Card className="flex min-h-14 items-center gap-4">
+              <Icon className="h-5 w-5 shrink-0 text-primary" aria-hidden />
+              <div className="min-w-0 flex-1">
+                <p className="font-medium text-ink">{label}</p>
+                <p className="text-sm text-ink-muted">{description}</p>
+              </div>
+            </Card>
+          </Link>
+        ))}
+
+        <Card className="space-y-3 pt-2">
+          <SignOutButton />
+          <Link href="/stylist" className={TOUCH_LINK_CLASS}>
+            ← Back to home
+          </Link>
+        </Card>
+      </div>
+    </PageShell>
+  );
+}

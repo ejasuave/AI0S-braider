@@ -9,10 +9,7 @@ import { profileService } from '../profile/service.js';
  * - stylist_staff: from `stylist_memberships`
  * - client / admin: null (platform-wide scope)
  */
-export async function resolveStylistId(
-  userId: string,
-  role: UserRole,
-): Promise<string | null> {
+export async function resolveStylistId(userId: string, role: UserRole): Promise<string | null> {
   if (role === 'stylist_owner') {
     const profile = await profileService.getOrCreateProfile(userId);
     return profile.id;

@@ -1,0 +1,41 @@
+{
+  "id": "booking-three-turn",
+  "type": "functional",
+  "description": "Straightforward booking resolved over multiple turns",
+  "turns": [
+    {
+      "mockOutput": {
+        "intent": "new_booking",
+        "extracted_slots": { "styleName": "Knotless braids" },
+        "confidence": 0.9,
+        "next_action": "ask_clarification",
+        "client_message": "Lovely — what size are you thinking?"
+      },
+      "expectedMergedSlots": { "styleName": "Knotless braids" }
+    },
+    {
+      "mockOutput": {
+        "intent": "new_booking",
+        "extracted_slots": { "sizeTier": "Medium" },
+        "confidence": 0.92,
+        "next_action": "confirm_style_price",
+        "client_message": "Medium knotless — let me confirm pricing."
+      },
+      "expectedMergedSlots": { "styleName": "Knotless braids", "sizeTier": "Medium" }
+    },
+    {
+      "mockOutput": {
+        "intent": "new_booking",
+        "extracted_slots": { "preferredDate": "2026-07-18" },
+        "confidence": 0.91,
+        "next_action": "propose_slots",
+        "client_message": "Checking times for Friday 18 July."
+      },
+      "expectedMergedSlots": {
+        "styleName": "Knotless braids",
+        "sizeTier": "Medium",
+        "preferredDate": "2026-07-18"
+      }
+    }
+  ]
+}

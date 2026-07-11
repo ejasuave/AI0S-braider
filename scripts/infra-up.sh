@@ -4,9 +4,14 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+COMPOSE_FILE="docker-compose.yml"
+if [ ! -f "$COMPOSE_FILE" ]; then
+  COMPOSE_FILE="infrastructure/docker-compose.yml"
+fi
+
 if docker info >/dev/null 2>&1; then
   echo "Starting Docker Compose (Postgres + Redis)..."
-  docker compose -f infrastructure/docker-compose.yml up -d
+  docker compose -f "$COMPOSE_FILE" up -d
   echo ""
   echo "Infrastructure ready."
   echo "  DATABASE_URL=postgresql://braids:braids@localhost:5432/braids_dev"
@@ -27,7 +32,7 @@ fi
 
 echo ""
 echo "Set DATABASE_URL in .env to:"
-echo "  postgresql://postgres:postgres@localhost:51214/braids_dev?sslmode=disable"
+echo "  postgresql://postgres:postgres@localhost:51214/braids_dev?sslmode=disable&pgbouncer=true"
 echo ""
 echo "Then run:"
 echo "  pnpm db:migrate:deploy"

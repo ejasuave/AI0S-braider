@@ -1,9 +1,11 @@
 # Back Matter
+
 ## The Complete Operating Manual — Build Order, Roadmap, Metrics, and Founder Guidance
 
 This section extends beyond a technical appendix. It is written to function as the closing chapters of a professional engineering and startup operations manual — the reference a founder returns to not just when deciding which prompt to run next, but when planning a quarter, setting a KPI target, or deciding what to say no to. It supersedes the earlier draft back matter and should be treated as the definitive version.
 
 **Contents**
+
 1. Complete Build Order
 2. MVP, Version 2, and Version 3 Roadmap
 3. Prompt Dependency Map
@@ -23,18 +25,18 @@ This section extends beyond a technical appendix. It is written to function as t
 
 ### The sequence
 
-| Stage | Chapters | Why it sits here |
-|---|---|---|
-| 1. Foundation | 1, 2 | Every later prompt assumes these conventions exist. Building anything before this means re-deriving folder structure, API shape, and error handling ad hoc, per-chapter — the exact inconsistency this library exists to prevent. |
-| 2. Identity | 3, 4 | Almost everything from Chapter 5 onward is guarded by role/permission checks. Building features before identity exists means retrofitting auth into code that assumed an open system. |
-| 3. Domain data | 6 (Chapter 5 is optional at this stage — see Section 2) | Chapter 6's structured pricing taxonomy is a hard prerequisite for the AI Receptionist (Chapter 13) to quote prices deterministically rather than hallucinating them. This must exist before Chapter 13, not be retrofitted after. |
-| 4. Transactional core | 7, 8, 9 | The booking state machine, availability engine, and payments must exist together — Chapter 9's refund logic depends on Chapter 7's cancellation contracts; Chapter 8's availability depends on Chapter 7's conflict detection. |
-| 5. Communication substrate | 11, 12 | Chapter 13 cannot be built without a messaging channel and escalation mechanism to send through and hand off to. |
-| 6. The core differentiator | 13 (then 14, 15) | This is the product. Chapters 14 and 15 are additive extensions of 13's structured-output pattern, not independent systems — building them before 13 exists is not possible. |
-| 7. Discovery and control surfaces | 16, 17 (10 fits here too) | Public discovery and dashboards are built once there's something real to discover and manage. |
-| 8. Insight and operations | 18, 19 | Analytics and admin tooling are most useful once there's real usage data and real support cases to act on. |
-| 9. Cross-cutting hardening | 20, 21, 22 | Deliberately last among the "before launch" chapters — auditing a system for security, performance, and test-coverage gaps is more meaningful once the full system exists to audit, not earlier. |
-| 10. Ship | 23, 24 | Deployment and mobile polish close out the build. |
+| Stage                             | Chapters                                                | Why it sits here                                                                                                                                                                                                                   |
+| --------------------------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Foundation                     | 1, 2                                                    | Every later prompt assumes these conventions exist. Building anything before this means re-deriving folder structure, API shape, and error handling ad hoc, per-chapter — the exact inconsistency this library exists to prevent.  |
+| 2. Identity                       | 3, 4                                                    | Almost everything from Chapter 5 onward is guarded by role/permission checks. Building features before identity exists means retrofitting auth into code that assumed an open system.                                              |
+| 3. Domain data                    | 6 (Chapter 5 is optional at this stage — see Section 2) | Chapter 6's structured pricing taxonomy is a hard prerequisite for the AI Receptionist (Chapter 13) to quote prices deterministically rather than hallucinating them. This must exist before Chapter 13, not be retrofitted after. |
+| 4. Transactional core             | 7, 8, 9                                                 | The booking state machine, availability engine, and payments must exist together — Chapter 9's refund logic depends on Chapter 7's cancellation contracts; Chapter 8's availability depends on Chapter 7's conflict detection.     |
+| 5. Communication substrate        | 11, 12                                                  | Chapter 13 cannot be built without a messaging channel and escalation mechanism to send through and hand off to.                                                                                                                   |
+| 6. The core differentiator        | 13 (then 14, 15)                                        | This is the product. Chapters 14 and 15 are additive extensions of 13's structured-output pattern, not independent systems — building them before 13 exists is not possible.                                                       |
+| 7. Discovery and control surfaces | 16, 17 (10 fits here too)                               | Public discovery and dashboards are built once there's something real to discover and manage.                                                                                                                                      |
+| 8. Insight and operations         | 18, 19                                                  | Analytics and admin tooling are most useful once there's real usage data and real support cases to act on.                                                                                                                         |
+| 9. Cross-cutting hardening        | 20, 21, 22                                              | Deliberately last among the "before launch" chapters — auditing a system for security, performance, and test-coverage gaps is more meaningful once the full system exists to audit, not earlier.                                   |
+| 10. Ship                          | 23, 24                                                  | Deployment and mobile polish close out the build.                                                                                                                                                                                  |
 
 Chapter 25 is intentionally excluded — it is preserved context for deferred decisions, not a build target.
 
@@ -57,33 +59,33 @@ The ordering follows one governing rule: **a chapter is sequenced immediately af
 
 This roadmap answers "when" — Section 4 answers a related but distinct question, "how essential." A chapter can be Version 2 in timing while still being Critical in the Section 4 sense (i.e., not optional forever, just not needed for the very first cohort).
 
-| Chapter | Stage | Recommended timeline | Reasoning |
-|---|---|---|---|
-| 1. Project Setup | MVP | Week 1 | Nothing else can start without it |
-| 2. Architecture | MVP | Week 1-2 | Same |
-| 3. Authentication | MVP | Week 2-3 | Every account-bearing feature depends on it |
-| 4. User Roles (4.1, 4.2 only) | MVP | Week 3 | Basic guards needed immediately; multi-staff (4.3) and impersonation (4.4) → V2 |
-| 5. Customer Features | V2 | Month 5-6 | Core loop is conversational, not app-based |
-| 6. Stylist Features (6.1, 6.2, 6.4-6.6) | MVP | Week 4-5 | Pricing taxonomy is a hard AI Receptionist dependency; Instagram import (6.3) → V2 |
-| 7. Booking Engine | MVP | Week 5-6 | Transactional core |
-| 8. Calendar & Availability (8.1, 8.3 only) | MVP | Week 6-7 | Core availability needed; Google Calendar sync (8.2, 8.4) → V2 once a stylist is trusting the platform as sole calendar |
-| 9. Payments (9.1-9.5) | MVP | Week 7-8 | Deposit enforcement is the core value prop; dispute automation (9.6) → V2 |
-| 10. Reviews | V2 | Month 6-7 | More valuable once Chapter 16 has public traffic |
-| 11. Messaging (11.1, 11.2, 11.5 only) | MVP | Week 8-9 | SMS is the pitch's explicit first channel; WhatsApp/widget → V2 |
-| 12. Notifications | MVP | Week 9 | Directly targets the no-show problem |
-| 13. AI Receptionist | MVP | Week 9-13 | The product itself; budget the most time here of any chapter |
-| 14. AI Hairstyle Recognition | V3 | Month 9+ | Explicit long-term moat, not a launch requirement |
-| 15. AI Business Assistant | V2 | Month 6-7 | Explicit "Phase 2" in the original pitch |
-| 16. Search | V2 | Month 6-8 | Explicit "tool first, marketplace second" sequencing |
-| 17. Dashboards (17.1-17.3 only) | MVP | Week 13-14 | Stylist needs to see bookings and respond to escalations; client dashboard/real-time (17.4, 17.5) → V2 |
-| 18. Analytics | V2 | Month 7-8 | Manual tracking suffices for a pilot cohort |
-| 19. Admin Panel | V2 | Month 7-8 | Depends on chapters (9.6, 10, 18) that are themselves V2 |
-| 20. Security (audit pass) | V2 | Month 5 (before public launch) | Post-MVP audit, but must precede any public/scaled launch |
-| 21. Performance | V2 | Month 5-6 | Optimize against real usage, not guesses |
-| 22. Testing (consolidation) | V2 | Month 5 | Per-prompt tests are already MVP; this is the gap-closing pass |
-| 23. Deployment | MVP | Week 13-14 | Required to launch to real stylists at all |
-| 24. Mobile Optimisation (24.1 only) | MVP | Week 14 | Baseline layout correctness; deeper polish → V2 |
-| 25. Future Features | V3 / opportunistic | Triggered by specific conditions, not a date | See Chapter 25 |
+| Chapter                                    | Stage              | Recommended timeline                         | Reasoning                                                                                                               |
+| ------------------------------------------ | ------------------ | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| 1. Project Setup                           | MVP                | Week 1                                       | Nothing else can start without it                                                                                       |
+| 2. Architecture                            | MVP                | Week 1-2                                     | Same                                                                                                                    |
+| 3. Authentication                          | MVP                | Week 2-3                                     | Every account-bearing feature depends on it                                                                             |
+| 4. User Roles (4.1, 4.2 only)              | MVP                | Week 3                                       | Basic guards needed immediately; multi-staff (4.3) and impersonation (4.4) → V2                                         |
+| 5. Customer Features                       | V2                 | Month 5-6                                    | Core loop is conversational, not app-based                                                                              |
+| 6. Stylist Features (6.1, 6.2, 6.4-6.6)    | MVP                | Week 4-5                                     | Pricing taxonomy is a hard AI Receptionist dependency; Instagram import (6.3) → V2                                      |
+| 7. Booking Engine                          | MVP                | Week 5-6                                     | Transactional core                                                                                                      |
+| 8. Calendar & Availability (8.1, 8.3 only) | MVP                | Week 6-7                                     | Core availability needed; Google Calendar sync (8.2, 8.4) → V2 once a stylist is trusting the platform as sole calendar |
+| 9. Payments (9.1-9.5)                      | MVP                | Week 7-8                                     | Deposit enforcement is the core value prop; dispute automation (9.6) → V2                                               |
+| 10. Reviews                                | V2                 | Month 6-7                                    | More valuable once Chapter 16 has public traffic                                                                        |
+| 11. Messaging (11.1, 11.2, 11.5 only)      | MVP                | Week 8-9                                     | SMS is the pitch's explicit first channel; WhatsApp/widget → V2                                                         |
+| 12. Notifications                          | MVP                | Week 9                                       | Directly targets the no-show problem                                                                                    |
+| 13. AI Receptionist                        | MVP                | Week 9-13                                    | The product itself; budget the most time here of any chapter                                                            |
+| 14. AI Hairstyle Recognition               | V3                 | Month 9+                                     | Explicit long-term moat, not a launch requirement                                                                       |
+| 15. AI Business Assistant                  | V2                 | Month 6-7                                    | Explicit "Phase 2" in the original pitch                                                                                |
+| 16. Search                                 | V2                 | Month 6-8                                    | Explicit "tool first, marketplace second" sequencing                                                                    |
+| 17. Dashboards (17.1-17.3 only)            | MVP                | Week 13-14                                   | Stylist needs to see bookings and respond to escalations; client dashboard/real-time (17.4, 17.5) → V2                  |
+| 18. Analytics                              | V2                 | Month 7-8                                    | Manual tracking suffices for a pilot cohort                                                                             |
+| 19. Admin Panel                            | V2                 | Month 7-8                                    | Depends on chapters (9.6, 10, 18) that are themselves V2                                                                |
+| 20. Security (audit pass)                  | V2                 | Month 5 (before public launch)               | Post-MVP audit, but must precede any public/scaled launch                                                               |
+| 21. Performance                            | V2                 | Month 5-6                                    | Optimize against real usage, not guesses                                                                                |
+| 22. Testing (consolidation)                | V2                 | Month 5                                      | Per-prompt tests are already MVP; this is the gap-closing pass                                                          |
+| 23. Deployment                             | MVP                | Week 13-14                                   | Required to launch to real stylists at all                                                                              |
+| 24. Mobile Optimisation (24.1 only)        | MVP                | Week 14                                      | Baseline layout correctness; deeper polish → V2                                                                         |
+| 25. Future Features                        | V3 / opportunistic | Triggered by specific conditions, not a date | See Chapter 25                                                                                                          |
 
 **Rough timeline summary for a solo founder using AI-assisted development:** MVP in ~3-3.5 months (weeks 1-14), private beta with a pilot cohort of 10-20 stylists starting month 4, V2 features layered in over months 5-8 informed by real beta feedback, public launch around month 6-8 once Chapter 20's security audit and Chapter 22's hardening pass are complete, V3 (style recognition, take-rate model, salon expansion) pursued opportunistically once specific trigger conditions in Chapter 25 are met — not on a fixed calendar date.
 
@@ -132,12 +134,12 @@ Concentrate the most careful human review here, regardless of when they're built
 
 This is a different cut than Section 2. Section 2 asks "when should this be built?" This section asks **"if resources were permanently constrained, would this product still have its core identity without this?"** A chapter can be Version 2 in timing while still Critical here — it just means "not needed on day one, but genuinely load-bearing once built."
 
-| Tier | Definition | Chapters/prompts |
-|---|---|---|
-| **Critical** | The product has no viable identity without this — skipping it means you no longer have "an AI receptionist for hair professionals," you have something else | Ch1, Ch2, Ch3, Ch4 (4.1-4.2), Ch6 (6.4 pricing especially), Ch7, Ch9 (9.1-9.4), Ch11 (11.1, 11.2, 11.5), Ch12, Ch13, Ch23 |
-| **Recommended** | Strongly strengthens trust, retention, or revenue; the core loop functions without it, but the business is meaningfully weaker | Ch4 (4.3-4.4), Ch6 (6.1-6.2, 6.5-6.6), Ch8, Ch9 (9.5-9.6), Ch10, Ch16, Ch17, Ch20, Ch21, Ch22, Ch24 (24.1) |
-| **Optional** | Incremental polish with low cost of indefinite deferral | Ch5, Ch6.3 (Instagram import), Ch11 (11.3-11.4), Ch15, Ch18, Ch19, Ch24 (24.2-24.4) |
-| **Future** | Explicitly out of scope until a specific trigger condition is met, per Chapter 25's own reasoning | Ch14, Ch25 in full |
+| Tier            | Definition                                                                                                                                                  | Chapters/prompts                                                                                                          |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| **Critical**    | The product has no viable identity without this — skipping it means you no longer have "an AI receptionist for hair professionals," you have something else | Ch1, Ch2, Ch3, Ch4 (4.1-4.2), Ch6 (6.4 pricing especially), Ch7, Ch9 (9.1-9.4), Ch11 (11.1, 11.2, 11.5), Ch12, Ch13, Ch23 |
+| **Recommended** | Strongly strengthens trust, retention, or revenue; the core loop functions without it, but the business is meaningfully weaker                              | Ch4 (4.3-4.4), Ch6 (6.1-6.2, 6.5-6.6), Ch8, Ch9 (9.5-9.6), Ch10, Ch16, Ch17, Ch20, Ch21, Ch22, Ch24 (24.1)                |
+| **Optional**    | Incremental polish with low cost of indefinite deferral                                                                                                     | Ch5, Ch6.3 (Instagram import), Ch11 (11.3-11.4), Ch15, Ch18, Ch19, Ch24 (24.2-24.4)                                       |
+| **Future**      | Explicitly out of scope until a specific trigger condition is met, per Chapter 25's own reasoning                                                           | Ch14, Ch25 in full                                                                                                        |
 
 ---
 
@@ -166,52 +168,52 @@ This is a different cut than Section 2. Section 2 asks "when should this be buil
 ## 6. Common Mistakes
 
 **Mistake: Vague prompts inviting invented schema.**
-*Why it happens:* It's faster to write "add reviews" than to specify the table shape, the reused permission flag, and the module boundary.
-*Consequences:* Two chapters end up with two different shapes for a similar concept, discovered only when a third chapter tries to integrate both.
-*How to avoid it:* Name the specific prior table, function, or convention to reuse in every prompt, exactly as this library does throughout.
-*Best practice:* Treat "what does this reuse, and what does it deliberately not own" as a mandatory line in every prompt.
+_Why it happens:_ It's faster to write "add reviews" than to specify the table shape, the reused permission flag, and the module boundary.
+_Consequences:_ Two chapters end up with two different shapes for a similar concept, discovered only when a third chapter tries to integrate both.
+_How to avoid it:_ Name the specific prior table, function, or convention to reuse in every prompt, exactly as this library does throughout.
+_Best practice:_ Treat "what does this reuse, and what does it deliberately not own" as a mandatory line in every prompt.
 
 **Mistake: Skipping the "check existing conventions first" step.**
-*Why it happens:* Under time pressure, reading `ARCHITECTURE.md` again feels like overhead.
-*Consequences:* Silent duplication of logic that already exists elsewhere, discovered only during a later audit (Section 5's architectural-drift point).
-*How to avoid it:* Make reading the relevant docs a non-skippable first step of every session, the same way this library's own computer-use conventions treat skill files as mandatory reading before any file creation.
-*Best practice:* Point the assistant at the docs explicitly at the start of every prompt rather than assuming it remembers them from a prior session.
+_Why it happens:_ Under time pressure, reading `ARCHITECTURE.md` again feels like overhead.
+_Consequences:_ Silent duplication of logic that already exists elsewhere, discovered only during a later audit (Section 5's architectural-drift point).
+_How to avoid it:_ Make reading the relevant docs a non-skippable first step of every session, the same way this library's own computer-use conventions treat skill files as mandatory reading before any file creation.
+_Best practice:_ Point the assistant at the docs explicitly at the start of every prompt rather than assuming it remembers them from a prior session.
 
 **Mistake: Accepting output without verifying against Success Criteria.**
-*Why it happens:* The code runs, the happy path works, it feels done.
-*Consequences:* Edge cases specified in the prompt (concurrency, race conditions, permission scoping) silently go unimplemented.
-*How to avoid it:* Treat each prompt's Success Criteria as a literal checklist to verify, not a description of intent.
-*Best practice:* Don't move to the next prompt until every criterion has been explicitly checked, not assumed.
+_Why it happens:_ The code runs, the happy path works, it feels done.
+_Consequences:_ Edge cases specified in the prompt (concurrency, race conditions, permission scoping) silently go unimplemented.
+_How to avoid it:_ Treat each prompt's Success Criteria as a literal checklist to verify, not a description of intent.
+_Best practice:_ Don't move to the next prompt until every criterion has been explicitly checked, not assumed.
 
 **Mistake: Treating a long chat session as infinite context.**
-*Why it happens:* It's convenient to keep working in the same thread.
-*Consequences:* The assistant starts contradicting earlier decisions or forgetting exact function signatures it already created, and the resulting code silently drifts from what was actually built.
-*How to avoid it:* Watch for the specific warning signs in Section 5 and start fresh proactively, not reactively.
-*Best practice:* One chapter, roughly one session (with the parallelization exceptions noted in Section 1).
+_Why it happens:_ It's convenient to keep working in the same thread.
+_Consequences:_ The assistant starts contradicting earlier decisions or forgetting exact function signatures it already created, and the resulting code silently drifts from what was actually built.
+_How to avoid it:_ Watch for the specific warning signs in Section 5 and start fresh proactively, not reactively.
+_Best practice:_ One chapter, roughly one session (with the parallelization exceptions noted in Section 1).
 
 **Mistake: Skipping tests to move faster.**
-*Why it happens:* Tests feel like they slow down visible progress.
-*Consequences:* Regressions in exactly the areas (payments, concurrency, AI escalation) where a bug is most expensive to discover late.
-*How to avoid it:* Treat the tests specified in every prompt as part of the deliverable, not an optional extra — this library wrote them into every single prompt for this reason.
-*Best practice:* No prompt is "done" until its tests exist and pass, full stop.
+_Why it happens:_ Tests feel like they slow down visible progress.
+_Consequences:_ Regressions in exactly the areas (payments, concurrency, AI escalation) where a bug is most expensive to discover late.
+_How to avoid it:_ Treat the tests specified in every prompt as part of the deliverable, not an optional extra — this library wrote them into every single prompt for this reason.
+_Best practice:_ No prompt is "done" until its tests exist and pass, full stop.
 
 **Mistake: Building the marketplace/discovery layer before proving the core tool.**
-*Why it happens:* A public directory feels more like "a real product" than an internal tool a handful of pilot stylists use quietly.
-*Consequences:* An empty or thin directory undermines trust with the very first clients who see it, per the pitch's own explicit warning.
-*How to avoid it:* Follow Section 2's staging — Chapter 16 is V2 for a specific, reasoned purpose, not an oversight.
-*Best practice:* Resist the temptation to build the more "demo-able" feature before the more load-bearing one.
+_Why it happens:_ A public directory feels more like "a real product" than an internal tool a handful of pilot stylists use quietly.
+_Consequences:_ An empty or thin directory undermines trust with the very first clients who see it, per the pitch's own explicit warning.
+_How to avoid it:_ Follow Section 2's staging — Chapter 16 is V2 for a specific, reasoned purpose, not an oversight.
+_Best practice:_ Resist the temptation to build the more "demo-able" feature before the more load-bearing one.
 
 **Mistake: Chasing every monetization idea simultaneously.**
-*Why it happens:* More revenue ideas feel like more upside.
-*Consequences:* None of them get properly proven, and the product's pricing/positioning becomes incoherent to the first paying stylists.
-*How to avoid it:* Follow Section 10's staged revenue roadmap — one model proven before the next is introduced.
-*Best practice:* Treat "which revenue stream is next" as a decision gated by evidence (retention, volume), not by founder enthusiasm.
+_Why it happens:_ More revenue ideas feel like more upside.
+_Consequences:_ None of them get properly proven, and the product's pricing/positioning becomes incoherent to the first paying stylists.
+_How to avoid it:_ Follow Section 10's staged revenue roadmap — one model proven before the next is introduced.
+_Best practice:_ Treat "which revenue stream is next" as a decision gated by evidence (retention, volume), not by founder enthusiasm.
 
 **Mistake: Letting the AI Receptionist act autonomously before its escalation logic is solid.**
-*Why it happens:* Full automation feels like the whole point of the product.
-*Consequences:* A confidently wrong price quote or a manipulated response does more damage to trust than the AI simply admitting uncertainty would have.
-*How to avoid it:* Never ship Chapter 13 without Prompts 13.6 and 13.7 fully built and tested — see Section 4's Critical tier.
-*Best practice:* Treat "when does the AI defer to a human" as equally important as "what can the AI do," from the very first version.
+_Why it happens:_ Full automation feels like the whole point of the product.
+_Consequences:_ A confidently wrong price quote or a manipulated response does more damage to trust than the AI simply admitting uncertainty would have.
+_How to avoid it:_ Never ship Chapter 13 without Prompts 13.6 and 13.7 fully built and tested — see Section 4's Critical tier.
+_Best practice:_ Treat "when does the AI defer to a human" as equally important as "what can the AI do," from the very first version.
 
 ---
 
@@ -246,72 +248,90 @@ This is a different cut than Section 2. Section 2 asks "when should this be buil
 ## 8. Production Readiness Checklist
 
 **Architecture**
+
 - [ ] `ARCHITECTURE.md` accurately reflects every module's actual ownership boundaries
 - [ ] No module queries another module's tables directly outside its documented service-layer interface
 
 **Security**
+
 - [ ] Chapter 20's four-part audit (auth, PII, rate limits, dependencies) completed at least once
 - [ ] Impersonation denylist (if built) covers every sensitive route across every chapter
 
 **Authentication**
+
 - [ ] Session rotation and reuse detection tested (Chapter 3, Prompt 3.4)
 - [ ] Rate limiting applied to every auth-adjacent endpoint, including newer ones (admin login, etc.)
 
 **Payments**
+
 - [ ] Every Stripe webhook handler audited against the four-step idempotent sequence (Chapter 9, Prompt 9.4)
 - [ ] Reconciliation script run at least once against real or test-mode Stripe data
 
 **AI**
+
 - [ ] Structured-output validation (13.2) confirmed to reject every malformed-payload category tested
 - [ ] Escalation confidence threshold (13.6) documented and tested as a hard override
 - [ ] Adversarial/injection test suite (13.7) passing in full
 - [ ] AI Receptionist kill-switch (23.3) drilled at least once
 
 **Performance**
+
 - [ ] Chapter 21's database and API latency baselines documented
 - [ ] Availability computation confirmed never served from cache
 
 **Accessibility**
+
 - [ ] Touch-target sizing meets the documented minimum (Chapter 24, Prompt 24.2)
 - [ ] No hover-dependent UI pattern remains on any touch-reachable surface
 
 **SEO**
+
 - [ ] Public stylist profile and search pages (Chapter 16) have correct metadata, structured data, and are crawlable
 - [ ] Public pages' Core Web Vitals meet the documented mobile budget (Chapter 24, Prompt 24.3)
 
 **Testing**
+
 - [ ] Coverage baseline established (Chapter 22, Prompt 22.1) with high-risk-area gaps closed
 - [ ] End-to-end suite (Chapter 22, Prompt 22.4) passing for all four critical journeys
 
 **Monitoring**
+
 - [ ] Structured logging and error tracking live in production (Chapter 1, Prompt 1.8)
 - [ ] Synthetic latency monitoring configured for the three model-API-dependent endpoints (Chapter 21, Prompt 21.2)
 
 **Logging**
+
 - [ ] PII redaction confirmed consistent across every module (Chapter 20, Prompt 20.2)
 
 **Analytics**
+
 - [ ] Platform metrics rollup running daily (Chapter 18, Prompt 18.2)
 - [ ] Booking funnel tracking confirmed accurate end to end (Chapter 18, Prompt 18.3)
 
 **Error handling**
+
 - [ ] Standard error envelope and codes used consistently across every endpoint (Chapter 2, Prompt 2.2)
 
 **Backups**
+
 - [ ] Database backup and restore process tested at least once, not just configured
 
 **Compliance**
+
 - [ ] STOP-keyword/opt-out chain verified end to end across all three modules it spans (Chapter 12, Prompt 12.4)
 - [ ] Dispute-evidence assembly tested for both complete and incomplete cases (Chapter 9, Prompt 9.6)
 
 **Deployment**
+
 - [ ] Rollback drill completed and timed (Chapter 23, Prompt 23.3)
 - [ ] Staging environment fully isolated from production, verified against its own checklist (Chapter 23, Prompt 23.2)
 
 **Documentation**
+
 - [ ] Every `docs/*.md` file referenced throughout this library exists and reflects current behavior
 
 **Launch readiness**
+
 - [ ] A pilot cohort of real stylists has used the AI Receptionist for at least several weeks with no unresolved P0/P1 incident
 
 ---
@@ -319,33 +339,43 @@ This is a different cut than Section 2. Section 2 asks "when should this be buil
 ## 9. Startup Development Milestones
 
 ### M1 — Project Foundation
+
 **Objective:** A reliable, conventions-driven development environment. **Deliverables:** Chapters 1-2 complete. **Features completed:** none user-facing. **Success criteria:** a new session can clone the repo and be running locally within Chapter 1's documented single-command sequence. **Estimated effort:** 1-2 weeks. **Exit criteria:** CI passes on a trivial change; `ARCHITECTURE.md` exists and is accurate.
 
 ### M2 — Core Infrastructure
+
 **Objective:** Architectural conventions every feature will depend on. **Deliverables:** Chapter 2 complete (API conventions, shared types, background jobs, webhook handling). **Features completed:** none user-facing. **Success criteria:** the example ping endpoint and example background job both work end to end. **Estimated effort:** 1 week. **Exit criteria:** a new module can be added following documented conventions without inventing new patterns.
 
 ### M3 — Authentication & User Management
+
 **Objective:** A secure identity and permission system. **Deliverables:** Chapters 3-4 complete. **Features completed:** signup, login (password/OTP/OAuth), roles, permission guards. **Success criteria:** all auth flows pass Chapter 3's security test suite. **Estimated effort:** 2-3 weeks. **Exit criteria:** a test user of each role can authenticate and is correctly scoped.
 
 ### M4 — Booking System
+
 **Objective:** A working, concurrency-safe scheduling core. **Deliverables:** Chapters 6-8 complete (pricing taxonomy, booking engine, availability). **Features completed:** stylist onboarding, structured pricing, holds, confirmations, availability computation. **Success criteria:** the concurrency test (two simultaneous holds, exactly one succeeds) passes. **Estimated effort:** 3-4 weeks. **Exit criteria:** a booking can be created, held, and confirmed manually through the API without payment yet wired in.
 
 ### M5 — Payments
+
 **Objective:** Reliable money movement. **Deliverables:** Chapter 9 complete. **Features completed:** Stripe Connect onboarding, deposit capture, refunds/forfeiture, payouts. **Success criteria:** the full webhook-hardening audit (9.4) passes. **Estimated effort:** 1-2 weeks. **Exit criteria:** a full test-mode booking-to-payout cycle completes correctly, including a cancellation-refund case.
 
 ### M6 — AI Receptionist
+
 **Objective:** The product's core differentiator, working end to end. **Deliverables:** Chapters 11-13 complete. **Features completed:** SMS channel, conversation orchestration, structured-output-driven booking, escalation, injection resistance. **Success criteria:** the golden-set regression suite (13.8) and adversarial suite (13.7) both pass in full. **Estimated effort:** 4-5 weeks — budget the most time here of any milestone. **Exit criteria:** a real test conversation can go from "hi, I want knotless braids" to a confirmed, paid booking with zero manual intervention, and a deliberately adversarial message correctly escalates instead of succeeding.
 
 ### M7 — Public Beta
+
 **Objective:** Real stylists using the real product. **Deliverables:** Chapters 17 (partial), 23, 24 (partial) complete. **Features completed:** minimal stylist dashboard, deployment pipeline, baseline mobile layout. **Success criteria:** 10-20 real pilot stylists onboarded and actively receiving AI-handled bookings from their existing clients. **Estimated effort:** 2 weeks build + 4-6 weeks of live beta. **Exit criteria:** at least one full week with no P0/P1 incident, and qualitative feedback confirming the core "stop answering 200 messages a week" value is actually being felt.
 
 ### M8 — Public Launch
+
 **Objective:** Open the platform beyond a closed pilot cohort. **Deliverables:** Chapters 10, 16, 20, 21, 22 complete. **Features completed:** reviews, public search/directory, full security/performance/testing hardening. **Success criteria:** Section 8's Production Readiness Checklist fully checked off. **Estimated effort:** 4-6 weeks. **Exit criteria:** the platform can accept a new stylist signup with zero founder involvement, end to end.
 
 ### M9 — Growth
+
 **Objective:** Deepen retention and expand revenue-adjacent capability. **Deliverables:** Chapters 5, 15, 18, 19, remaining 11/17 items complete. **Features completed:** client accounts, AI business assistant, analytics, admin panel, WhatsApp/real-time dashboard. **Success criteria:** MRR growth trend positive month over month (see Section 11). **Estimated effort:** ongoing, 2-3 months of focused work. **Exit criteria:** stylist churn trending down, repeat-client rate trending up.
 
 ### M10 — Scale
+
 **Objective:** Build toward long-term defensibility and expanded monetization. **Deliverables:** Chapter 14, and Chapter 25 items as their specific trigger conditions are met. **Features completed:** style-recognition AI, possibly take-rate model, possibly multi-staff salon support. **Success criteria:** each Chapter 25 item's own documented trigger condition is genuinely satisfied before starting it (see that chapter's summary). **Estimated effort:** opportunistic, not calendar-driven. **Exit criteria:** N/A — this milestone is ongoing for the life of the company.
 
 ---
@@ -372,21 +402,21 @@ This is a different cut than Section 2. Section 2 asks "when should this be buil
 
 ## 11. Success Metrics & KPIs
 
-| KPI | Why it matters | Early-stage healthy signal |
-|---|---|---|
-| **Activation rate** (% of signed-up stylists reaching their first AI-handled booking) | Measures whether onboarding friction (Chapter 6) is actually low enough | A well-run onboarding funnel commonly sees well over half of signups activate; trend matters more than a specific number this early |
-| **Weekly/Monthly Active Stylists** | Basic usage health | Should be rising steadily through Public Beta and Public Launch, not just flat signups |
-| **Bookings per active stylist per month** | Direct measure of whether the tool is genuinely replacing manual booking work | Should approach or exceed what a stylist reports handling manually pre-platform |
-| **AI Receptionist resolution rate** (Chapter 18's funnel data) | The core product promise — is the AI actually handling things without escalation | Reasonable to start lower (50-60%) during Public Beta and rise as Chapter 13's prompts mature; a rising trend matters more than the absolute number |
-| **No-show rate, before vs. after adoption** | The specific pain point deposits and reminders (Chapters 9, 12) target | A meaningful reduction versus a stylist's self-reported pre-platform no-show rate is the clearest single proof of value |
-| **MRR / ARR** | Core subscription-revenue health | Should show consistent month-over-month growth once Public Beta transitions to paid tiers |
-| **Monthly logo churn** | Subscription retention | Early-stage SMB SaaS commonly treats anything above high single digits monthly as a signal to investigate onboarding/value-delivery, not just a number to accept |
-| **LTV : CAC ratio** | Whether the business model is fundamentally sound | A commonly cited general benchmark is roughly 3:1 or better, though this varies meaningfully by channel and stage — treat it as a directional check, not a pass/fail gate |
-| **CAC** | Cost efficiency of stylist acquisition | Should be low during the pilot/beta phase given the go-to-market's explicit reliance on direct, hands-on outreach rather than paid acquisition |
-| **Conversation-to-booking conversion** (Chapter 18's funnel) | Where the AI Receptionist's flow is losing potential bookings | Watch stage-by-stage drop-off, not just the final number — a specific stage consistently leaking is more actionable than an aggregate |
-| **Repeat-client rate** (Chapter 18, Prompt 18.1) | Stylist-level business health, and a proxy for platform trust | A rising trend for stylists using the platform's reminder/booking flow versus their own pre-platform baseline |
-| **AI feature adoption** (once Chapter 14/15 ship) | Whether the moat features are actually used, not just built | Track opt-in and repeat-use rate specifically, not just "shipped" |
-| **Marketplace health** (once Chapter 16 is live) | Supply/demand balance in the directory | Track searches-with-available-results rate, not just total listings — a directory full of fully-booked stylists is a weak marketplace even with many listings |
+| KPI                                                                                   | Why it matters                                                                   | Early-stage healthy signal                                                                                                                                                |
+| ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Activation rate** (% of signed-up stylists reaching their first AI-handled booking) | Measures whether onboarding friction (Chapter 6) is actually low enough          | A well-run onboarding funnel commonly sees well over half of signups activate; trend matters more than a specific number this early                                       |
+| **Weekly/Monthly Active Stylists**                                                    | Basic usage health                                                               | Should be rising steadily through Public Beta and Public Launch, not just flat signups                                                                                    |
+| **Bookings per active stylist per month**                                             | Direct measure of whether the tool is genuinely replacing manual booking work    | Should approach or exceed what a stylist reports handling manually pre-platform                                                                                           |
+| **AI Receptionist resolution rate** (Chapter 18's funnel data)                        | The core product promise — is the AI actually handling things without escalation | Reasonable to start lower (50-60%) during Public Beta and rise as Chapter 13's prompts mature; a rising trend matters more than the absolute number                       |
+| **No-show rate, before vs. after adoption**                                           | The specific pain point deposits and reminders (Chapters 9, 12) target           | A meaningful reduction versus a stylist's self-reported pre-platform no-show rate is the clearest single proof of value                                                   |
+| **MRR / ARR**                                                                         | Core subscription-revenue health                                                 | Should show consistent month-over-month growth once Public Beta transitions to paid tiers                                                                                 |
+| **Monthly logo churn**                                                                | Subscription retention                                                           | Early-stage SMB SaaS commonly treats anything above high single digits monthly as a signal to investigate onboarding/value-delivery, not just a number to accept          |
+| **LTV : CAC ratio**                                                                   | Whether the business model is fundamentally sound                                | A commonly cited general benchmark is roughly 3:1 or better, though this varies meaningfully by channel and stage — treat it as a directional check, not a pass/fail gate |
+| **CAC**                                                                               | Cost efficiency of stylist acquisition                                           | Should be low during the pilot/beta phase given the go-to-market's explicit reliance on direct, hands-on outreach rather than paid acquisition                            |
+| **Conversation-to-booking conversion** (Chapter 18's funnel)                          | Where the AI Receptionist's flow is losing potential bookings                    | Watch stage-by-stage drop-off, not just the final number — a specific stage consistently leaking is more actionable than an aggregate                                     |
+| **Repeat-client rate** (Chapter 18, Prompt 18.1)                                      | Stylist-level business health, and a proxy for platform trust                    | A rising trend for stylists using the platform's reminder/booking flow versus their own pre-platform baseline                                                             |
+| **AI feature adoption** (once Chapter 14/15 ship)                                     | Whether the moat features are actually used, not just built                      | Track opt-in and repeat-use rate specifically, not just "shipped"                                                                                                         |
+| **Marketplace health** (once Chapter 16 is live)                                      | Supply/demand balance in the directory                                           | Track searches-with-available-results rate, not just total listings — a directory full of fully-booked stylists is a weak marketplace even with many listings             |
 
 A general caution: benchmark figures above are broadly-cited industry rules of thumb, not guarantees or targets specific to this business — treat them as a starting frame for judgment, not a scorecard to optimize in isolation from what pilot stylists are actually saying.
 

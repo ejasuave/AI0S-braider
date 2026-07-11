@@ -38,11 +38,6 @@ export async function findConflictingBookingIds(
   return rows.map((row) => row.id);
 }
 
-export function intervalsOverlap(
-  aStart: Date,
-  aEnd: Date,
-  bStart: Date,
-  bEnd: Date,
-): boolean {
+export function intervalsOverlap(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date): boolean {
   return aStart < bEnd && bStart < aEnd;
 }

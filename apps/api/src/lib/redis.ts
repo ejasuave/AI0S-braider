@@ -12,8 +12,11 @@ export function getRedisConnectionOptions(): RedisOptions {
     port: Number(url.port || 6379),
     password: url.password || undefined,
     username: url.username || undefined,
-    maxRetriesPerRequest: null,
+    maxRetriesPerRequest: 1,
     enableReadyCheck: false,
+    lazyConnect: true,
+    enableOfflineQueue: false,
+    retryStrategy: () => null,
   };
 }
 

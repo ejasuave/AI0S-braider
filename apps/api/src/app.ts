@@ -10,8 +10,9 @@ import { initSentry, Sentry } from './lib/sentry.js';
 import { healthRoutes } from './routes/health.js';
 import { v1Routes } from './routes/v1.js';
 import { ApiError } from './lib/errors.js';
-import { isApiError, sendApiError } from './lib/http.js';
-import { ZodError } from 'zod';
+import { resolveCorsOrigin } from './lib/cors.js';
+import { isDatabaseUnavailableError } from './lib/db-errors.js';
+import { isApiError, isZodError, sendApiError } from './lib/http.js';
 
 export async function buildApp() {
   initSentry();
@@ -20,14 +21,48 @@ export async function buildApp() {
 
   const app = Fastify({
     loggerInstance: logger,
+    requestIdHeader: 'x-request-id',
+    genReqId: (request) =>
+      (request.headers['x-request-id'] as string | undefined) ??
+      `req-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
   });
 
   await app.register(cors, {
-    origin: env.CORS_ORIGIN,
+    origin: resolveCorsOrigin(env),
     credentials: true,
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
   await app.register(cookie);
   await app.register(sensible);
+
+  app.setErrorHandler((error, request, reply) => {
+    if (isZodError(error)) {
+      sendApiError(reply, ApiError.validation('Validation failed', error.flatten()));
+      return;
+    }
+
+    if (isApiError(error)) {
+      sendApiError(reply, error);
+      return;
+    }
+
+    if (isDatabaseUnavailableError(error)) {
+      sendApiError(
+        reply,
+        ApiError.serviceUnavailable(
+          'Database is unavailable. From the project root run `pnpm infra:up`, then restart `pnpm dev`.',
+        ),
+      );
+      return;
+    }
+
+    Sentry.captureException(error, {
+      extra: { url: request.url, method: request.method },
+    });
+    request.log.error({ err: error }, 'Unhandled error');
+
+    sendApiError(reply, ApiError.internal());
+  });
 
   if (env.NODE_ENV !== 'test') {
     await app.register(fastifyStatic, {
@@ -39,25 +74,6 @@ export async function buildApp() {
 
   await app.register(healthRoutes);
   await app.register(v1Routes, { prefix: '/api/v1' });
-
-  app.setErrorHandler((error, request, reply) => {
-    if (error instanceof ZodError) {
-      sendApiError(reply, ApiError.validation('Validation failed', error.flatten()));
-      return;
-    }
-
-    if (isApiError(error)) {
-      sendApiError(reply, error);
-      return;
-    }
-
-    Sentry.captureException(error, {
-      extra: { url: request.url, method: request.method },
-    });
-    request.log.error({ err: error }, 'Unhandled error');
-
-    sendApiError(reply, ApiError.internal());
-  });
 
   return app;
 }

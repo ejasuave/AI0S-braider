@@ -13,12 +13,9 @@ import { ApiError } from '../../lib/errors.js';
 import { getEnv } from '../../config/env.js';
 import { getSystemQueue, JOB_NAMES } from '../../lib/queue.js';
 import { profileService } from '../profile/service.js';
+import { notificationsService } from '../notifications/service.js';
 import { expireStaleHolds, findConflictingBookingIds } from './conflict.js';
-import {
-  calculateBookingEndTime,
-  calculateDepositAmount,
-  toBooking,
-} from './mappers.js';
+import { calculateBookingEndTime, calculateDepositAmount, toBooking } from './mappers.js';
 import { assertBookingTransition } from './state-machine.js';
 import { generateAvailabilitySlots, slotMatchesAvailability } from './availability.js';
 
@@ -40,6 +37,25 @@ export class BookingService {
     const bookings = await prisma.booking.findMany({
       where: {
         stylistId,
+        ...(query.status ? { status: query.status } : {}),
+        ...(query.from || query.to
+          ? {
+              startTime: {
+                ...(query.from ? { gte: new Date(query.from) } : {}),
+                ...(query.to ? { lte: new Date(query.to) } : {}),
+              },
+            }
+          : {}),
+      },
+      orderBy: { startTime: 'asc' },
+    });
+    return bookings.map(toBooking);
+  }
+
+  async listClientBookings(clientId: string, query: BookingListQuery): Promise<Booking[]> {
+    const bookings = await prisma.booking.findMany({
+      where: {
+        clientId,
         ...(query.status ? { status: query.status } : {}),
         ...(query.from || query.to
           ? {
@@ -189,8 +205,7 @@ export class BookingService {
 
     const agreedPrice = offering.basePrice.toNumber();
     const depositAmount = calculateDepositAmount(agreedPrice, scheduling.depositPolicy);
-    const holdExpiresAt =
-      input.status === 'held' ? new Date(Date.now() + this.holdTtlMs()) : null;
+    const holdExpiresAt = input.status === 'held' ? new Date(Date.now() + this.holdTtlMs()) : null;
 
     const booking = await prisma.$transaction(async (tx) => {
       await expireStaleHolds(tx, input.stylistId);
@@ -224,18 +239,63 @@ export class BookingService {
 
     if (booking.status === 'held' && booking.holdExpiresAt) {
       const delay = Math.max(booking.holdExpiresAt.getTime() - Date.now(), 0);
-      try {
-        await getSystemQueue().add(
+      void getSystemQueue()
+        .add(
           JOB_NAMES.BOOKING_EXPIRE_HOLD,
           { bookingId: booking.id },
           { jobId: `booking-expire-${booking.id}`, delay },
-        );
-      } catch {
-        // Redis unavailable in some dev/test environments — lazy expiry still applies.
-      }
+        )
+        .catch(() => {
+          // Redis unavailable in some dev/test environments — lazy expiry still applies.
+        });
+    }
+
+    if (booking.status === 'confirmed') {
+      void notificationsService.onBookingConfirmed(booking.id).catch(() => {
+        // Notification scheduling is best-effort when Redis/worker is offline.
+      });
     }
 
     return toBooking(booking);
+  }
+
+  async confirmBookingAfterDeposit(bookingId: string): Promise<Booking> {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+    });
+    if (!booking) {
+      throw ApiError.notFound('Booking not found');
+    }
+
+    if (booking.status === 'confirmed') {
+      if (booking.depositStatus !== 'paid') {
+        const updated = await prisma.booking.update({
+          where: { id: booking.id },
+          data: { depositStatus: 'paid', holdExpiresAt: null },
+        });
+        return toBooking(updated);
+      }
+      return toBooking(booking);
+    }
+
+    if (booking.status !== 'held') {
+      throw new ApiError('CONFLICT', 'Booking cannot be confirmed from current status', 409);
+    }
+
+    assertBookingTransition(booking.status, 'confirmed');
+
+    const updated = await prisma.booking.update({
+      where: { id: booking.id },
+      data: {
+        status: 'confirmed',
+        depositStatus: 'paid',
+        holdExpiresAt: null,
+      },
+    });
+
+    void notificationsService.onBookingConfirmed(updated.id).catch(() => {});
+
+    return toBooking(updated);
   }
 
   async confirmBooking(stylistId: string, bookingId: string): Promise<Booking> {
@@ -255,6 +315,8 @@ export class BookingService {
         holdExpiresAt: null,
       },
     });
+
+    void notificationsService.onBookingConfirmed(updated.id).catch(() => {});
 
     return toBooking(updated);
   }
@@ -276,6 +338,8 @@ export class BookingService {
         holdExpiresAt: null,
       },
     });
+
+    void notificationsService.onBookingConfirmed(updated.id).catch(() => {});
 
     return toBooking(updated);
   }
@@ -303,6 +367,8 @@ export class BookingService {
         holdExpiresAt: null,
       },
     });
+
+    void notificationsService.onBookingCancelled(updated.id).catch(() => {});
 
     return toBooking(updated);
   }
@@ -339,6 +405,8 @@ export class BookingService {
       where: { id: booking.id },
       data: { status: 'no_show' },
     });
+
+    void notificationsService.onBookingNoShow(updated.id).catch(() => {});
 
     return toBooking(updated);
   }

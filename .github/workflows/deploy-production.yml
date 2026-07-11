@@ -1,0 +1,107 @@
+name: Deploy Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: 'Git ref to deploy (tag, SHA, or branch)'
+        required: true
+        default: 'main'
+      confirm:
+        description: 'Type "deploy" to confirm production release'
+        required: true
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm production deploy
+        if: inputs.confirm != 'deploy'
+        run: |
+          echo "Production deploy not confirmed. Re-run with confirm=deploy"
+          exit 1
+
+  verify:
+    needs: gate
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: braids
+          POSTGRES_PASSWORD: braids
+          POSTGRES_DB: braids_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U braids -d braids_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+
+    env:
+      DATABASE_URL: postgresql://braids:braids@localhost:5432/braids_test
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: test-jwt-secret-at-least-32-characters-long
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.git_ref }}
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm approve-builds --all
+      - run: pnpm db:generate
+      - run: |
+          pnpm lint
+          pnpm typecheck
+          pnpm test
+          pnpm build
+      - run: bash scripts/ops/check-migrations.sh
+
+  deploy:
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.git_ref }}
+
+      - name: Production deploy checklist
+        run: |
+          echo "Deploying ref: ${{ inputs.git_ref }}"
+          echo ""
+          echo "Pre-deploy (manual — production DATABASE_URL):"
+          echo "  bash scripts/ops/migrate-deploy.sh"
+          echo ""
+          echo "Deploy:"
+          echo "  Web:  Vercel promote staging → production"
+          echo "  API:  fly deploy -c infrastructure/fly/api.toml -a <prod-api-app>"
+          echo "  Worker: fly deploy -c infrastructure/fly/worker.toml -a <prod-worker-app>"
+          echo ""
+          echo "Post-deploy:"
+          echo "  curl https://<api>/health"
+          echo "  bash scripts/ops/kill-switch-drill.sh"
+          echo ""
+          echo "Rollback: bash scripts/ops/rollback.sh"
+          echo "See docs/DEPLOYMENT.md"

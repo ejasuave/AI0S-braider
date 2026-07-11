@@ -1,12 +1,6 @@
 import { z } from 'zod';
 
-export const BOOKING_STATUSES = [
-  'held',
-  'confirmed',
-  'completed',
-  'cancelled',
-  'no_show',
-] as const;
+export const BOOKING_STATUSES = ['held', 'confirmed', 'completed', 'cancelled', 'no_show'] as const;
 export type BookingStatus = (typeof BOOKING_STATUSES)[number];
 
 export const BOOKING_DEPOSIT_STATUSES = ['pending', 'paid', 'refunded', 'forfeited'] as const;

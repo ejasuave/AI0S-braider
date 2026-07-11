@@ -10,7 +10,7 @@ Read before coding:
 1. `reference/requirements/product-blueprint.md`
 2. Relevant `reference/requirements/engineering-playbook.md` chapter
 3. `reference/prompt-library/back-matter.md` + chapter from outline
-4. `docs/ARCHITECTURE.md` (after Ch.2)
+4. `ARCHITECTURE.md` at repo root (after Ch.2); `docs/ARCHITECTURE.md` is a pointer only
 
 Priority on conflict: founder decision → Blueprint → Back Matter → Playbook → Pitch.
 

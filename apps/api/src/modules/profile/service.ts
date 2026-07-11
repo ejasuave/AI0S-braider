@@ -2,6 +2,9 @@ import { randomUUID } from 'node:crypto';
 import type {
   CreatePortfolioItemRequest,
   CreateServiceOfferingRequest,
+  DirectorySearchQuery,
+  DirectorySearchResponse,
+  DirectoryStylistDetail,
   PricingLookupRequest,
   PricingLookupResponse,
   PortfolioItem,
@@ -38,8 +41,49 @@ export class ProfileService {
     return toStylistProfile(profile);
   }
 
-  async updateProfile(stylistId: string, input: UpdateStylistProfileRequest): Promise<StylistProfile> {
-    await getStylistProfileById(stylistId);
+  async getProfileByStylistId(stylistId: string): Promise<StylistProfile> {
+    const profile = await getStylistProfileById(stylistId);
+    return toStylistProfile(profile);
+  }
+
+  async getPublicBookingPage(stylistId: string): Promise<{
+    stylistId: string;
+    businessName: string;
+    locationArea: string | null;
+    offerings: Array<{
+      id: string;
+      styleName: string;
+      basePrice: string;
+      estimatedDurationMinutes: number;
+    }>;
+  }> {
+    const profile = await getStylistProfileById(stylistId);
+    const offerings = await listActiveServiceOfferings(stylistId);
+    return {
+      stylistId: profile.id,
+      businessName: profile.businessName,
+      locationArea: profile.locationArea,
+      offerings: offerings.map((offering) => ({
+        id: offering.id,
+        styleName: offering.styleName,
+        basePrice: offering.basePrice.toFixed(2),
+        estimatedDurationMinutes: offering.estimatedDurationMinutes,
+      })),
+    };
+  }
+
+  async updateProfile(
+    stylistId: string,
+    input: UpdateStylistProfileRequest,
+  ): Promise<StylistProfile> {
+    const existing = await getStylistProfileById(stylistId);
+
+    if (input.directoryVisible === true) {
+      await this.assertDirectoryReady(stylistId, {
+        businessName: input.businessName ?? existing.businessName,
+        locationArea: input.locationArea !== undefined ? input.locationArea : existing.locationArea,
+      });
+    }
 
     const profile = await prisma.stylistProfile.update({
       where: { id: stylistId },
@@ -59,10 +103,139 @@ export class ProfileService {
         ...(input.onboardingStatus !== undefined
           ? { onboardingStatus: input.onboardingStatus }
           : {}),
+        ...(input.directoryVisible !== undefined
+          ? { directoryVisible: input.directoryVisible }
+          : {}),
       },
     });
 
+    if (profile.directoryVisible) {
+      await this.assertDirectoryReady(stylistId, {
+        businessName: profile.businessName,
+        locationArea: profile.locationArea,
+      });
+    }
+
     return toStylistProfile(profile);
+  }
+
+  private async assertDirectoryReady(
+    stylistId: string,
+    profile: { businessName: string; locationArea: string | null },
+  ): Promise<void> {
+    if (!profile.businessName.trim()) {
+      throw ApiError.validation('Business name is required before listing in the directory');
+    }
+    if (!profile.locationArea?.trim()) {
+      throw ApiError.validation('Location area is required before listing in the directory');
+    }
+
+    const activeServices = await listActiveServiceOfferings(stylistId);
+    if (activeServices.length === 0) {
+      throw ApiError.validation('Add at least one active service before listing in the directory');
+    }
+  }
+
+  async searchDirectory(query: DirectorySearchQuery): Promise<DirectorySearchResponse> {
+    const where = {
+      directoryVisible: true,
+      businessName: { not: '' },
+      locationArea: { not: null },
+      serviceOfferings: { some: { active: true } },
+      ...(query.location
+        ? { locationArea: { contains: query.location, mode: 'insensitive' as const } }
+        : {}),
+      ...(query.style
+        ? {
+            serviceOfferings: {
+              some: {
+                active: true,
+                styleName: { contains: query.style, mode: 'insensitive' as const },
+              },
+            },
+          }
+        : {}),
+      ...(query.q
+        ? {
+            OR: [
+              { businessName: { contains: query.q, mode: 'insensitive' as const } },
+              { locationArea: { contains: query.q, mode: 'insensitive' as const } },
+              { bio: { contains: query.q, mode: 'insensitive' as const } },
+              {
+                serviceOfferings: {
+                  some: {
+                    active: true,
+                    styleName: { contains: query.q, mode: 'insensitive' as const },
+                  },
+                },
+              },
+            ],
+          }
+        : {}),
+    };
+
+    const [rows, total] = await Promise.all([
+      prisma.stylistProfile.findMany({
+        where,
+        include: {
+          serviceOfferings: {
+            where: { active: true },
+            orderBy: { basePrice: 'asc' },
+          },
+        },
+        orderBy: { businessName: 'asc' },
+        take: query.limit,
+        skip: query.offset,
+      }),
+      prisma.stylistProfile.count({ where }),
+    ]);
+
+    return {
+      items: rows.map((row) => ({
+        stylistId: row.id,
+        businessName: row.businessName,
+        locationArea: row.locationArea ?? '',
+        bio: row.bio,
+        styleNames: [...new Set(row.serviceOfferings.map((offering) => offering.styleName))],
+        startingPrice: row.serviceOfferings[0]?.basePrice.toFixed(2) ?? null,
+      })),
+      total,
+      limit: query.limit,
+      offset: query.offset,
+    };
+  }
+
+  async getDirectoryStylist(stylistId: string): Promise<DirectoryStylistDetail> {
+    const profile = await prisma.stylistProfile.findFirst({
+      where: {
+        id: stylistId,
+        directoryVisible: true,
+        businessName: { not: '' },
+        locationArea: { not: null },
+      },
+    });
+
+    if (!profile) {
+      throw ApiError.notFound('Stylist not found in directory');
+    }
+
+    const offerings = await listActiveServiceOfferings(stylistId);
+    if (offerings.length === 0) {
+      throw ApiError.notFound('Stylist not found in directory');
+    }
+
+    return {
+      stylistId: profile.id,
+      businessName: profile.businessName,
+      locationArea: profile.locationArea ?? '',
+      bio: profile.bio,
+      offerings: offerings.map((offering) => ({
+        id: offering.id,
+        styleName: offering.styleName,
+        basePrice: offering.basePrice.toFixed(2),
+        estimatedDurationMinutes: offering.estimatedDurationMinutes,
+      })),
+    };
   }
 
   async listStyleCategories(): Promise<StyleCategory[]> {
@@ -84,12 +257,7 @@ export class ProfileService {
     const sizeTier = input.sizeTier ?? null;
     const lengthTier = input.lengthTier ?? null;
 
-    const duplicate = await findDuplicateOffering(
-      stylistId,
-      input.styleName,
-      sizeTier,
-      lengthTier,
-    );
+    const duplicate = await findDuplicateOffering(stylistId, input.styleName, sizeTier, lengthTier);
     if (duplicate) {
       throw new ApiError(
         'CONFLICT',
@@ -174,7 +342,10 @@ export class ProfileService {
     return this.updateServiceOffering(stylistId, offeringId, { active: false });
   }
 
-  async lookupPricing(stylistId: string, input: PricingLookupRequest): Promise<PricingLookupResponse> {
+  async lookupPricing(
+    stylistId: string,
+    input: PricingLookupRequest,
+  ): Promise<PricingLookupResponse> {
     const offerings = await listActiveServiceOfferings(stylistId);
     return resolvePricingLookup(offerings, input);
   }
@@ -224,11 +395,8 @@ export class ProfileService {
       throw ApiError.validation('Image exceeds 5 MB limit');
     }
 
-    const extension = file.contentType === 'image/png'
-      ? 'png'
-      : file.contentType === 'image/webp'
-        ? 'webp'
-        : 'jpg';
+    const extension =
+      file.contentType === 'image/png' ? 'png' : file.contentType === 'image/webp' ? 'webp' : 'jpg';
     const key = `portfolio/${stylistId}/${randomUUID()}.${extension}`;
     const storage = getStorageProvider();
     const uploaded = await storage.upload({

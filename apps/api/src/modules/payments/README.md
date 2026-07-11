@@ -1,9 +1,9 @@
 # Payments module
 
-Owns `payments` domain logic per `docs/ARCHITECTURE.md` (created in Ch.2).
+Owns `payments` and `stylist_stripe_accounts` per `docs/PAYMENTS.md`.
 
-- Routes: `routes.ts` (future)
-- Service: `service.ts` (future)
-- Repository: `repository.ts` (future)
+- Routes: `routes.ts` — Connect onboarding, deposits, Stripe webhook
+- Service: `service.ts` — deposit creation, capture, Connect sync
+- Provider: `apps/api/src/lib/stripe/` — `StripeProvider` abstraction (live + mock)
 
-Do not query other modules' tables directly.
+Cross-module: calls `bookingService.confirmBookingAfterDeposit()` on capture — do not update `bookings` directly from routes.

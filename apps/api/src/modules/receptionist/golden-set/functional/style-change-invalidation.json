@@ -1,0 +1,35 @@
+{
+  "id": "style-change-invalidation",
+  "type": "functional",
+  "description": "Mid-conversation style change clears stale serviceOfferingId",
+  "turns": [
+    {
+      "mockOutput": {
+        "intent": "new_booking",
+        "extracted_slots": {
+          "styleName": "Knotless braids",
+          "serviceOfferingId": "11111111-1111-4111-8111-111111111111"
+        },
+        "confidence": 0.9,
+        "next_action": "confirm_style_price",
+        "client_message": "Knotless braids pricing confirmed."
+      },
+      "expectedMergedSlots": {
+        "styleName": "Knotless braids",
+        "serviceOfferingId": "11111111-1111-4111-8111-111111111111"
+      }
+    },
+    {
+      "mockOutput": {
+        "intent": "new_booking",
+        "extracted_slots": { "styleName": "Cornrows" },
+        "confidence": 0.88,
+        "next_action": "confirm_style_price",
+        "client_message": "Switching to cornrows — let me re-check pricing."
+      },
+      "expectedMergedSlots": {
+        "styleName": "Cornrows"
+      }
+    }
+  ]
+}

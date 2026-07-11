@@ -1,4 +1,5 @@
-import { createSystemWorker } from './lib/queue.js';
+import './load-env.js';
+import { createSystemWorker, scheduleRecurringJobs } from './lib/queue.js';
 import { createLogger } from './lib/logger.js';
 import { getEnv } from './config/env.js';
 import { initSentry } from './lib/sentry.js';
@@ -12,6 +13,13 @@ async function startWorker(): Promise<void> {
   const logger = createLogger();
 
   const worker = createSystemWorker();
+
+  try {
+    await scheduleRecurringJobs();
+    logger.info('Recurring jobs scheduled (heartbeat + notifications)');
+  } catch (error) {
+    logger.warn({ err: error }, 'Could not schedule recurring jobs — is Redis running?');
+  }
 
   worker.on('completed', (job) => {
     logger.info({ jobId: job.id, name: job.name }, 'Job completed');

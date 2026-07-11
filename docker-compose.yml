@@ -1,0 +1,3 @@
+# Ch.1.7 — local infrastructure entrypoint (apps run on host for hot reload).
+include:
+  - path: infrastructure/docker-compose.yml

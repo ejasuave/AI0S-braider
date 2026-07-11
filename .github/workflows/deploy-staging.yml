@@ -1,0 +1,102 @@
+name: Deploy Staging
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-staging-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: braids
+          POSTGRES_PASSWORD: braids
+          POSTGRES_DB: braids_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U braids -d braids_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://braids:braids@localhost:5432/braids_test
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: test-jwt-secret-at-least-32-characters-long
+      NODE_ENV: test
+      GIT_SHA: ${{ github.sha }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Approve dependency build scripts
+        run: pnpm approve-builds --all
+
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
+      - name: Lint, typecheck, test, build
+        run: |
+          pnpm lint
+          pnpm typecheck
+          pnpm test
+          pnpm build
+
+      - name: Migration safety check
+        run: bash scripts/ops/check-migrations.sh
+
+      - name: Validate API Docker image builds
+        run: docker build -f infrastructure/docker/Dockerfile.api -t project-braids-api:staging .
+
+      - name: Validate worker Docker image builds
+        run: docker build -f infrastructure/docker/Dockerfile.worker -t project-braids-worker:staging .
+
+  deploy:
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: staging
+    if: github.repository == github.event.repository.full_name
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Staging deploy gate
+        run: |
+          echo "Build verified for commit ${GITHUB_SHA}"
+          echo ""
+          echo "Configure platform deploy (see docs/DEPLOYMENT.md):"
+          echo "  Web:    Vercel — Git integration on main"
+          echo "  API:    fly deploy --config infrastructure/fly/api.toml"
+          echo "  Worker: fly deploy --config infrastructure/fly/worker.toml"
+          echo ""
+          echo "Pre-deploy on staging:"
+          echo "  1. bash scripts/ops/migrate-deploy.sh"
+          echo "  2. bash scripts/ops/kill-switch-drill.sh"

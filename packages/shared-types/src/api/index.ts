@@ -1,4 +1,5 @@
 export * from './errors.js';
+export * from './pagination.js';
 export * from './system.js';
 export * from './auth.js';
 export * from './permissions.js';
@@ -6,3 +7,8 @@ export * from './profile.js';
 export * from './style-taxonomy.js';
 export * from './booking.js';
 export * from './availability.js';
+export * from './payments.js';
+export * from './messaging.js';
+export * from './receptionist.js';
+export * from './notifications.js';
+export * from './directory.js';

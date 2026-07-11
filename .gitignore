@@ -9,6 +9,7 @@ uploads/
 .env
 .env.local
 .env.*.local
+.local/
 logs/
 *.log
 .DS_Store

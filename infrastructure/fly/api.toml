@@ -1,0 +1,33 @@
+# Fly.io template for apps/api — copy to fly.toml and set app name + secrets.
+# Deploy: fly deploy --config infrastructure/fly/api.toml
+
+app = "project-braids-api-staging"
+primary_region = "lhr"
+
+[build]
+  dockerfile = "infrastructure/docker/Dockerfile.api"
+
+[env]
+  NODE_ENV = "staging"
+  PORT = "3001"
+  HOST = "0.0.0.0"
+  PLATFORM_TIMEZONE = "Europe/London"
+
+[http_service]
+  internal_port = 3001
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "30s"
+    method = "GET"
+    path = "/health"
+    timeout = "5s"
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1

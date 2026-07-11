@@ -9,10 +9,7 @@ export async function isWebhookProcessed(eventId: string): Promise<boolean> {
   return existing !== null;
 }
 
-export async function markWebhookProcessed(
-  eventId: string,
-  source: WebhookSource,
-): Promise<void> {
+export async function markWebhookProcessed(eventId: string, source: WebhookSource): Promise<void> {
   await prisma.processedWebhookEvent.create({
     data: { eventId, source },
   });
@@ -43,11 +40,7 @@ export async function processWebhookIdempotently<T>(
   try {
     await markWebhookProcessed(options.eventId, options.source);
   } catch (error) {
-    if (
-      error instanceof Error &&
-      'code' in error &&
-      (error as { code: string }).code === 'P2002'
-    ) {
+    if (error instanceof Error && 'code' in error && (error as { code: string }).code === 'P2002') {
       return { status: 'duplicate' };
     }
     throw error;

@@ -17,6 +17,11 @@
     "db:seed": "tsx prisma/seed.ts",
     "infra:up": "bash scripts/infra-up.sh",
     "infra:down": "bash scripts/infra-down.sh",
+    "mvp:demo": "tsx scripts/mvp-demo.ts",
+    "ops:check-migrations": "bash scripts/ops/check-migrations.sh",
+    "ops:migrate-deploy": "bash scripts/ops/migrate-deploy.sh",
+    "ops:kill-switch-drill": "bash scripts/ops/kill-switch-drill.sh",
+    "ops:rollback": "bash scripts/ops/rollback.sh",
     "prepare": "husky"
   },
   "devDependencies": {

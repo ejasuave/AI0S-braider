@@ -1,9 +1,17 @@
 # Notifications module
 
-Owns `notifications` domain logic per `docs/ARCHITECTURE.md` (created in Ch.2).
+Owns reminder scheduling, transactional delivery, and SMS STOP compliance per `docs/ARCHITECTURE.md`.
 
-- Routes: `routes.ts` (future)
-- Service: `service.ts` (future)
-- Repository: `repository.ts` (future)
+- **Repository:** `repository.ts` — `notifications`, `sms_preferences`
+- **Service:** `service.ts` — enqueue/deliver, booking lifecycle hooks
+- **Jobs:** `notifications.deliver`, `notifications.sweep-due`, `notifications.sweep-reminders`
+- **Content:** delegates copy to `receptionist/notification-content.ts`
 
-Do not query other modules' tables directly.
+## Blueprint STOP override (Ch.12.4)
+
+STOP halts **AI conversations + marketing** but **still allows** transactional notifications (confirmations, reminders, deposit links).
+
+## Does not own
+
+- SMS transport (`messaging` module)
+- AI turn logic (`receptionist` module)

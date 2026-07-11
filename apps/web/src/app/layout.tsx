@@ -23,8 +23,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en-GB">
-      <body className={`${dmSans.variable} ${fraunces.variable} min-h-screen antialiased`}>
+    <html lang="en-GB" className="overflow-x-hidden">
+      <body
+        className={`${dmSans.variable} ${fraunces.variable} min-h-screen overflow-x-hidden font-sans antialiased`}
+      >
         <Providers>{children}</Providers>
       </body>
     </html>

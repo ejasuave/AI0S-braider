@@ -14,4 +14,8 @@ export function setStorageProvider(provider: StorageProvider): void {
   storageProvider = provider;
 }
 
-export type { StorageProvider, StorageUploadInput, StorageUploadResult } from './storage-provider.js';
+export type {
+  StorageProvider,
+  StorageUploadInput,
+  StorageUploadResult,
+} from './storage-provider.js';

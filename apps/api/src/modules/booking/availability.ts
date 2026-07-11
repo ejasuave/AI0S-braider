@@ -87,10 +87,7 @@ export function generateAvailabilitySlots(input: GenerateAvailabilityInput): Ava
   return slots;
 }
 
-export function slotMatchesAvailability(
-  slots: AvailabilitySlot[],
-  startTime: Date,
-): boolean {
+export function slotMatchesAvailability(slots: AvailabilitySlot[], startTime: Date): boolean {
   const target = startTime.toISOString();
   return slots.some((slot) => slot.startTime === target);
 }

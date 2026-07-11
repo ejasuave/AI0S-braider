@@ -1,0 +1,21 @@
+{
+  "id": "one-question-at-a-time",
+  "type": "functional",
+  "description": "Model asks only one clarifying question when multiple slots are missing",
+  "turns": [
+    {
+      "mockOutput": {
+        "intent": "new_booking",
+        "extracted_slots": {},
+        "confidence": 0.86,
+        "next_action": "ask_clarification",
+        "client_message": "What style would you like?"
+      },
+      "expectedMergedSlots": {},
+      "assertClientMessage": {
+        "maxQuestionMarks": 1,
+        "mustNotContain": ["size and date", "style and size"]
+      }
+    }
+  ]
+}

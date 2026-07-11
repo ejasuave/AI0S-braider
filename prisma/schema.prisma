@@ -73,8 +73,11 @@ model User {
   otpChallenges         OtpChallenge[]
   passwordResetTokens   PasswordResetToken[]
   accountRecoveryRequests AccountRecoveryRequest[]
+  phoneChangeRequests   PhoneNumberChangeRequest[] @relation("PhoneChangeUser")
+  phoneChangesResolved  PhoneNumberChangeRequest[] @relation("PhoneChangeResolver")
   stylistMembership     StylistMembership?
   stylistProfile        StylistProfile?
+  notifications         Notification[]
 
   @@index([role])
   @@map("users")
@@ -128,11 +131,21 @@ model OtpChallenge {
   @@map("otp_challenges")
 }
 
+enum PhoneChangeStatus {
+  pending
+  approved
+  rejected
+
+  @@map("phone_change_status")
+}
+
 model OAuthAccount {
   id                String   @id @default(uuid()) @db.Uuid
   userId            String   @map("user_id") @db.Uuid
   provider          String
   providerAccountId String   @map("provider_account_id")
+  accessTokenEnc    String?  @map("access_token_enc")
+  refreshTokenEnc   String?  @map("refresh_token_enc")
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -140,6 +153,22 @@ model OAuthAccount {
   @@unique([provider, providerAccountId])
   @@index([userId])
   @@map("oauth_accounts")
+}
+
+model PhoneNumberChangeRequest {
+  id                  String            @id @default(uuid()) @db.Uuid
+  userId              String            @map("user_id") @db.Uuid
+  requestedPhoneNumber String           @map("requested_phone_number")
+  status              PhoneChangeStatus @default(pending)
+  requestedAt         DateTime          @default(now()) @map("requested_at") @db.Timestamptz(6)
+  resolvedAt          DateTime?         @map("resolved_at") @db.Timestamptz(6)
+  resolvedById        String?           @map("resolved_by") @db.Uuid
+
+  user       User  @relation("PhoneChangeUser", fields: [userId], references: [id], onDelete: Cascade)
+  resolvedBy User? @relation("PhoneChangeResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  @@index([userId, status])
+  @@map("phone_number_change_requests")
 }
 
 model PasswordResetToken {
@@ -200,12 +229,16 @@ model StylistProfile {
   workingHours        Json?            @map("working_hours")
   bufferMinutes       Int              @default(0) @map("buffer_minutes")
   onboardingStatus    OnboardingStatus @default(in_progress) @map("onboarding_status")
+  directoryVisible    Boolean          @default(false) @map("directory_visible")
   createdAt           DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   portfolioItems   PortfolioItem[]
   serviceOfferings ServiceOffering[]
+  conversations    Conversation[]
+
+  smsBookingNumber String? @unique @map("sms_booking_number")
 
   @@map("stylist_profiles")
 }
@@ -305,8 +338,191 @@ model Booking {
   cancelledAt            DateTime?            @map("cancelled_at") @db.Timestamptz(6)
   cancellationReason     String?              @map("cancellation_reason")
 
+  notifications Notification[]
+
   @@index([stylistId, status, startTime, endTime])
   @@index([clientId, status])
   @@index([holdExpiresAt])
   @@map("bookings")
+}
+
+// --- Payments (Chapter 9) ---
+
+model StylistStripeAccount {
+  id                 String   @id @default(uuid()) @db.Uuid
+  stylistId          String   @unique @map("stylist_id") @db.Uuid
+  stripeAccountId    String   @unique @map("stripe_account_id")
+  chargesEnabled     Boolean  @default(false) @map("charges_enabled")
+  payoutsEnabled     Boolean  @default(false) @map("payouts_enabled")
+  onboardingComplete Boolean  @default(false) @map("onboarding_complete")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("stylist_stripe_accounts")
+}
+
+enum PaymentStatus {
+  pending
+  captured
+  refunded
+  forfeited
+  failed
+
+  @@map("payment_status")
+}
+
+model Payment {
+  id                    String        @id @default(uuid()) @db.Uuid
+  bookingId             String        @unique @map("booking_id") @db.Uuid
+  stripePaymentIntentId String        @unique @map("stripe_payment_intent_id")
+  amount                Decimal       @db.Decimal(10, 2)
+  currency              String        @default("gbp")
+  status                PaymentStatus @default(pending)
+  createdAt             DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  capturedAt            DateTime?     @map("captured_at") @db.Timestamptz(6)
+
+  @@map("payments")
+}
+
+// --- Messaging (Chapter 11) ---
+
+enum ConversationChannel {
+  sms
+  whatsapp
+  web
+
+  @@map("conversation_channel")
+}
+
+enum ConversationStatus {
+  active
+  escalated
+  resolved
+  abandoned
+
+  @@map("conversation_status")
+}
+
+enum MessageSender {
+  client
+  ai
+  stylist
+  system
+
+  @@map("message_sender")
+}
+
+enum MessageDeliveryStatus {
+  pending
+  sent
+  delivered
+  failed
+  undelivered
+
+  @@map("message_delivery_status")
+}
+
+model Conversation {
+  id            String              @id @default(uuid()) @db.Uuid
+  stylistId     String              @map("stylist_id") @db.Uuid
+  clientId      String              @map("client_id") @db.Uuid
+  channel       ConversationChannel
+  status        ConversationStatus  @default(active)
+  createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  lastMessageAt DateTime            @default(now()) @map("last_message_at") @db.Timestamptz(6)
+
+  stylist     StylistProfile @relation(fields: [stylistId], references: [id], onDelete: Cascade)
+  messages    Message[]
+  escalations Escalation[]
+
+  @@index([stylistId, status, lastMessageAt])
+  @@index([clientId, lastMessageAt])
+  @@index([stylistId, clientId, channel, status])
+  @@map("conversations")
+}
+
+model Message {
+  id                String                 @id @default(uuid()) @db.Uuid
+  conversationId    String                 @map("conversation_id") @db.Uuid
+  sender            MessageSender
+  content           String
+  structuredOutput  Json?                  @map("structured_output")
+  providerMessageId String?                @unique @map("provider_message_id")
+  deliveryStatus    MessageDeliveryStatus? @map("delivery_status")
+  createdAt         DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("messages")
+}
+
+model Escalation {
+  id             String    @id @default(uuid()) @db.Uuid
+  conversationId String    @map("conversation_id") @db.Uuid
+  reason         String
+  modelConfidence Float?   @map("model_confidence")
+  modelNextAction String?  @map("model_next_action")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  resolvedAt     DateTime? @map("resolved_at") @db.Timestamptz(6)
+  resolvedById   String?   @map("resolved_by_id") @db.Uuid
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("escalations")
+}
+
+// --- Notifications (Chapter 12) ---
+
+enum NotificationType {
+  reminder_48h
+  reminder_2h
+  confirmation
+  cancellation
+  no_show_notice
+
+  @@map("notification_type")
+}
+
+enum NotificationStatus {
+  scheduled
+  sent
+  failed
+  skipped
+  cancelled
+
+  @@map("notification_status")
+}
+
+model Notification {
+  id            String             @id @default(uuid()) @db.Uuid
+  bookingId     String             @map("booking_id") @db.Uuid
+  recipientId   String             @map("recipient_id") @db.Uuid
+  type          NotificationType
+  status        NotificationStatus @default(scheduled)
+  scheduledFor  DateTime?          @map("scheduled_for") @db.Timestamptz(6)
+  sentAt        DateTime?          @map("sent_at") @db.Timestamptz(6)
+  failureReason String?            @map("failure_reason")
+  createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  recipient User    @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@unique([bookingId, recipientId, type])
+  @@index([status, scheduledFor])
+  @@index([bookingId])
+  @@map("notifications")
+}
+
+/// Platform-level SMS preferences (Ch.12.4 — STOP halts AI, not transactional notices).
+model SmsPreference {
+  phoneNumber         String    @id @map("phone_number")
+  aiOptedOut          Boolean   @default(false) @map("ai_opted_out")
+  marketingOptedOut   Boolean   @default(false) @map("marketing_opted_out")
+  optedOutAt          DateTime? @map("opted_out_at") @db.Timestamptz(6)
+  optedInAt           DateTime? @map("opted_in_at") @db.Timestamptz(6)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("sms_preferences")
 }

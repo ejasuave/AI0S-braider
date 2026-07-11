@@ -31,10 +31,12 @@ export const workingDaySchema = z.object({
   end: timeStringSchema,
 });
 
-export const workingHoursSchema = z.record(workingDaySchema).refine(
-  (value) => Object.keys(value).every((key) => WEEKDAYS.includes(key as Weekday)),
-  'Invalid weekday key in working hours',
-);
+export const workingHoursSchema = z
+  .record(workingDaySchema)
+  .refine(
+    (value) => Object.keys(value).every((key) => WEEKDAYS.includes(key as Weekday)),
+    'Invalid weekday key in working hours',
+  );
 
 export const depositPolicySchema = z.object({
   type: z.enum(DEPOSIT_POLICY_TYPES),
@@ -82,6 +84,7 @@ export const stylistProfileSchema = z.object({
   workingHours: workingHoursSchema.nullable(),
   bufferMinutes: z.number().int().nonnegative(),
   onboardingStatus: z.enum(ONBOARDING_STATUSES),
+  directoryVisible: z.boolean(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
@@ -99,10 +102,27 @@ export const updateStylistProfileRequestSchema = z
     workingHours: workingHoursSchema.optional(),
     bufferMinutes: z.number().int().min(0).max(240).optional(),
     onboardingStatus: z.enum(ONBOARDING_STATUSES).optional(),
+    directoryVisible: z.boolean().optional(),
   })
   .refine((value) => Object.keys(value).length > 0, 'At least one field is required');
 
 export type UpdateStylistProfileRequest = z.infer<typeof updateStylistProfileRequestSchema>;
+
+export const publicBookingOfferingSchema = z.object({
+  id: z.string().uuid(),
+  styleName: z.string(),
+  basePrice: z.string(),
+  estimatedDurationMinutes: z.number().int().positive(),
+});
+
+export const publicBookingPageSchema = z.object({
+  stylistId: z.string().uuid(),
+  businessName: z.string(),
+  locationArea: z.string().nullable(),
+  offerings: z.array(publicBookingOfferingSchema),
+});
+
+export type PublicBookingPage = z.infer<typeof publicBookingPageSchema>;
 
 export const serviceOfferingSchema = z.object({
   id: z.string().uuid(),
@@ -126,7 +146,11 @@ export const createServiceOfferingRequestSchema = z.object({
   sizeTier: z.string().trim().min(1).max(60).nullable().optional(),
   lengthTier: z.string().trim().min(1).max(60).nullable().optional(),
   basePrice: z.number().positive().max(100_000),
-  estimatedDurationMinutes: z.number().int().positive().max(24 * 60),
+  estimatedDurationMinutes: z
+    .number()
+    .int()
+    .positive()
+    .max(24 * 60),
   hairIncluded: z.boolean().optional(),
   isCustomStyle: z.boolean().optional(),
 });

@@ -12,7 +12,7 @@ Independent braiders and stylists run real businesses with no real infrastructur
 
 Multi-hour services like braiding make this worse than it is for most beauty businesses: a single no-show isn't a wasted 30 minutes, it's half a day of income gone.
 
-Existing booking platforms (StyleSeat, Vagaro, GlossGenius) exist and are perfectly functional calendars — but low adoption among braiders isn't a features problem. It's a fit problem: these tools digitize the *calendar*, not the *conversation*, and the conversation is where all the time and money actually leaks out.
+Existing booking platforms (StyleSeat, Vagaro, GlossGenius) exist and are perfectly functional calendars — but low adoption among braiders isn't a features problem. It's a fit problem: these tools digitize the _calendar_, not the _conversation_, and the conversation is where all the time and money actually leaks out.
 
 ## The Insight
 
@@ -27,8 +27,9 @@ That's a sharper, more visceral pitch to a braider than "join our platform":
 ## The Product
 
 **1. AI Receptionist (the core)**
-A client messages: *"Hi, I'd like waist-length knotless braids next Friday."*
+A client messages: _"Hi, I'd like waist-length knotless braids next Friday."_
 The AI:
+
 - Identifies the style and estimates price and appointment length (from the stylist's own price list)
 - Checks real calendar availability
 - Asks any needed follow-ups (hair color, hair included or not, inspiration photo)
@@ -36,13 +37,13 @@ The AI:
 - Books the appointment
 - Answers routine FAQs
 
-The stylist just sees: *"New booking confirmed — Friday 2pm, £30 deposit paid."*
+The stylist just sees: _"New booking confirmed — Friday 2pm, £30 deposit paid."_
 
 **2. Stylist Dashboard**
 Accept/decline bookings, view calendar, track deposits and cancellation policy enforcement, see client history and income.
 
 **3. Client-Facing Directory (later, not first)**
-Profile cards — photo, specialties, portfolio, reviews, live availability, search by style/location. This is the marketplace layer, deliberately sequenced *after* the receptionist tool proves its value, not before.
+Profile cards — photo, specialties, portfolio, reviews, live availability, search by style/location. This is the marketplace layer, deliberately sequenced _after_ the receptionist tool proves its value, not before.
 
 ## Why Now
 
@@ -53,12 +54,14 @@ AI agents are now capable enough to hold a real, multi-turn booking conversation
 The classic marketplace chicken-and-egg problem (no stylists → no clients → no stylists) is avoided by **ignoring the client/directory side entirely at first.**
 
 Phase 1 — Win the stylist, not the market:
+
 - Personally onboard an initial cohort of braiders in one city
 - Offer free setup, free AI receptionist, free booking page, Instagram photo import
-- They plug it into their *existing* client base and Instagram following — no new demand needed on day one
+- They plug it into their _existing_ client base and Instagram following — no new demand needed on day one
 - If it removes real pain, they push their own clients to book through it organically
 
 Phase 2 — Only once retention is proven:
+
 - Launch the public directory/search layer, now backed by real, active stylists — not an empty marketplace
 
 ## Business Model
@@ -69,7 +72,7 @@ Start with one revenue line, not eight. A flat monthly subscription is the easie
 - **Pro** — ~£19/month: unlimited bookings, calendar, AI receptionist, SMS reminders, deposit collection
 - **Premium** — ~£39/month: staff management, analytics, marketing tools
 
-Additional revenue (booking take-rate, payment processing margin, featured placement, marketplace commission, product affiliate sales, course/training commissions) are real long-term options — but sequenced for *after* there's proven subscription retention and real transaction volume, not bundled into the initial pitch or build.
+Additional revenue (booking take-rate, payment processing margin, featured placement, marketplace commission, product affiliate sales, course/training commissions) are real long-term options — but sequenced for _after_ there's proven subscription retention and real transaction volume, not bundled into the initial pitch or build.
 
 ## The Moat: Style-Recognition AI
 

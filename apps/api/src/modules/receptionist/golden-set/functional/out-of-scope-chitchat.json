@@ -1,0 +1,19 @@
+{
+  "id": "out-of-scope-chitchat",
+  "type": "functional",
+  "description": "Out-of-scope message escalates without partial slot extraction",
+  "turns": [
+    {
+      "mockOutput": {
+        "intent": "out_of_scope",
+        "extracted_slots": {},
+        "confidence": 0.95,
+        "next_action": "escalate",
+        "client_message": "I'm best at bookings — connecting you with the stylist.",
+        "escalation_reason": "Out of scope"
+      },
+      "expectedMergedSlots": {},
+      "expectEscalation": true
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+# Fly.io template for background worker — separate app from API.
+# Deploy: fly deploy --config infrastructure/fly/worker.toml
+
+app = "project-braids-worker-staging"
+primary_region = "lhr"
+
+[build]
+  dockerfile = "infrastructure/docker/Dockerfile.worker"
+
+[env]
+  NODE_ENV = "staging"
+  PLATFORM_TIMEZONE = "Europe/London"
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
+
+# No http_service — worker consumes BullMQ only.

@@ -1,8 +1,7 @@
 import { z } from 'zod';
 
-
 export const apiEnvSchema = z.object({
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  NODE_ENV: z.enum(['development', 'test', 'production', 'staging']).default('development'),
   PORT: z.coerce.number().int().positive().default(3001),
   HOST: z.string().default('0.0.0.0'),
   DATABASE_URL: z.string().url(),
@@ -27,6 +26,30 @@ export const apiEnvSchema = z.object({
   PLATFORM_TIMEZONE: z.string().default('Europe/London'),
   AVAILABILITY_SLOT_INTERVAL_MINUTES: z.coerce.number().int().positive().default(15),
   AVAILABILITY_MAX_DAYS: z.coerce.number().int().positive().max(90).default(14),
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  STRIPE_CONNECT_RETURN_URL: z.string().url().default('http://localhost:3000/stylist/payments'),
+  STRIPE_CONNECT_REFRESH_URL: z.string().url().default('http://localhost:3000/stylist/payments'),
+  TWILIO_ACCOUNT_SID: z.string().optional(),
+  TWILIO_AUTH_TOKEN: z.string().optional(),
+  TWILIO_PHONE_NUMBER: z.string().optional(),
+  API_PUBLIC_URL: z.string().url().default('http://localhost:3001'),
+  MESSAGING_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(30),
+  MESSAGING_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
+  ANTHROPIC_API_KEY: z.string().optional(),
+  ANTHROPIC_MODEL: z.string().default('claude-sonnet-4-20250514'),
+  AI_RECEPTIONIST_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
+  AI_CONFIDENCE_THRESHOLD: z.coerce.number().min(0).max(1).default(0.8),
+  AI_RECEPTIONIST_MAX_HISTORY_MESSAGES: z.coerce.number().int().positive().default(12),
+  NOTIFICATION_SWEEP_INTERVAL_MS: z.coerce.number().int().positive().default(300_000),
+  NOTIFICATION_ACTIVE_CONVERSATION_DEFERRAL_MINUTES: z.coerce.number().int().positive().default(30),
+  GIT_SHA: z.string().optional(),
+  APP_VERSION: z.string().default('0.0.0'),
+  DEPLOY_ENV: z.enum(['development', 'test', 'staging', 'production']).optional(),
+  OPS_BEARER_TOKEN: z.string().min(16).optional(),
 });
 
 export type ApiEnv = z.infer<typeof apiEnvSchema>;

@@ -58,15 +58,31 @@ export const registerStylistRequestSchema = z.object({
   password: passwordSchema,
 });
 
+/** Ch.3.1 — self-service stylist signup (role fixed to stylist_owner). */
+export const signupRequestSchema = registerStylistRequestSchema.extend({
+  role: z.literal('stylist_owner').default('stylist_owner'),
+});
+
 export const registerClientRequestSchema = z.object({
   phoneNumber: e164PhoneSchema,
+});
+
+export const registerClientResponseSchema = z.object({
+  otpRequired: z.literal(true),
+  otpPurpose: otpPurposeSchema,
+});
+
+export const registerStylistResponseSchema = z.object({
+  userId: z.string().uuid(),
+  otpRequired: z.literal(true),
+  otpPurpose: otpPurposeSchema,
 });
 
 export const loginRequestSchema = z
   .object({
     email: z.string().email().optional(),
     phoneNumber: e164PhoneSchema.optional(),
-    password: passwordSchema,
+    password: z.string().min(1, 'Password is required').max(128),
   })
   .refine((data) => data.email ?? data.phoneNumber, {
     message: 'Email or phone number is required',
@@ -111,6 +127,15 @@ export const accountRecoveryRequestSchema = z.object({
   email: z.string().email(),
   phoneNumber: e164PhoneSchema.optional(),
   reason: z.string().min(10).max(2000),
+});
+
+export const phoneChangeRequestSchema = z.object({
+  requestedPhoneNumber: e164PhoneSchema,
+});
+
+export const phoneChangeResponseSchema = z.object({
+  requestId: z.string().uuid(),
+  status: z.literal('pending'),
 });
 
 export const authSessionResponseSchema = z.object({

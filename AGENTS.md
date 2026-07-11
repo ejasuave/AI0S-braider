@@ -7,7 +7,7 @@ AI receptionist and operating system for independent UK hair braiders and hairst
 1. [reference/requirements/product-blueprint.md](reference/requirements/product-blueprint.md) — **start here**
 2. Relevant [Engineering Playbook](reference/requirements/engineering-playbook.md) chapter
 3. [Prompt Library](reference/prompt-library/) outline + back matter for build order
-4. `docs/ARCHITECTURE.md` — service boundaries (Ch.2)
+4. `docs/ARCHITECTURE.md` — service boundaries (Ch.2); canonical file: [ARCHITECTURE.md](ARCHITECTURE.md) at repo root
 
 Read every relevant document **completely** before making changes.
 
@@ -24,7 +24,7 @@ Read every relevant document **completely** before making changes.
 ## Non-negotiables
 
 - Never hallucinate pricing — lookup `service_offerings`, escalate below 0.8 confidence
-- Tool before marketplace — no directory in MVP
+- Tool before marketplace — full directory is Ch.16 V2; **beta opt-in directory** at `/directory` for pilot
 - API-first — no Server Actions as canonical write path; native apps later
 - Idempotent webhooks and messaging retries
 - Flag doc conflicts explicitly; never silently override Blueprint
@@ -56,8 +56,8 @@ On doc conflict: **stop and explain** before writing code.
 
 ## MVP scope
 
-SMS-only client channel. Dashboard + onboarding web UI. No web booking widget/form until V2.
+SMS-only client channel. Dashboard + onboarding web UI. Beta directory at `/directory` (opt-in). Direct booking link (`/book?…`) still supported. Embeddable web widget remains V2.
 
 ## Current phase
 
-**Chapter 8 complete** (committed). Awaiting founder approval before **Chapter 9 — Payments** (MVP 9.1–9.2).
+**Chapters 1–25 complete** — MVP build + future-feature registry documented. **Next:** beta ship checklist or a Ch.25 item when its trigger is met ([FUTURE_FEATURES.md](docs/FUTURE_FEATURES.md)).

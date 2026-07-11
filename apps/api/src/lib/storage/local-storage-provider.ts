@@ -1,6 +1,10 @@
 import { mkdir, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import type { StorageProvider, StorageUploadInput, StorageUploadResult } from './storage-provider.js';
+import type {
+  StorageProvider,
+  StorageUploadInput,
+  StorageUploadResult,
+} from './storage-provider.js';
 
 const UPLOAD_ROOT = path.resolve(process.cwd(), 'uploads');
 
