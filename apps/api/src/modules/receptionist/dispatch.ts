@@ -128,7 +128,21 @@ export async function dispatchReceptionistTurn(
         break;
       }
       slots.serviceOfferingId = pricing.offering.id;
-      clientMessage = `${output.client_message}\n\n${pricing.offering.styleName}: £${pricing.offering.basePrice}, about ${pricing.offering.estimatedDurationMinutes} mins.`;
+
+      if (context.priceAlreadyQuoted) {
+        const proposed = await buildProposedSlotsMessage(
+          context,
+          { ...output, next_action: 'propose_slots' },
+          slots,
+          'Here are the next available times — reply with the number you want.',
+        );
+        clientMessage = proposed.clientMessage;
+        metadata = proposed.metadata;
+        output = proposed.output;
+        break;
+      }
+
+      clientMessage = `${output.client_message}\n\n${pricing.offering.styleName}: £${pricing.offering.basePrice}, about ${pricing.offering.estimatedDurationMinutes} mins.\n\nWhat day works for you? I can send available times.`;
       metadata = { pricing_lookup: pricing };
       break;
     }

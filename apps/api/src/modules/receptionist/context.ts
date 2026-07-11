@@ -4,6 +4,7 @@ import { receptionistTurnOutputSchema } from '@project-braids/shared-types/api';
 import { getEnv } from '../../config/env.js';
 import { messagingRepository } from '../messaging/repository.js';
 import { profileService } from '../profile/service.js';
+import { wasPriceAlreadyQuoted } from './flow.js';
 
 export type ConversationTurnContext = {
   conversationId: string;
@@ -32,6 +33,9 @@ export type ConversationTurnContext = {
   };
   proposedSlots: Array<{ index: number; startTime: string; endTime: string }>;
   pendingBookingId: string | null;
+  latestClientMessage: string;
+  priceAlreadyQuoted: boolean;
+  lastAiNextAction: ReceptionistTurnOutput['next_action'] | null;
 };
 
 const STALE_SLOT_FIELDS: Array<keyof ExtractedSlots> = [
@@ -106,6 +110,30 @@ function extractProposedSlots(messages: Message[]): ConversationTurnContext['pro
   return [];
 }
 
+function getLatestClientMessage(messages: Message[]): string {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index]!;
+    if (message.sender === 'client') {
+      return message.content;
+    }
+  }
+  return '';
+}
+
+function getLastAiNextAction(
+  messages: Message[],
+): ReceptionistTurnOutput['next_action'] | null {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index]!;
+    if (message.sender !== 'ai' || !message.structuredOutput) continue;
+    const parsed = receptionistTurnOutputSchema.safeParse(message.structuredOutput);
+    if (parsed.success) {
+      return parsed.data.next_action;
+    }
+  }
+  return null;
+}
+
 export async function buildConversationTurnContext(
   conversationId: string,
 ): Promise<ConversationTurnContext | null> {
@@ -121,6 +149,9 @@ export async function buildConversationTurnContext(
 
   const mergedSlots = mergeSlotsFromMessages(messages);
   const pendingBookingId = mergedSlots.bookingId ?? null;
+  const latestClientMessage = getLatestClientMessage(messages);
+  const priceAlreadyQuoted = wasPriceAlreadyQuoted(messages, mergedSlots);
+  const lastAiNextAction = getLastAiNextAction(messages);
 
   return {
     conversationId,
@@ -155,6 +186,9 @@ export async function buildConversationTurnContext(
     },
     proposedSlots: extractProposedSlots(messages),
     pendingBookingId,
+    latestClientMessage,
+    priceAlreadyQuoted,
+    lastAiNextAction,
   };
 }
 

@@ -17,6 +17,7 @@ import {
   shouldEscalate,
 } from './escalation.js';
 import { buildSystemPrompt, buildUserPrompt } from './prompt.js';
+import { advanceBookingFlow } from './flow.js';
 
 export type ProcessTurnResult = {
   status: 'replied' | 'escalated' | 'skipped';
@@ -153,6 +154,8 @@ export class ReceptionistService {
       await escalateWithModelContext(conversationId, escalation.reason, output);
       return { status: 'escalated', reason: escalation.reason };
     }
+
+    output = advanceBookingFlow(output, context);
 
     try {
       await dispatchReceptionistTurn(context, output);
