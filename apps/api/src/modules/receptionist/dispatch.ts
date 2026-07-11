@@ -9,6 +9,31 @@ import { profileService } from '../profile/service.js';
 import { formatSlotLabel } from '../../lib/scheduling/format-datetime.js';
 import { attachStructuredMetadata, type ConversationTurnContext } from './context.js';
 
+function getLastAiMessageContent(context: ConversationTurnContext): string {
+  for (let index = context.messages.length - 1; index >= 0; index -= 1) {
+    const message = context.messages[index]!;
+    if (message.sender === 'ai') {
+      return message.content;
+    }
+  }
+  return '';
+}
+
+function buildNoSlotsMessage(context: ConversationTurnContext, styleName?: string): string {
+  const lastAi = getLastAiMessageContent(context);
+  const isRepeat = /couldn't find open slots|no slots showing/i.test(lastAi);
+
+  if (isRepeat) {
+    return styleName
+      ? `I'm still not seeing open slots for ${styleName} in the next couple of weeks. Would a weekday work, or shall I ask the stylist to reach out?`
+      : "I'm still not seeing open slots in the next couple of weeks. Would a weekday work, or shall I ask the stylist to reach out?";
+  }
+
+  return styleName
+    ? `I couldn't find open slots for ${styleName} in the next week. What other days work for you?`
+    : "I couldn't find open slots in the next week. What other days work for you?";
+}
+
 export type DispatchResult = {
   output: ReceptionistTurnOutput;
   sentMessage: string;
@@ -55,7 +80,10 @@ async function buildProposedSlotsMessage(
   const from = slots.preferredDate
     ? new Date(`${slots.preferredDate}T00:00:00.000Z`)
     : new Date();
-  const to = new Date(from.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const lastAi = getLastAiMessageContent(context);
+  const widenSearch = /couldn't find open slots|no slots showing/i.test(lastAi);
+  const rangeDays = widenSearch ? 14 : 7;
+  const to = new Date(from.getTime() + rangeDays * 24 * 60 * 60 * 1000);
 
   const availability = await bookingService.getAvailability({
     stylistId: context.stylistId,
@@ -67,8 +95,7 @@ async function buildProposedSlotsMessage(
 
   if (availability.slots.length === 0) {
     return {
-      clientMessage:
-        "I couldn't find open slots in the next week. What other days work for you?",
+      clientMessage: buildNoSlotsMessage(context, slots.styleName),
       metadata: {},
       output: { ...output, next_action: 'ask_clarification' },
     };
@@ -83,8 +110,22 @@ async function buildProposedSlotsMessage(
   const lines = proposed.map(
     (slot, index) => `${index + 1}. ${formatSlotLabel(slot.startTime, availability.timezone)}`,
   );
+
+  let intro = introMessage;
+  if (!context.priceAlreadyQuoted && slots.styleName) {
+    const pricing = await profileService.lookupPricing(context.stylistId, {
+      styleName: slots.styleName,
+      sizeTier: slots.sizeTier,
+      lengthTier: slots.lengthTier,
+    });
+    if (pricing.offering) {
+      slots.serviceOfferingId = pricing.offering.id;
+      intro = `${slots.styleName} is £${pricing.offering.basePrice} (about ${pricing.offering.estimatedDurationMinutes} mins). ${introMessage}`;
+    }
+  }
+
   return {
-    clientMessage: `${introMessage}\n\n${lines.join('\n')}\n\nReply with the number of your preferred slot.`,
+    clientMessage: `${intro}\n\n${lines.join('\n')}\n\nReply with the number of your preferred slot.`,
     metadata: { proposed_slots: proposed },
     output: { ...output, next_action: 'propose_slots' },
   };
@@ -134,7 +175,8 @@ export async function dispatchReceptionistTurn(
           context,
           { ...output, next_action: 'propose_slots' },
           slots,
-          'Here are the next available times — reply with the number you want.',
+          output.client_message ||
+            'Here are the next available times — reply with the number you want.',
         );
         clientMessage = proposed.clientMessage;
         metadata = proposed.metadata;
@@ -142,7 +184,8 @@ export async function dispatchReceptionistTurn(
         break;
       }
 
-      clientMessage = `${output.client_message}\n\n${pricing.offering.styleName}: £${pricing.offering.basePrice}, about ${pricing.offering.estimatedDurationMinutes} mins.\n\nWhat day works for you? I can send available times.`;
+      const intro = output.client_message.trim();
+      clientMessage = `${intro}\n\n${pricing.offering.styleName}: £${pricing.offering.basePrice}, about ${pricing.offering.estimatedDurationMinutes} mins.\n\nWant me to send available times? Just say which day works, or reply "book me in".`;
       metadata = { pricing_lookup: pricing };
       break;
     }

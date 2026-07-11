@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { ConversationTurnContext } from './context.js';
-import { advanceBookingFlow, parsePreferredDateFromText } from './flow.js';
+import {
+  advanceBookingFlow,
+  composeHumanBookingReply,
+  inferBookingPhase,
+  parsePreferredDateFromText,
+} from './flow.js';
 
 function baseContext(overrides: Partial<ConversationTurnContext> = {}): ConversationTurnContext {
   return {
@@ -29,24 +34,51 @@ function baseContext(overrides: Partial<ConversationTurnContext> = {}): Conversa
   };
 }
 
+const repeatPriceOutput = {
+  intent: 'new_booking' as const,
+  extracted_slots: { styleName: 'Box braids' },
+  confidence: 0.9,
+  next_action: 'confirm_style_price' as const,
+  client_message: 'Great — I can help with Box braids. Let me confirm pricing and find times for you.',
+};
+
 describe('advanceBookingFlow', () => {
   it('upgrades repeat confirm_style_price to propose_slots when price was quoted', () => {
     const result = advanceBookingFlow(
-      {
-        intent: 'new_booking',
-        extracted_slots: { styleName: 'Box braids' },
-        confidence: 0.9,
-        next_action: 'confirm_style_price',
-        client_message: 'Great — I can help with Box braids.',
-      },
+      repeatPriceOutput,
       baseContext({
         latestClientMessage: 'can you book me in please',
         priceAlreadyQuoted: true,
+        lastAiNextAction: 'confirm_style_price',
         mergedSlots: { styleName: 'Box braids', serviceOfferingId: 'off-1' },
+        messages: [
+          { sender: 'client', content: 'box braids on saturday', createdAt: '2026-07-11T09:00:00.000Z' },
+          {
+            sender: 'ai',
+            content: 'Box braids: £20, about 90 mins.',
+            createdAt: '2026-07-11T09:01:00.000Z',
+          },
+        ],
       }),
     );
 
     expect(result.next_action).toBe('propose_slots');
+    expect(result.client_message).toMatch(/find open times|Of course/i);
+    expect(result.client_message).not.toMatch(/confirm pricing/i);
+  });
+
+  it('quotes price once when style is known but price not yet shared', () => {
+    const result = advanceBookingFlow(
+      repeatPriceOutput,
+      baseContext({
+        latestClientMessage: 'box braids please, how much',
+        mergedSlots: {},
+        messages: [{ sender: 'client', content: 'box braids please, how much', createdAt: '' }],
+      }),
+    );
+
+    expect(result.next_action).toBe('confirm_style_price');
+    expect(result.client_message).toMatch(/costs|pricing/i);
   });
 
   it('creates hold when client picks a proposed slot number', () => {
@@ -64,11 +96,63 @@ describe('advanceBookingFlow', () => {
           { index: 1, startTime: '2026-07-12T09:00:00.000Z', endTime: '2026-07-12T10:30:00.000Z' },
         ],
         mergedSlots: { styleName: 'Box braids', serviceOfferingId: 'off-1' },
+        priceAlreadyQuoted: true,
       }),
     );
 
     expect(result.next_action).toBe('create_hold');
     expect(result.extracted_slots.selectedSlotIndex).toBe(1);
+  });
+
+  it('extracts style from earlier client messages when slots are empty', () => {
+    const result = advanceBookingFlow(
+      repeatPriceOutput,
+      baseContext({
+        latestClientMessage: 'okay can you book me in',
+        priceAlreadyQuoted: true,
+        lastAiNextAction: 'confirm_style_price',
+        messages: [
+          { sender: 'client', content: 'box braids on saturday', createdAt: '' },
+          { sender: 'ai', content: 'Box braids: £20, about 90 mins.', createdAt: '' },
+        ],
+      }),
+    );
+
+    expect(result.next_action).toBe('propose_slots');
+    expect(result.extracted_slots.styleName).toBe('Box braids');
+  });
+});
+
+describe('inferBookingPhase', () => {
+  it('detects propose_slots after price quoted and booking request', () => {
+    const phase = inferBookingPhase(
+      baseContext({
+        latestClientMessage: 'can you book me in for that please',
+        priceAlreadyQuoted: true,
+        lastAiNextAction: 'confirm_style_price',
+        mergedSlots: { styleName: 'Box braids' },
+      }),
+      { styleName: 'Box braids' },
+    );
+
+    expect(phase).toBe('propose_slots');
+  });
+});
+
+describe('composeHumanBookingReply', () => {
+  it('responds directly to a booking request instead of repeating pricing intro', () => {
+    const reply = composeHumanBookingReply(
+      'propose_slots',
+      baseContext({
+        latestClientMessage: 'Can you book me in for that please',
+        mergedSlots: { styleName: 'Box braids' },
+        priceAlreadyQuoted: true,
+      }),
+      { styleName: 'Box braids' },
+    );
+
+    expect(reply).toMatch(/find open times|Of course/i);
+    expect(reply).not.toMatch(/confirm pricing/i);
   });
 });
 

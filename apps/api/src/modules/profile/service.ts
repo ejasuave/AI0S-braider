@@ -519,26 +519,31 @@ export class ProfileService {
     workingHours: Record<Weekday, { enabled: boolean; start: string; end: string }>;
   }> {
     const profile = await getStylistProfileById(stylistId);
+    const legacyWorkingHours =
+      (profile.workingHours as Record<
+        Weekday,
+        { enabled: boolean; start: string; end: string }
+      >) ?? DEFAULT_WORKING_HOURS;
+
     if (profile.businessId) {
       const from = new Date().toISOString().slice(0, 10);
       const to = new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
       const rules = await getBaseAvailabilityRules(profile.businessId, from, to);
+      const fromRules = baseRulesToLegacyWorkingHours(rules) as Record<
+        Weekday,
+        { enabled: boolean; start: string; end: string }
+      >;
+      const hasConfiguredHours = Object.values(fromRules).some((day) => day.enabled);
+
       return {
         bufferMinutes: profile.bufferMinutes,
-        workingHours: baseRulesToLegacyWorkingHours(rules) as Record<
-          Weekday,
-          { enabled: boolean; start: string; end: string }
-        >,
+        workingHours: hasConfiguredHours ? fromRules : legacyWorkingHours,
       };
     }
 
     return {
       bufferMinutes: profile.bufferMinutes,
-      workingHours:
-        (profile.workingHours as Record<
-          Weekday,
-          { enabled: boolean; start: string; end: string }
-        >) ?? DEFAULT_WORKING_HOURS,
+      workingHours: legacyWorkingHours,
     };
   }
 }
