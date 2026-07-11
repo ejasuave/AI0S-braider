@@ -5,6 +5,8 @@ export type AccessTokenPayload = JWTPayload & {
   sub: string;
   role: string;
   sid: string;
+  imp?: boolean;
+  admin_sub?: string;
 };
 
 function getSecretKey(): Uint8Array {

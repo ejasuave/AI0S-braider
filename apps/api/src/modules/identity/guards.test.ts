@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { ApiError } from '../../lib/errors.js';
-import { requireRoles } from './guards.js';
+import { requireRole } from './guards.js';
 import type { AuthenticatedRequest } from './middleware.js';
 
 vi.mock('./middleware.js', () => ({
@@ -17,13 +17,15 @@ vi.mock('./middleware.js', () => ({
       },
       sessionId: '22222222-2222-2222-2222-222222222222',
       stylistId: null,
+      businessId: null,
+      impersonation: null,
     };
   }),
 }));
 
-describe('requireRoles', () => {
+describe('requireRole', () => {
   it('allows matching roles', async () => {
-    const handler = requireRoles('client');
+    const handler = requireRole('client');
     const request = {} as FastifyRequest;
     const reply = {} as FastifyReply;
 
@@ -31,8 +33,8 @@ describe('requireRoles', () => {
   });
 
   it('rejects non-matching roles', async () => {
-    const handler = requireRoles('admin');
-    const request = {} as FastifyRequest;
+    const handler = requireRole('admin');
+    const request = { log: { warn: vi.fn() } } as unknown as FastifyRequest;
     const reply = {} as FastifyReply;
 
     await expect(handler(request, reply)).rejects.toBeInstanceOf(ApiError);

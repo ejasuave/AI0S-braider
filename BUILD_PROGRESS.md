@@ -17,6 +17,7 @@ Mobile-first Next.js app at `apps/web` — tokens from `reference/design/visual-
 | `/stylist`                             | Dashboard — **escalations first**, today's bookings, shortcuts |
 | `/stylist/bookings`                    | **Week calendar** + day-filtered appointment list              |
 | `/stylist/inbox`                       | Escalated + all SMS conversations                              |
+| `/stylist/staff`                       | Team — invite staff, view permissions (Ch.4.3)                 |
 | `/client`                              | Client home, bookings, inbox link, **sign out**                |
 | `/client/inbox`, `/client/inbox/[id]`  | Client SMS conversation history (Ch.11.1)                      |
 | `/directory`, `/directory/[stylistId]` | **Beta** public stylist search (opt-in)                        |
@@ -32,7 +33,7 @@ Mobile-first Next.js app at `apps/web` — tokens from `reference/design/visual-
 | 1 — Project Setup                | Complete | `aba627c`                                                                               |
 | 2 — Architecture                 | Complete | `13b6544`                                                                               |
 | 3 — Authentication               | Complete | `921b99f`                                                                               |
-| 4 — User Roles (4.1–4.2)         | Complete | `ef0cb45`                                                                               |
+| 4 — User Roles (4.1–4.4)         | Complete | businesses, staff API, guards, impersonation, `/stylist/staff`                          |
 | 6 — Stylist Features             | Complete | `7ef6e26`                                                                               |
 | 7 — Booking Engine               | Complete | `5e43991`                                                                               |
 | 8 — Calendar (8.1, 8.3)          | Complete | `d387b9b`                                                                               |
@@ -75,6 +76,15 @@ Mobile-first Next.js app at `apps/web` — tokens from `reference/design/visual-
 | 23.2   | `.env.staging.example`, isolated env docs, Fly.toml templates                   |
 | 23.3   | Kill switch drill script, rollback runbook, `GET /system/ops-status`            |
 | 23.4   | `check-migrations.sh`, `migrate-deploy.sh`, [MIGRATIONS.md](docs/MIGRATIONS.md) |
+
+### Chapter 4 deliverables (aligned to prompt library)
+
+| Prompt | Deliverable                                                                                                |
+| ------ | ---------------------------------------------------------------------------------------------------------- |
+| 4.1    | `businesses`, `business_staff`, shared types, `permissions.test.ts`, ARCHITECTURE Roles module             |
+| 4.2    | `requireRole`, `requireBusinessPermission`, `permission_denied` logs, access demo routes, `guards.test.ts` |
+| 4.3    | Staff invite/accept/update/remove/list APIs, Zod strict permission flags, lifecycle integration tests      |
+| 4.4    | `impersonation_sessions`, admin impersonate start/end, 5-min `imp` tokens, denylist + audit logs           |
 
 ### Chapter 3 deliverables (aligned to prompt library)
 

@@ -56,6 +56,24 @@ Exceeded limits return `RATE_LIMITED` (429) with `Retry-After` header and `detai
 
 ---
 
+## Admin impersonation denylist (Ch.4.4)
+
+Impersonation tokens (`imp: true` JWT claim, 5-minute TTL) are **blocked** on sensitive mutations via `rejectImpersonationOnSensitiveRoutes`:
+
+| Pattern                         | Rationale                                                          |
+| ------------------------------- | ------------------------------------------------------------------ |
+| `/api/v1/auth/password*`        | Prevent credential changes as the target user                      |
+| `/api/v1/auth/password-reset/*` | Prevent account takeover during support sessions                   |
+| `/api/v1/auth/phone-change/*`   | Phone ties to payout identity — never self-service or impersonated |
+| `/api/v1/auth/oauth/*`          | Prevent linking/unlinking OAuth as the target                      |
+| `/api/v1/payments/connect/*`    | Stripe Connect / bank payout setup                                 |
+
+**Revisit when Ch.6/9 add routes:** confirm new password, phone, payout, and account-deletion endpoints are added to this denylist.
+
+Every impersonated request logs `impersonated_request` with `adminUserId` + `targetUserId` (distinct from normal request logs).
+
+---
+
 ## Abuse prevention elsewhere
 
 - Inbound SMS: `lib/messaging-rate-limit.ts` (Ch.13)

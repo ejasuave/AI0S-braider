@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Scissors, User } from 'lucide-react';
+import { Scissors, User, Users } from 'lucide-react';
 import { SignOutButton } from '@/features/auth/sign-out-button';
 import { Card } from '@/shared/ui/card';
 import { PageHeader, PageShell } from '@/shared/ui/page-shell';
@@ -19,6 +19,12 @@ const moreLinks = [
     label: 'Profile',
     description: 'Business details and directory opt-in',
     icon: User,
+  },
+  {
+    href: '/stylist/staff',
+    label: 'Team',
+    description: 'Invite staff and manage permissions',
+    icon: Users,
   },
 ] as const;
 

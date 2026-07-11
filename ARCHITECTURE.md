@@ -2,11 +2,11 @@
 
 **Every feature prompt executed in this codebase must be checked against this document.** If a prompt would require one service to reach into another service's owned data or logic directly, flag that conflict before proceeding rather than implementing it silently.
 
-**Last updated:** 2026-07-11 (Ch.2 Architecture alignment)
+**Last updated:** 2026-07-11 (Ch.4 Roles & permissions)
 
 This document defines service boundaries, cross-module rules, and patterns every feature must follow. If implementation diverges from this file, update this document in the same commit.
 
-Related: [docs/API_CONVENTIONS.md](docs/API_CONVENTIONS.md) · [docs/BFF.md](docs/BFF.md) · [docs/BACKGROUND_JOBS.md](docs/BACKGROUND_JOBS.md) · [docs/WEBHOOK_CONVENTIONS.md](docs/WEBHOOK_CONVENTIONS.md)
+Related: [docs/API_CONVENTIONS.md](docs/API_CONVENTIONS.md) · [docs/BFF.md](docs/BFF.md) · [docs/BACKGROUND_JOBS.md](docs/BACKGROUND_JOBS.md) · [docs/WEBHOOK_CONVENTIONS.md](docs/WEBHOOK_CONVENTIONS.md) · [docs/PERMISSIONS.md](docs/PERMISSIONS.md)
 
 ---
 
@@ -40,7 +40,8 @@ Each module owns its domain logic, database tables, and HTTP routes. **Never que
 
 | Service             | Module path              | Owns                                                                | Does not own                                  |
 | ------------------- | ------------------------ | ------------------------------------------------------------------- | --------------------------------------------- |
-| **Identity**        | `modules/identity/`      | Authentication, sessions, roles, OTP                                | Profile content                               |
+| **Identity**        | `modules/identity/`      | Authentication, sessions, OTP                                       | Profile content, permission evaluation        |
+| **Roles**           | `modules/roles/`         | Businesses, staff permissions, guards, impersonation audit          | Profile content, auth session issuance        |
 | **Stylist Profile** | `modules/profile/`       | Bio, portfolio, pricing, policies, directory opt-in                 | Availability computation                      |
 | **Booking Engine**  | `modules/booking/`       | Slot holds, confirmations, cancellations, state machine             | Payment capture                               |
 | **AI Receptionist** | `modules/receptionist/`  | Conversation state, intent, escalation, booking dispatch            | Calendar source of truth                      |
@@ -64,11 +65,13 @@ Each module owns its domain logic, database tables, and HTTP routes. **Never que
 
 ### Cross-cutting infrastructure (no feature owner)
 
-| Asset                      | Location                         | Purpose                                |
-| -------------------------- | -------------------------------- | -------------------------------------- |
-| `processed_webhook_events` | Prisma / Postgres                | Webhook idempotency ledger (Ch.2.6)    |
-| `lib/queue.ts`             | `apps/api/src/lib/`              | Shared BullMQ connection               |
-| Shared types               | `packages/shared-types/src/api/` | Zod schemas + `z.infer` types (Ch.2.3) |
+| Asset                           | Location                         | Purpose                                |
+| ------------------------------- | -------------------------------- | -------------------------------------- |
+| `processed_webhook_events`      | Prisma / Postgres                | Webhook idempotency ledger (Ch.2.6)    |
+| `businesses` / `business_staff` | Prisma / Postgres                | Multi-staff permission scoping (Ch.4)  |
+| `impersonation_sessions`        | Prisma / Postgres                | Admin impersonation audit (Ch.4.4)     |
+| `lib/queue.ts`                  | `apps/api/src/lib/`              | Shared BullMQ connection               |
+| Shared types                    | `packages/shared-types/src/api/` | Zod schemas + `z.infer` types (Ch.2.3) |
 
 ### Cross-module rules
 

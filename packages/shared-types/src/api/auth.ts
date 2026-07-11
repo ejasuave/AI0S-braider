@@ -32,6 +32,15 @@ export const authContextSchema = z.object({
   user: authUserSchema,
   sessionId: z.string().uuid(),
   stylistId: z.string().uuid().nullable(),
+  businessId: z.string().uuid().nullable(),
+  impersonation: z
+    .object({
+      sessionId: z.string().uuid(),
+      adminUserId: z.string().uuid(),
+      targetUserId: z.string().uuid(),
+    })
+    .nullable()
+    .optional(),
 });
 
 export type AuthContext = z.infer<typeof authContextSchema>;

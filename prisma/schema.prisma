@@ -75,6 +75,10 @@ model User {
   accountRecoveryRequests AccountRecoveryRequest[]
   phoneChangeRequests   PhoneNumberChangeRequest[] @relation("PhoneChangeUser")
   phoneChangesResolved  PhoneNumberChangeRequest[] @relation("PhoneChangeResolver")
+  ownedBusiness       Business?                  @relation("BusinessOwner")
+  businessStaff       BusinessStaff[]
+  adminImpersonations ImpersonationSession[]     @relation("ImpersonationAdmin")
+  targetImpersonations ImpersonationSession[]    @relation("ImpersonationTarget")
   stylistMembership     StylistMembership?
   stylistProfile        StylistProfile?
   notifications         Notification[]
@@ -94,6 +98,57 @@ model StylistMembership {
 
   @@index([stylistId])
   @@map("stylist_memberships")
+}
+
+// --- Roles & permissions (Chapter 4) ---
+
+model Business {
+  id           String   @id @default(uuid()) @db.Uuid
+  ownerUserId  String   @unique @map("owner_user_id") @db.Uuid
+  businessName String   @default("") @map("business_name")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  owner   User            @relation("BusinessOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  staff   BusinessStaff[]
+  profile StylistProfile?
+
+  @@map("businesses")
+}
+
+model BusinessStaff {
+  id           String    @id @default(uuid()) @db.Uuid
+  businessId   String    @map("business_id") @db.Uuid
+  userId       String?   @map("user_id") @db.Uuid
+  inviteeEmail String?   @map("invitee_email")
+  inviteePhone String?   @map("invitee_phone")
+  permissions  Json
+  invitedAt    DateTime  @default(now()) @map("invited_at") @db.Timestamptz(6)
+  acceptedAt   DateTime? @map("accepted_at") @db.Timestamptz(6)
+  removedAt    DateTime? @map("removed_at") @db.Timestamptz(6)
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  user     User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([businessId, removedAt])
+  @@index([userId])
+  @@map("business_staff")
+}
+
+model ImpersonationSession {
+  id            String    @id @default(uuid()) @db.Uuid
+  adminUserId   String    @map("admin_user_id") @db.Uuid
+  targetUserId  String    @map("target_user_id") @db.Uuid
+  reason        String
+  startedAt     DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
+  endedAt       DateTime? @map("ended_at") @db.Timestamptz(6)
+  createdFromIp String    @map("created_from_ip")
+
+  admin  User @relation("ImpersonationAdmin", fields: [adminUserId], references: [id], onDelete: Cascade)
+  target User @relation("ImpersonationTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+
+  @@index([adminUserId, startedAt])
+  @@index([targetUserId])
+  @@map("impersonation_sessions")
 }
 
 model Session {
@@ -220,6 +275,7 @@ enum PortfolioSource {
 model StylistProfile {
   id                  String           @id @default(uuid()) @db.Uuid
   userId              String           @unique @map("user_id") @db.Uuid
+  businessId          String?          @unique @map("business_id") @db.Uuid
   businessName        String           @default("") @map("business_name")
   bio                 String?
   locationArea        String?          @map("location_area")
@@ -234,6 +290,7 @@ model StylistProfile {
   updatedAt           DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  business         Business?         @relation(fields: [businessId], references: [id], onDelete: SetNull)
   portfolioItems   PortfolioItem[]
   serviceOfferings ServiceOffering[]
   conversations    Conversation[]

@@ -13,6 +13,7 @@ import {
 } from '@project-braids/shared-types/api';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/db.js';
+import { businessService } from '../roles/business.service.js';
 import { ApiError } from '../../lib/errors.js';
 
 function toIso(date: Date): string {
@@ -129,16 +130,27 @@ export async function ensureStylistProfileForUser(userId: string) {
     return existing;
   }
 
-  return prisma.stylistProfile.create({
-    data: {
-      userId,
-      businessName: '',
-      depositPolicy: DEFAULT_DEPOSIT_POLICY,
-      cancellationPolicy: DEFAULT_CANCELLATION_POLICY,
-      workingHours: DEFAULT_WORKING_HOURS,
-      onboardingStatus: 'in_progress',
-    },
-  });
+  return prisma.stylistProfile
+    .create({
+      data: {
+        userId,
+        businessName: '',
+        depositPolicy: DEFAULT_DEPOSIT_POLICY,
+        cancellationPolicy: DEFAULT_CANCELLATION_POLICY,
+        workingHours: DEFAULT_WORKING_HOURS,
+        onboardingStatus: 'in_progress',
+      },
+    })
+    .then(async (profile) => {
+      const business = await businessService.ensureBusinessForOwner(userId, profile.businessName);
+      if (!profile.businessId) {
+        return prisma.stylistProfile.update({
+          where: { id: profile.id },
+          data: { businessId: business.id },
+        });
+      }
+      return profile;
+    });
 }
 
 export async function getStylistProfileById(stylistId: string) {

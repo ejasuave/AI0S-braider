@@ -164,7 +164,7 @@ export const identityRoutes: FastifyPluginAsync = async (app) => {
 
   app.get('/me', { preHandler: authenticate }, async (request, reply) => {
     const auth = (request as AuthenticatedRequest).auth;
-    sendData(reply, { user: auth.user, stylistId: auth.stylistId });
+    sendData(reply, { user: auth.user, stylistId: auth.stylistId, businessId: auth.businessId });
   });
 
   app.get('/oauth/:provider/start', startOAuthFlow);

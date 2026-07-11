@@ -3,6 +3,12 @@ import { resolveStylistId } from './auth-context.js';
 
 vi.mock('../../lib/db.js', () => ({
   prisma: {
+    businessStaff: {
+      findFirst: vi.fn(),
+    },
+    stylistProfile: {
+      findFirst: vi.fn(),
+    },
     stylistMembership: {
       findUnique: vi.fn(),
     },
@@ -12,6 +18,12 @@ vi.mock('../../lib/db.js', () => ({
 vi.mock('../profile/service.js', () => ({
   profileService: {
     getOrCreateProfile: vi.fn(),
+  },
+}));
+
+vi.mock('../roles/business.service.js', () => ({
+  businessService: {
+    ensureBusinessForOwner: vi.fn().mockResolvedValue({ id: 'biz-1' }),
   },
 }));
 
@@ -42,13 +54,28 @@ describe('resolveStylistId', () => {
     await expect(resolveStylistId(userId, 'stylist_owner')).resolves.toBe(profileId);
   });
 
-  it('loads membership for stylist_staff', async () => {
-    vi.mocked(prisma.stylistMembership.findUnique).mockResolvedValue({
-      id: 'mem-1',
-      stylistId: '22222222-2222-2222-2222-222222222222',
+  it('resolves owner profile via business_staff for stylist_staff', async () => {
+    vi.mocked(prisma.businessStaff.findFirst).mockResolvedValue({
+      id: 'staff-1',
+      businessId: 'biz-1',
       userId: '33333333-3333-3333-3333-333333333333',
-      createdAt: new Date(),
-    });
+      inviteeEmail: null,
+      inviteePhone: null,
+      permissions: {},
+      invitedAt: new Date(),
+      acceptedAt: new Date(),
+      removedAt: null,
+      business: {
+        id: 'biz-1',
+        ownerUserId: 'owner-1',
+        businessName: '',
+        createdAt: new Date(),
+      },
+    } as never);
+
+    vi.mocked(prisma.stylistProfile.findFirst).mockResolvedValue({
+      id: '22222222-2222-2222-2222-222222222222',
+    } as never);
 
     await expect(
       resolveStylistId('33333333-3333-3333-3333-333333333333', 'stylist_staff'),

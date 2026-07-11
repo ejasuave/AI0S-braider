@@ -137,11 +137,30 @@ Some list endpoints use `limit`/`offset` (e.g. messaging Ch.11) — new list API
 
 ---
 
+## Authorization guards (Chapter 4)
+
+Insert after `authenticate`, before route validation:
+
+```typescript
+import { requireRole, requireBusinessPermission } from '../roles/guards.js';
+
+app.get('/resource', { preHandler: [requireRole('stylist_owner', 'stylist_staff')] }, handler);
+app.patch(
+  '/businesses/:businessId/staff/:id',
+  { preHandler: [requireBusinessPermission('can_manage_staff')] },
+  handler,
+);
+```
+
+`FORBIDDEN` rejections emit structured `permission_denied` logs. See [PERMISSIONS.md](./PERMISSIONS.md).
+
+---
+
 ## Authentication (Chapter 3+)
 
 - **Web:** `X-Client-Type: web`; refresh token HttpOnly cookie on `/api/v1/auth/*`
 - **Access:** `Authorization: Bearer <jwt>` on protected routes
-- **Roles:** `requireStylist`, `requireClient` guards
+- **Roles:** `requireRole`, `requireBusinessPermission`, `requireStylist`, `requireClient` — `modules/roles/guards.ts`
 
 ---
 

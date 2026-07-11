@@ -4,7 +4,8 @@ import { ApiError } from '../../lib/errors.js';
 import type { AuthContext } from '@project-braids/shared-types/api';
 import { verifyAccessToken } from './tokens.js';
 import { identityService } from './service.js';
-import { resolveStylistId } from './auth-context.js';
+import { resolveBusinessId, resolveStylistId } from './auth-context.js';
+import { impersonationService } from '../roles/impersonation.service.js';
 
 export type AuthenticatedRequest = FastifyRequest & {
   auth: AuthContext;
@@ -20,18 +21,49 @@ export async function authenticate(request: FastifyRequest, _reply: FastifyReply
 
   try {
     const payload = await verifyAccessToken(token);
-    const user = await identityService.getUserById(payload.sub);
-    if (!user) {
-      throw new ApiError('UNAUTHORIZED', 'User not found', 401);
+    let auth: AuthContext;
+
+    if (payload.imp === true && typeof payload.admin_sub === 'string') {
+      auth = await impersonationService.buildAuthFromImpersonationToken({
+        sub: payload.sub,
+        role: payload.role,
+        sid: payload.sid,
+        imp: true,
+        admin_sub: payload.admin_sub,
+      });
+    } else {
+      const user = await identityService.getUserById(payload.sub);
+      if (!user) {
+        throw new ApiError('UNAUTHORIZED', 'User not found', 401);
+      }
+
+      auth = {
+        user,
+        sessionId: payload.sid,
+        stylistId: await resolveStylistId(user.id, user.role),
+        businessId: await resolveBusinessId(user.id, user.role),
+        impersonation: null,
+      };
     }
 
-    const stylistId = await resolveStylistId(user.id, user.role);
-
     (request as AuthenticatedRequest).auth = {
-      user,
-      sessionId: payload.sid,
-      stylistId,
+      ...auth,
+      impersonation: auth.impersonation ?? null,
     };
+
+    if (auth.impersonation) {
+      request.log.info(
+        {
+          event: 'impersonated_request',
+          adminUserId: auth.impersonation.adminUserId,
+          targetUserId: auth.impersonation.targetUserId,
+          impersonationSessionId: auth.impersonation.sessionId,
+          method: request.method,
+          url: request.url,
+        },
+        'Impersonated API request',
+      );
+    }
   } catch (error) {
     if (error instanceof ApiError) throw error;
     throw new ApiError('UNAUTHORIZED', 'Invalid or expired access token', 401);

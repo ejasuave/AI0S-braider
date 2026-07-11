@@ -11,6 +11,7 @@ import {
   isStripeMockMode,
 } from '../../lib/stripe/index.js';
 import { requireClient, requireStylist } from '../identity/guards.js';
+import { rejectImpersonationOnSensitiveRoutes } from '../roles/guards.js';
 import type { AuthenticatedRequest } from '../identity/middleware.js';
 import { paymentService } from './service.js';
 
@@ -30,7 +31,9 @@ async function captureRawBody(
 }
 
 export const paymentRoutes: FastifyPluginAsync = async (app) => {
-  app.post('/connect/onboard', { preHandler: [requireStylist] }, async (request, reply) => {
+  app.post('/connect/onboard', {
+    preHandler: [requireStylist, rejectImpersonationOnSensitiveRoutes],
+  }, async (request, reply) => {
     const auth = (request as AuthenticatedRequest).auth;
     const result = await paymentService.startConnectOnboarding(
       auth.stylistId!,

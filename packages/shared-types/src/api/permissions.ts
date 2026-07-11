@@ -25,7 +25,8 @@ export function isClientRole(role: UserRole): boolean {
 
 /**
  * Permission matrix (MVP). Feature modules add rows as they ship.
- * V2: stylist_staff scoping (Ch.4.3), admin impersonation (Ch.4.4).
+ * Business-scoped flags: Ch.4 (`can_manage_staff`, etc.) via `requireBusinessPermission`.
+ * Admin impersonation: Ch.4.4 — see `docs/SECURITY.md` denylist.
  */
 export const PERMISSIONS = {
   /** Platform administration */
