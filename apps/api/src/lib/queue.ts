@@ -13,6 +13,7 @@ import {
   processNotificationSweepDueJob,
   processNotificationSweepRemindersJob,
 } from '../jobs/notification-sweep.job.js';
+import { processInstagramTokenRefreshJob } from '../jobs/instagram-token-refresh.job.js';
 
 export const QUEUE_NAMES = {
   SYSTEM: 'system',
@@ -27,6 +28,7 @@ export const JOB_NAMES = {
   NOTIFICATION_DELIVER: 'notifications.deliver',
   NOTIFICATION_SWEEP_DUE: 'notifications.sweep-due',
   NOTIFICATION_SWEEP_REMINDERS: 'notifications.sweep-reminders',
+  INSTAGRAM_REFRESH_TOKENS: 'instagram.refresh-tokens',
 } as const;
 
 let systemQueue: Queue | undefined;
@@ -76,6 +78,15 @@ export async function scheduleRecurringJobs(): Promise<void> {
       jobId: 'recurring-notifications-sweep-reminders',
     },
   );
+
+  await queue.add(
+    JOB_NAMES.INSTAGRAM_REFRESH_TOKENS,
+    {},
+    {
+      repeat: { every: 6 * 60 * 60 * 1000 },
+      jobId: 'recurring-instagram-refresh-tokens',
+    },
+  );
 }
 
 export async function closeQueues(): Promise<void> {
@@ -106,6 +117,8 @@ export function createSystemWorker(): Worker {
           return processNotificationSweepDueJob();
         case JOB_NAMES.NOTIFICATION_SWEEP_REMINDERS:
           return processNotificationSweepRemindersJob();
+        case JOB_NAMES.INSTAGRAM_REFRESH_TOKENS:
+          return processInstagramTokenRefreshJob(job);
         default:
           throw new Error(`Unknown job name: ${job.name}`);
       }

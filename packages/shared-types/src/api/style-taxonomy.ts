@@ -32,11 +32,18 @@ export const STYLE_TAXONOMY_SEED = [
     sortOrder: 40,
   },
   {
-    name: 'Twists',
-    slug: 'twists',
+    name: 'Boho Braids',
+    slug: 'boho-braids',
     sizeTiers: ['Small', 'Medium', 'Large'],
     lengthTiers: ['Shoulder', 'Mid-back', 'Waist-length'],
-    sortOrder: 50,
+    sortOrder: 35,
+  },
+  {
+    name: 'Passion Twists',
+    slug: 'passion-twists',
+    sizeTiers: ['Small', 'Medium', 'Large'],
+    lengthTiers: ['Shoulder', 'Mid-back', 'Waist-length'],
+    sortOrder: 55,
   },
   {
     name: 'Locs / Retwist',

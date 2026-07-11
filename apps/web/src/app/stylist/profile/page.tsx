@@ -2,11 +2,9 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
-import { fetchStylistConversations } from '@/features/messaging/api';
-import type { StylistProfile, StylistSmsBookingNumber } from '@project-braids/shared-types/api';
+import type { BusinessProfile } from '@project-braids/shared-types/api';
 import { SignOutButton } from '@/features/auth/sign-out-button';
 import { apiFetchData, getApiErrorMessage } from '@/shared/lib/api-client';
-import { formatPhoneHint, isValidE164Phone, normalizePhoneNumber } from '@/shared/lib/phone';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { Input } from '@/shared/ui/input';
@@ -17,91 +15,48 @@ export default function StylistProfilePage() {
   const queryClient = useQueryClient();
 
   const profileQuery = useQuery({
-    queryKey: ['profile', 'me'],
-    queryFn: () => apiFetchData<StylistProfile>('/profile/me'),
-  });
-
-  const smsQuery = useQuery({
-    queryKey: ['messaging', 'booking-number'],
-    queryFn: () => apiFetchData<StylistSmsBookingNumber>('/messaging/booking-number'),
-  });
-
-  const escalatedQuery = useQuery({
-    queryKey: ['messaging', 'conversations', 'escalated-count'],
-    queryFn: () => fetchStylistConversations('?escalatedOnly=true'),
+    queryKey: ['business', 'me'],
+    queryFn: () => apiFetchData<BusinessProfile>('/businesses/me'),
   });
 
   const [businessName, setBusinessName] = useState('');
-  const [locationArea, setLocationArea] = useState('');
+  const [locationLabel, setLocationLabel] = useState('');
   const [bio, setBio] = useState('');
-  const [directoryVisible, setDirectoryVisible] = useState(false);
-  const [smsNumber, setSmsNumber] = useState('');
-  const [smsSaved, setSmsSaved] = useState(false);
-  const [smsError, setSmsError] = useState<string | null>(null);
-  const [devFrom, setDevFrom] = useState('');
-  const [devBody, setDevBody] = useState('');
-  const [devError, setDevError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (profileQuery.data) {
       setBusinessName(profileQuery.data.businessName);
-      setLocationArea(profileQuery.data.locationArea ?? '');
+      setLocationLabel(profileQuery.data.locationLabel ?? '');
       setBio(profileQuery.data.bio ?? '');
-      setDirectoryVisible(profileQuery.data.directoryVisible);
     }
   }, [profileQuery.data]);
 
-  useEffect(() => {
-    if (smsQuery.data?.smsBookingNumber) {
-      setSmsNumber(smsQuery.data.smsBookingNumber);
-    }
-  }, [smsQuery.data]);
-
   const saveMutation = useMutation({
     mutationFn: () =>
-      apiFetchData<StylistProfile>('/profile/me', {
+      apiFetchData<BusinessProfile>('/businesses/me', {
         method: 'PATCH',
         json: {
           businessName,
-          locationArea: locationArea || null,
+          locationLabel: locationLabel || null,
           bio: bio || null,
-          directoryVisible,
         },
       }),
     onSuccess: () => {
       setSaved(true);
-      void queryClient.invalidateQueries({ queryKey: ['profile', 'me'] });
+      void queryClient.invalidateQueries({ queryKey: ['business', 'me'] });
       setTimeout(() => setSaved(false), 2000);
     },
   });
 
-  const smsMutation = useMutation({
-    mutationFn: (number: string) =>
-      apiFetchData<StylistSmsBookingNumber>('/messaging/booking-number', {
-        method: 'PUT',
-        json: { smsBookingNumber: number },
+  const completeMutation = useMutation({
+    mutationFn: () =>
+      apiFetchData<BusinessProfile>('/businesses/me/onboarding-status', {
+        method: 'PATCH',
       }),
     onSuccess: () => {
-      setSmsSaved(true);
-      setSmsError(null);
-      void queryClient.invalidateQueries({ queryKey: ['messaging', 'booking-number'] });
-      setTimeout(() => setSmsSaved(false), 2000);
-    },
-  });
-
-  const devSmsMutation = useMutation({
-    mutationFn: (input: { from: string; to: string; body: string }) =>
-      apiFetchData<{ conversationId: string }>('/messaging/dev/inbound-sms', {
-        method: 'POST',
-        json: input,
-        auth: false,
-      }),
-    onSuccess: () => {
-      setDevBody('');
-      setDevError(null);
-      void queryClient.invalidateQueries({ queryKey: ['messaging'] });
+      void queryClient.invalidateQueries({ queryKey: ['business', 'me'] });
     },
   });
 
@@ -115,42 +70,20 @@ export default function StylistProfilePage() {
     }
   }
 
-  async function handleSaveSms(event: React.FormEvent) {
-    event.preventDefault();
-    setSmsError(null);
-    const normalized = normalizePhoneNumber(smsNumber);
-    if (!isValidE164Phone(normalized)) {
-      setSmsError(`Enter a valid E.164 number. ${formatPhoneHint()}`);
-      return;
-    }
+  async function handleCompleteOnboarding() {
+    setError(null);
     try {
-      await smsMutation.mutateAsync(normalized);
+      await completeMutation.mutateAsync();
     } catch (err) {
-      setSmsError(getApiErrorMessage(err));
+      setError(getApiErrorMessage(err));
     }
   }
 
-  async function handleDevSms(event: React.FormEvent) {
-    event.preventDefault();
-    setDevError(null);
-    const from = normalizePhoneNumber(devFrom);
-    const to = normalizePhoneNumber(smsNumber);
-    if (!isValidE164Phone(from) || !isValidE164Phone(to)) {
-      setDevError(`Use valid E.164 numbers. ${formatPhoneHint()}`);
-      return;
-    }
-    try {
-      await devSmsMutation.mutateAsync({ from, to, body: devBody });
-    } catch (err) {
-      setDevError(getApiErrorMessage(err));
-    }
-  }
-
-  const escalatedCount = escalatedQuery.data?.items.length ?? 0;
+  const onboardingStatus = profileQuery.data?.onboardingStatus ?? 'in_progress';
 
   return (
     <PageShell>
-      <PageHeader title="Profile" subtitle="How clients see your business." />
+      <PageHeader title="Profile" subtitle="Your business details — save each section independently." />
 
       <div className="mt-6 space-y-4">
         <Card>
@@ -166,8 +99,8 @@ export default function StylistProfilePage() {
               />
               <Input
                 label="Location area"
-                value={locationArea}
-                onChange={(e) => setLocationArea(e.target.value)}
+                value={locationLabel}
+                onChange={(e) => setLocationLabel(e.target.value)}
                 hint="e.g. South London, Peckham"
               />
               <Textarea
@@ -176,21 +109,6 @@ export default function StylistProfilePage() {
                 onChange={(e) => setBio(e.target.value)}
                 placeholder="Tell clients about your work…"
               />
-              <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-md border border-border p-3">
-                <input
-                  type="checkbox"
-                  className="mt-0.5 h-5 w-5 shrink-0 accent-primary"
-                  checked={directoryVisible}
-                  onChange={(e) => setDirectoryVisible(e.target.checked)}
-                />
-                <span className="space-y-1">
-                  <span className="block text-sm font-medium text-ink">List in beta directory</span>
-                  <span className="block text-xs text-ink-muted">
-                    Opt in to appear on /directory. Requires business name, location area, and at
-                    least one active service.
-                  </span>
-                </span>
-              </label>
               {error ? <p className="text-sm text-error">{error}</p> : null}
               {saved ? <p className="text-sm text-success">Profile saved.</p> : null}
               <Button type="submit" fullWidth disabled={saveMutation.isPending}>
@@ -200,65 +118,25 @@ export default function StylistProfilePage() {
           )}
         </Card>
 
-        <Card>
-          <form className="space-y-4" onSubmit={handleSaveSms}>
-            <h2 className="font-medium text-ink">SMS booking number</h2>
+        {onboardingStatus === 'in_progress' ? (
+          <Card className="space-y-3">
             <p className="text-sm text-ink-muted">
-              Clients text this number to reach your AI receptionist. Use your Twilio number in
-              production; any E.164 number works in local dev.
+              Complete onboarding after you add at least one service and set working hours.
             </p>
-            <Input
-              label="SMS number (E.164)"
-              value={smsNumber}
-              onChange={(e) => setSmsNumber(e.target.value)}
-              placeholder="+447700900123"
-              required
-            />
-            {smsError ? <p className="text-sm text-error">{smsError}</p> : null}
-            {smsSaved ? <p className="text-sm text-success">SMS number saved.</p> : null}
-            <Button type="submit" fullWidth disabled={smsMutation.isPending}>
-              {smsMutation.isPending ? 'Saving…' : 'Save SMS number'}
+            <Button
+              variant="secondary"
+              fullWidth
+              onClick={() => void handleCompleteOnboarding()}
+              disabled={completeMutation.isPending}
+            >
+              {completeMutation.isPending ? 'Checking…' : 'Mark onboarding complete'}
             </Button>
-          </form>
-        </Card>
-
-        {process.env.NODE_ENV !== 'production' && smsNumber ? (
+          </Card>
+        ) : (
           <Card>
-            <form className="space-y-4" onSubmit={handleDevSms}>
-              <h2 className="font-medium text-ink">Dev: simulate client SMS</h2>
-              <p className="text-sm text-ink-muted">
-                Test the AI receptionist without Twilio. Check Inbox after sending.
-              </p>
-              <Input
-                label="Client phone (from)"
-                value={devFrom}
-                onChange={(e) => setDevFrom(e.target.value)}
-                placeholder="+447700900456"
-                required
-              />
-              <Textarea
-                label="Message"
-                value={devBody}
-                onChange={(e) => setDevBody(e.target.value)}
-                placeholder="Hi, I'd like box braids next week"
-                required
-              />
-              {devError ? <p className="text-sm text-error">{devError}</p> : null}
-              <Button type="submit" fullWidth disabled={devSmsMutation.isPending}>
-                {devSmsMutation.isPending ? 'Sending…' : 'Simulate inbound SMS'}
-              </Button>
-            </form>
+            <p className="text-sm text-success">Onboarding complete.</p>
           </Card>
-        ) : null}
-
-        {escalatedCount > 0 ? (
-          <Card className="border-warning/40 bg-warning/5">
-            <p className="text-sm text-ink">
-              {escalatedCount} conversation{escalatedCount === 1 ? '' : 's'} need your reply in
-              Inbox.
-            </p>
-          </Card>
-        ) : null}
+        )}
 
         <SignOutButton />
       </div>

@@ -1,10 +1,11 @@
 import { z } from 'zod';
 import { e164PhoneSchema } from './auth.js';
 
-/** Granular business permission flags (Ch.4.1). */
+/** Granular business permission flags (Ch.4.1 + Ch.6.1). */
 export const BUSINESS_PERMISSION_FLAGS = [
   'can_manage_bookings',
   'can_manage_pricing',
+  'can_manage_profile',
   'can_view_payouts',
   'can_manage_staff',
 ] as const;
@@ -15,6 +16,7 @@ export const businessStaffPermissionsSchema = z
   .object({
     can_manage_bookings: z.boolean().default(false),
     can_manage_pricing: z.boolean().default(false),
+    can_manage_profile: z.boolean().default(false),
     can_view_payouts: z.boolean().default(false),
     can_manage_staff: z.boolean().default(false),
   })

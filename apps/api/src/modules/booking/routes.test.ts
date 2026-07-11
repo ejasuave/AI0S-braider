@@ -61,9 +61,14 @@ describe('booking routes', () => {
       ],
     });
 
+    const business = await prisma.business.create({
+      data: { ownerUserId: stylistUserId, businessName: 'Booking Test Salon' },
+    });
+
     const profile = await prisma.stylistProfile.create({
       data: {
         userId: stylistUserId,
+        businessId: business.id,
         businessName: 'Booking Test Salon',
         depositPolicy: DEFAULT_DEPOSIT_POLICY,
         onboardingStatus: 'complete',
@@ -74,6 +79,7 @@ describe('booking routes', () => {
     await prisma.serviceOffering.create({
       data: {
         id: offeringId,
+        businessId: business.id,
         stylistId: stylistProfileId,
         styleName: 'Knotless Braids',
         sizeTier: 'Medium',

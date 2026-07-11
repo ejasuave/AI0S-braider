@@ -2,7 +2,7 @@
 
 **Every feature prompt executed in this codebase must be checked against this document.** If a prompt would require one service to reach into another service's owned data or logic directly, flag that conflict before proceeding rather than implementing it silently.
 
-**Last updated:** 2026-07-11 (Ch.4 Roles & permissions)
+**Last updated:** 2026-07-11 (Ch.6 Stylist profile)
 
 This document defines service boundaries, cross-module rules, and patterns every feature must follow. If implementation diverges from this file, update this document in the same commit.
 
@@ -38,18 +38,19 @@ Project Braids is an AI receptionist and operating system for independent UK hai
 
 Each module owns its domain logic, database tables, and HTTP routes. **Never query another module's tables directly** — call the owning module's service layer.
 
-| Service             | Module path              | Owns                                                                | Does not own                                  |
-| ------------------- | ------------------------ | ------------------------------------------------------------------- | --------------------------------------------- |
-| **Identity**        | `modules/identity/`      | Authentication, sessions, OTP                                       | Profile content, permission evaluation        |
-| **Roles**           | `modules/roles/`         | Businesses, staff permissions, guards, impersonation audit          | Profile content, auth session issuance        |
-| **Stylist Profile** | `modules/profile/`       | Bio, portfolio, pricing, policies, directory opt-in                 | Availability computation                      |
-| **Booking Engine**  | `modules/booking/`       | Slot holds, confirmations, cancellations, state machine             | Payment capture                               |
-| **AI Receptionist** | `modules/receptionist/`  | Conversation state, intent, escalation, booking dispatch            | Calendar source of truth                      |
-| **Payments**        | `modules/payments/`      | Deposit capture, refunds, Stripe webhooks                           | Pricing decisions                             |
-| **Notifications**   | `modules/notifications/` | Reminder delivery, STOP compliance, lifecycle notices               | Message content generation                    |
-| **Messaging**       | `modules/messaging/`     | Conversations, SMS channel, `sendMessage`/`receiveMessage`, handoff | AI content (Ch.13), notification jobs (Ch.12) |
-| **Directory**       | `modules/directory/`     | Beta public stylist search (read-only)                              | Profile writes, booking state                 |
-| **System**          | `modules/system/`        | Ping, ops status, Ch.2 example jobs                                 | Domain features                               |
+| Service              | Module path                | Owns                                                                | Does not own                                  |
+| -------------------- | -------------------------- | ------------------------------------------------------------------- | --------------------------------------------- |
+| **Identity**         | `modules/identity/`        | Authentication, sessions, OTP                                       | Profile content, permission evaluation        |
+| **Roles**            | `modules/roles/`           | Businesses, staff permissions, guards, impersonation audit          | Profile content, auth session issuance        |
+| **Stylist Profile**  | `modules/stylist-profile/` | Bio, portfolio, pricing taxonomy, policies, availability rules      | Slot computation (Booking Engine)             |
+| **Profile (legacy)** | `modules/profile/`         | Directory search, legacy `/profile/*` compat                        | New Ch.6 routes (use stylist-profile)         |
+| **Booking Engine**   | `modules/booking/`         | Slot holds, confirmations, cancellations, state machine             | Payment capture                               |
+| **AI Receptionist**  | `modules/receptionist/`    | Conversation state, intent, escalation, booking dispatch            | Calendar source of truth                      |
+| **Payments**         | `modules/payments/`        | Deposit capture, refunds, Stripe webhooks                           | Pricing decisions                             |
+| **Notifications**    | `modules/notifications/`   | Reminder delivery, STOP compliance, lifecycle notices               | Message content generation                    |
+| **Messaging**        | `modules/messaging/`       | Conversations, SMS channel, `sendMessage`/`receiveMessage`, handoff | AI content (Ch.13), notification jobs (Ch.12) |
+| **Directory**        | `modules/directory/`       | Beta public stylist search (read-only)                              | Profile writes, booking state                 |
+| **System**           | `modules/system/`          | Ping, ops status, Ch.2 example jobs                                 | Domain features                               |
 
 ### Allowed cross-service calls
 
@@ -65,13 +66,14 @@ Each module owns its domain logic, database tables, and HTTP routes. **Never que
 
 ### Cross-cutting infrastructure (no feature owner)
 
-| Asset                           | Location                         | Purpose                                |
-| ------------------------------- | -------------------------------- | -------------------------------------- |
-| `processed_webhook_events`      | Prisma / Postgres                | Webhook idempotency ledger (Ch.2.6)    |
-| `businesses` / `business_staff` | Prisma / Postgres                | Multi-staff permission scoping (Ch.4)  |
-| `impersonation_sessions`        | Prisma / Postgres                | Admin impersonation audit (Ch.4.4)     |
-| `lib/queue.ts`                  | `apps/api/src/lib/`              | Shared BullMQ connection               |
-| Shared types                    | `packages/shared-types/src/api/` | Zod schemas + `z.infer` types (Ch.2.3) |
+| Asset                                 | Location                         | Purpose                                |
+| ------------------------------------- | -------------------------------- | -------------------------------------- |
+| `processed_webhook_events`            | Prisma / Postgres                | Webhook idempotency ledger (Ch.2.6)    |
+| `businesses` / `business_staff`       | Prisma / Postgres                | Multi-staff permission scoping (Ch.4)  |
+| `business_policies` / `working_hours` | Prisma / Postgres                | Policies + schedule rules (Ch.6)       |
+| `impersonation_sessions`              | Prisma / Postgres                | Admin impersonation audit (Ch.4.4)     |
+| `lib/queue.ts`                        | `apps/api/src/lib/`              | Shared BullMQ connection               |
+| Shared types                          | `packages/shared-types/src/api/` | Zod schemas + `z.infer` types (Ch.2.3) |
 
 ### Cross-module rules
 

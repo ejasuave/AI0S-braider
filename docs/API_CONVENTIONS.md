@@ -154,6 +154,12 @@ app.patch(
 
 `FORBIDDEN` rejections emit structured `permission_denied` logs. See [PERMISSIONS.md](./PERMISSIONS.md).
 
+### Stylist profile routes (Chapter 6)
+
+Business configuration lives under `/api/v1/businesses/me/*`, guarded by `can_manage_profile`, `can_manage_pricing`, or `can_manage_bookings` as appropriate. Public reference data: `GET /api/v1/style-categories`; public offerings: `GET /api/v1/businesses/:businessId/services`.
+
+**Custom style offerings:** When a stylist creates a service with `customStyleName` instead of a seeded `styleCategoryId`, the offering is stored with `isCustomStyle: true`. Future AI consumers (Ch.13 Receptionist, Ch.14 Style Recognition) must treat these as **lower-confidence** for price/duration lookup — prefer seeded taxonomy matches and escalate below the 0.8 confidence threshold rather than quoting from custom names alone.
+
 ---
 
 ## Authentication (Chapter 3+)

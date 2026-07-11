@@ -9,6 +9,7 @@ export const apiErrorCodeSchema = z.enum([
   'RATE_LIMITED',
   'INTERNAL_ERROR',
   'SERVICE_UNAVAILABLE',
+  'INSTAGRAM_ACCOUNT_INELIGIBLE',
 ]);
 
 export type ApiErrorCode = z.infer<typeof apiErrorCodeSchema>;

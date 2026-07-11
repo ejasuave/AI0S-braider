@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import type { ServiceOffering } from '@project-braids/shared-types/api';
+import type { ServiceOffering, StyleCategory } from '@project-braids/shared-types/api';
 import { apiFetchData, getApiErrorMessage } from '@/shared/lib/api-client';
 import { formatMoney } from '@/shared/lib/format';
 import { Button } from '@/shared/ui/button';
@@ -15,11 +15,26 @@ import { EmptyState } from '@/shared/ui/empty-state';
 export default function StylistServicesPage() {
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
-  const [styleName, setStyleName] = useState('');
+  const [styleCategoryId, setStyleCategoryId] = useState('');
+  const [customStyleName, setCustomStyleName] = useState('');
+  const [sizeTier, setSizeTier] = useState('');
+  const [lengthTier, setLengthTier] = useState('');
   const [basePrice, setBasePrice] = useState('');
   const [duration, setDuration] = useState('120');
   const [formError, setFormError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const categoriesQuery = useQuery({
+    queryKey: ['style-categories'],
+    queryFn: () => apiFetchData<StyleCategory[]>('/style-categories'),
+  });
+
+  const servicesQuery = useQuery({
+    queryKey: ['business', 'services'],
+    queryFn: () => apiFetchData<ServiceOffering[]>('/businesses/me/services'),
+  });
+
+  const selectedCategory = categoriesQuery.data?.find((c) => c.id === styleCategoryId);
 
   function bookingUrl(service: ServiceOffering): string {
     const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
@@ -27,9 +42,8 @@ export default function StylistServicesPage() {
   }
 
   async function copyBookingLink(service: ServiceOffering) {
-    const url = bookingUrl(service);
     try {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(bookingUrl(service));
       setCopiedId(service.id);
       setTimeout(() => setCopiedId(null), 2000);
     } catch {
@@ -37,38 +51,40 @@ export default function StylistServicesPage() {
     }
   }
 
-  const servicesQuery = useQuery({
-    queryKey: ['profile', 'services'],
-    queryFn: () => apiFetchData<ServiceOffering[]>('/profile/services'),
-  });
-
   const createMutation = useMutation({
     mutationFn: () =>
-      apiFetchData<ServiceOffering>('/profile/services', {
+      apiFetchData<ServiceOffering>('/businesses/me/services', {
         method: 'POST',
         json: {
-          styleName,
+          ...(styleCategoryId
+            ? { styleCategoryId }
+            : { customStyleName: customStyleName.trim() }),
+          sizeTier: sizeTier || null,
+          lengthTier: lengthTier || null,
           basePrice: Number(basePrice),
           estimatedDurationMinutes: Number(duration),
         },
       }),
     onSuccess: () => {
       setShowForm(false);
-      setStyleName('');
+      setStyleCategoryId('');
+      setCustomStyleName('');
+      setSizeTier('');
+      setLengthTier('');
       setBasePrice('');
       setDuration('120');
-      void queryClient.invalidateQueries({ queryKey: ['profile', 'services'] });
+      void queryClient.invalidateQueries({ queryKey: ['business', 'services'] });
     },
   });
 
   const toggleMutation = useMutation({
     mutationFn: ({ id, active }: { id: string; active: boolean }) =>
-      apiFetchData<ServiceOffering>(`/profile/services/${id}`, {
+      apiFetchData<ServiceOffering>(`/businesses/me/services/${id}`, {
         method: 'PATCH',
         json: { active },
       }),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['profile', 'services'] });
+      void queryClient.invalidateQueries({ queryKey: ['business', 'services'] });
     },
   });
 
@@ -77,6 +93,10 @@ export default function StylistServicesPage() {
   async function handleCreate(event: React.FormEvent) {
     event.preventDefault();
     setFormError(null);
+    if (!styleCategoryId && !customStyleName.trim()) {
+      setFormError('Choose a style category or enter a custom style name.');
+      return;
+    }
     try {
       await createMutation.mutateAsync();
     } catch (err) {
@@ -88,7 +108,7 @@ export default function StylistServicesPage() {
     <PageShell>
       <PageHeader
         title="Services"
-        subtitle="Set your styles and prices — clients book via your link."
+        subtitle="Structured pricing — the AI quotes from this list, not free text."
       />
 
       <div className="mt-6 space-y-4">
@@ -100,12 +120,66 @@ export default function StylistServicesPage() {
           <Card>
             <form className="space-y-4" onSubmit={handleCreate}>
               <SectionTitle>New service</SectionTitle>
-              <Input
-                label="Style name"
-                value={styleName}
-                onChange={(e) => setStyleName(e.target.value)}
-                required
-              />
+              <label className="block text-sm font-medium text-ink">
+                Style category
+                <select
+                  className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm"
+                  value={styleCategoryId}
+                  onChange={(e) => {
+                    setStyleCategoryId(e.target.value);
+                    setCustomStyleName('');
+                  }}
+                >
+                  <option value="">Custom style…</option>
+                  {(categoriesQuery.data ?? []).map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {!styleCategoryId ? (
+                <Input
+                  label="Custom style name"
+                  value={customStyleName}
+                  onChange={(e) => setCustomStyleName(e.target.value)}
+                  hint="Custom styles are lower-confidence for AI quotes."
+                />
+              ) : null}
+              {selectedCategory ? (
+                <>
+                  <label className="block text-sm font-medium text-ink">
+                    Size tier
+                    <select
+                      className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm"
+                      value={sizeTier}
+                      onChange={(e) => setSizeTier(e.target.value)}
+                    >
+                      <option value="">Any</option>
+                      {selectedCategory.sizeTiers.map((tier) => (
+                        <option key={tier} value={tier}>
+                          {tier}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block text-sm font-medium text-ink">
+                    Length tier
+                    <select
+                      className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm"
+                      value={lengthTier}
+                      onChange={(e) => setLengthTier(e.target.value)}
+                    >
+                      <option value="">Any</option>
+                      {selectedCategory.lengthTiers.map((tier) => (
+                        <option key={tier} value={tier}>
+                          {tier}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </>
+              ) : null}
               <Input
                 label="Base price (£)"
                 type="number"
@@ -148,6 +222,7 @@ export default function StylistServicesPage() {
                     <h3 className="font-medium text-ink">{service.styleName}</h3>
                     <p className="text-sm text-ink-muted">
                       {formatMoney(service.basePrice)} · {service.estimatedDurationMinutes} min
+                      {service.isCustomStyle ? ' · custom' : ''}
                     </p>
                   </div>
                   <StatusBadge

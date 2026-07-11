@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Scissors, User, Users } from 'lucide-react';
+import { Calendar, Image, Scissors, Shield, User, Users } from 'lucide-react';
 import { SignOutButton } from '@/features/auth/sign-out-button';
 import { Card } from '@/shared/ui/card';
 import { PageHeader, PageShell } from '@/shared/ui/page-shell';
@@ -11,13 +11,31 @@ const moreLinks = [
   {
     href: '/stylist/services',
     label: 'Services',
-    description: 'Manage styles and booking links',
+    description: 'Structured styles and pricing',
     icon: Scissors,
+  },
+  {
+    href: '/stylist/portfolio',
+    label: 'Portfolio',
+    description: 'Upload and manage your work',
+    icon: Image,
+  },
+  {
+    href: '/stylist/hours',
+    label: 'Working hours',
+    description: 'Weekly schedule',
+    icon: Calendar,
+  },
+  {
+    href: '/stylist/policy',
+    label: 'Policies',
+    description: 'Deposit and cancellation rules',
+    icon: Shield,
   },
   {
     href: '/stylist/profile',
     label: 'Profile',
-    description: 'Business details and directory opt-in',
+    description: 'Business details and onboarding',
     icon: User,
   },
   {

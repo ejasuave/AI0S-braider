@@ -18,6 +18,11 @@ Mobile-first Next.js app at `apps/web` — tokens from `reference/design/visual-
 | `/stylist/bookings`                    | **Week calendar** + day-filtered appointment list              |
 | `/stylist/inbox`                       | Escalated + all SMS conversations                              |
 | `/stylist/staff`                       | Team — invite staff, view permissions (Ch.4.3)                 |
+| `/stylist/services`                    | Structured pricing taxonomy (Ch.6.4)                           |
+| `/stylist/portfolio`                   | Portfolio upload via pre-signed URLs (Ch.6.2)                  |
+| `/stylist/hours`                       | Working hours configuration (Ch.6.6)                           |
+| `/stylist/policy`                      | Deposit and cancellation policy (Ch.6.5)                       |
+| `/stylist/profile`                     | Business profile + onboarding (Ch.6.1)                         |
 | `/client`                              | Client home, bookings, inbox link, **sign out**                |
 | `/client/inbox`, `/client/inbox/[id]`  | Client SMS conversation history (Ch.11.1)                      |
 | `/directory`, `/directory/[stylistId]` | **Beta** public stylist search (opt-in)                        |
@@ -34,7 +39,7 @@ Mobile-first Next.js app at `apps/web` — tokens from `reference/design/visual-
 | 2 — Architecture                 | Complete | `13b6544`                                                                               |
 | 3 — Authentication               | Complete | `921b99f`                                                                               |
 | 4 — User Roles (4.1–4.4)         | Complete | businesses, staff API, guards, impersonation, `/stylist/staff`                          |
-| 6 — Stylist Features             | Complete | `7ef6e26`                                                                               |
+| 6 — Stylist Features (6.1–6.6)   | Complete | `/businesses/me/*`, policies, hours, Instagram, portfolio                               |
 | 7 — Booking Engine               | Complete | `5e43991`                                                                               |
 | 8 — Calendar (8.1, 8.3)          | Complete | `d387b9b`                                                                               |
 | 9 — Payments (9.1–9.4)           | Complete | Stripe Connect, deposits, idempotent webhooks                                           |
@@ -76,6 +81,17 @@ Mobile-first Next.js app at `apps/web` — tokens from `reference/design/visual-
 | 23.2   | `.env.staging.example`, isolated env docs, Fly.toml templates                   |
 | 23.3   | Kill switch drill script, rollback runbook, `GET /system/ops-status`            |
 | 23.4   | `check-migrations.sh`, `migrate-deploy.sh`, [MIGRATIONS.md](docs/MIGRATIONS.md) |
+
+### Chapter 6 deliverables (aligned to prompt library)
+
+| Prompt | Deliverable                                                                                   |
+| ------ | --------------------------------------------------------------------------------------------- |
+| 6.1    | Extended `businesses`, `POST/GET/PATCH /businesses/me`, onboarding gate, `can_manage_profile` |
+| 6.2    | Pre-signed portfolio upload, register/reorder/delete, 50-item limit                           |
+| 6.3    | Instagram connect/import, encrypted tokens, refresh job, `INSTAGRAM_ACCOUNT_INELIGIBLE`       |
+| 6.4    | Seeded `style_categories`, `service_offerings` with category FK, public `/style-categories`   |
+| 6.5    | `business_policies` defaults (20% deposit), `getBusinessPolicy` for Ch.7/9                    |
+| 6.6    | `working_hours`, `schedule_exceptions`, `getBaseAvailabilityRules` for Ch.8                   |
 
 ### Chapter 4 deliverables (aligned to prompt library)
 

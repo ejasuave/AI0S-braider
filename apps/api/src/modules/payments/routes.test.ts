@@ -81,9 +81,14 @@ describe('payment routes', () => {
       ],
     });
 
+    const business = await prisma.business.create({
+      data: { ownerUserId: stylistUserId, businessName: 'Payment Test Salon' },
+    });
+
     const profile = await prisma.stylistProfile.create({
       data: {
         userId: stylistUserId,
+        businessId: business.id,
         businessName: 'Payment Test Salon',
         depositPolicy: DEFAULT_DEPOSIT_POLICY,
         onboardingStatus: 'complete',
@@ -94,6 +99,7 @@ describe('payment routes', () => {
     await prisma.serviceOffering.create({
       data: {
         id: offeringId,
+        businessId: business.id,
         stylistId: stylistProfileId,
         styleName: 'Box Braids',
         sizeTier: 'Medium',

@@ -68,15 +68,20 @@ describe('notifications compliance', () => {
           phoneVerifiedAt: new Date(),
         },
       });
+      const business = await prisma.business.create({
+        data: { ownerUserId: stylistUser.id, businessName: 'Test Braids' },
+      });
       const stylistProfile = await prisma.stylistProfile.create({
         data: {
           userId: stylistUser.id,
+          businessId: business.id,
           businessName: 'Test Braids',
           smsBookingNumber: '+447700900599',
         },
       });
       const offering = await prisma.serviceOffering.create({
         data: {
+          businessId: business.id,
           stylistId: stylistProfile.id,
           styleName: 'Box braids',
           basePrice: 120,
@@ -136,15 +141,20 @@ describe('notifications compliance', () => {
           phoneVerifiedAt: new Date(),
         },
       });
+      const business = await prisma.business.create({
+        data: { ownerUserId: stylistUser.id, businessName: 'Test Braids' },
+      });
       const stylistProfile = await prisma.stylistProfile.create({
         data: {
           userId: stylistUser.id,
+          businessId: business.id,
           businessName: 'Test Braids',
           smsBookingNumber: '+447700900599',
         },
       });
       const offering = await prisma.serviceOffering.create({
         data: {
+          businessId: business.id,
           stylistId: stylistProfile.id,
           styleName: 'Box braids',
           basePrice: 120,

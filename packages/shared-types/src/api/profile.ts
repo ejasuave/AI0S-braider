@@ -52,7 +52,7 @@ export const cancellationPolicySchema = z.object({
 
 export const DEFAULT_DEPOSIT_POLICY = {
   type: 'percent' as const,
-  value: 25,
+  value: 20,
 };
 
 export const DEFAULT_CANCELLATION_POLICY = {

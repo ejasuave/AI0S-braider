@@ -103,14 +103,26 @@ model StylistMembership {
 // --- Roles & permissions (Chapter 4) ---
 
 model Business {
-  id           String   @id @default(uuid()) @db.Uuid
-  ownerUserId  String   @unique @map("owner_user_id") @db.Uuid
-  businessName String   @default("") @map("business_name")
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  id                  String           @id @default(uuid()) @db.Uuid
+  ownerUserId         String           @unique @map("owner_user_id") @db.Uuid
+  businessName        String           @default("") @map("business_name")
+  bio                 String?
+  locationLat         Decimal?         @map("location_lat") @db.Decimal(10, 7)
+  locationLng         Decimal?         @map("location_lng") @db.Decimal(10, 7)
+  locationLabel       String?          @map("location_label")
+  serviceAreaRadiusKm Decimal?         @map("service_area_radius_km") @db.Decimal(6, 2)
+  onboardingStatus    OnboardingStatus @default(in_progress) @map("onboarding_status")
+  createdAt           DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  owner   User            @relation("BusinessOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
-  staff   BusinessStaff[]
-  profile StylistProfile?
+  owner                User                  @relation("BusinessOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  staff                BusinessStaff[]
+  profile              StylistProfile?
+  policy               BusinessPolicy?
+  workingHours         WorkingHour[]
+  scheduleExceptions   ScheduleException[]
+  portfolioItems       PortfolioItem[]
+  serviceOfferings     ServiceOffering[]
+  instagramConnection  InstagramConnection?
 
   @@map("businesses")
 }
@@ -258,6 +270,21 @@ model AccountRecoveryRequest {
 
 // --- Stylist profile (Chapter 6) ---
 
+enum DepositType {
+  flat
+  percentage
+
+  @@map("deposit_type")
+}
+
+enum NoShowFeeType {
+  forfeit_deposit
+  flat_fee
+  no_fee
+
+  @@map("no_show_fee_type")
+}
+
 enum OnboardingStatus {
   in_progress
   complete
@@ -270,6 +297,63 @@ enum PortfolioSource {
   instagram
 
   @@map("portfolio_source")
+}
+
+model BusinessPolicy {
+  businessId              String        @id @map("business_id") @db.Uuid
+  depositType             DepositType   @map("deposit_type")
+  depositValue            Decimal       @map("deposit_value") @db.Decimal(10, 2)
+  cancellationWindowHours Int           @map("cancellation_window_hours")
+  noShowFeeType           NoShowFeeType @map("no_show_fee_type")
+  noShowFeeValue          Decimal?      @map("no_show_fee_value") @db.Decimal(10, 2)
+  createdAt               DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@map("business_policies")
+}
+
+model WorkingHour {
+  id         String  @id @default(uuid()) @db.Uuid
+  businessId String  @map("business_id") @db.Uuid
+  dayOfWeek  Int     @map("day_of_week")
+  startTime  String  @map("start_time")
+  endTime    String  @map("end_time")
+  isActive   Boolean @default(true) @map("is_active")
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, dayOfWeek])
+  @@map("working_hours")
+}
+
+model ScheduleException {
+  id                String   @id @default(uuid()) @db.Uuid
+  businessId        String   @map("business_id") @db.Uuid
+  date              DateTime @db.Date
+  isClosed          Boolean  @default(false) @map("is_closed")
+  overrideStartTime String?  @map("override_start_time")
+  overrideEndTime   String?  @map("override_end_time")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, date])
+  @@map("schedule_exceptions")
+}
+
+model InstagramConnection {
+  businessId      String   @id @map("business_id") @db.Uuid
+  instagramUserId String   @map("instagram_user_id")
+  accessTokenEnc  String   @map("access_token_enc")
+  tokenExpiresAt  DateTime @map("token_expires_at") @db.Timestamptz(6)
+  connectedAt     DateTime @default(now()) @map("connected_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@map("instagram_connections")
 }
 
 model StylistProfile {
@@ -302,6 +386,7 @@ model StylistProfile {
 
 model PortfolioItem {
   id           String          @id @default(uuid()) @db.Uuid
+  businessId   String          @map("business_id") @db.Uuid
   stylistId    String          @map("stylist_id") @db.Uuid
   imageUrl     String          @map("image_url")
   storageKey   String?         @map("storage_key")
@@ -309,15 +394,19 @@ model PortfolioItem {
   displayOrder Int             @default(0) @map("display_order")
   createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  stylist StylistProfile @relation(fields: [stylistId], references: [id], onDelete: Cascade)
+  business Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  stylist  StylistProfile @relation(fields: [stylistId], references: [id], onDelete: Cascade)
 
+  @@index([businessId, displayOrder])
   @@index([stylistId, displayOrder])
   @@map("portfolio_items")
 }
 
 model ServiceOffering {
   id                       String   @id @default(uuid()) @db.Uuid
+  businessId               String   @map("business_id") @db.Uuid
   stylistId                String   @map("stylist_id") @db.Uuid
+  styleCategoryId          String?  @map("style_category_id") @db.Uuid
   styleName                String   @map("style_name")
   sizeTier                 String?  @map("size_tier")
   lengthTier               String?  @map("length_tier")
@@ -329,8 +418,11 @@ model ServiceOffering {
   createdAt                DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  stylist StylistProfile @relation(fields: [stylistId], references: [id], onDelete: Cascade)
+  business      Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  stylist       StylistProfile @relation(fields: [stylistId], references: [id], onDelete: Cascade)
+  styleCategory StyleCategory? @relation(fields: [styleCategoryId], references: [id], onDelete: SetNull)
 
+  @@index([businessId, active])
   @@index([stylistId, active])
   @@index([stylistId, styleName])
   @@map("service_offerings")
@@ -338,12 +430,15 @@ model ServiceOffering {
 
 /// Seeded reference taxonomy for guided pricing setup (Ch.6.4).
 model StyleCategory {
-  id          String @id @default(uuid()) @db.Uuid
-  name        String @unique
-  slug        String @unique
-  sizeTiers   Json   @default("[]") @map("size_tiers")
-  lengthTiers Json   @default("[]") @map("length_tiers")
-  sortOrder   Int    @default(0) @map("sort_order")
+  id          String  @id @default(uuid()) @db.Uuid
+  name        String  @unique
+  slug        String  @unique
+  isCustom    Boolean @default(false) @map("is_custom")
+  sizeTiers   Json    @default("[]") @map("size_tiers")
+  lengthTiers Json    @default("[]") @map("length_tiers")
+  sortOrder   Int     @default(0) @map("sort_order")
+
+  offerings ServiceOffering[]
 
   @@map("style_categories")
 }

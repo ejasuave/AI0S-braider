@@ -20,7 +20,12 @@ import { DEFAULT_WORKING_HOURS } from '@project-braids/shared-types/api';
 import { prisma } from '../../lib/db.js';
 import { ApiError } from '../../lib/errors.js';
 import { getStorageProvider } from '../../lib/storage/index.js';
-import { resolvePricingLookup } from './pricing-lookup.js';
+import { getBaseAvailabilityRules, baseRulesToLegacyWorkingHours } from '../stylist-profile/availability.js';
+import {
+  ensureDefaultBusinessPolicy,
+  getBusinessPolicyByStylistId,
+  policyToLegacyDeposit,
+} from '../stylist-profile/policy.js';
 import {
   ensureStylistProfileForUser,
   findDuplicateOffering,
@@ -31,6 +36,7 @@ import {
   toStylistProfile,
   toStyleCategory,
 } from './mappers.js';
+import { resolvePricingLookup } from './pricing-lookup.js';
 
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -254,6 +260,11 @@ export class ProfileService {
     stylistId: string,
     input: CreateServiceOfferingRequest,
   ): Promise<ServiceOffering> {
+    const profile = await getStylistProfileById(stylistId);
+    if (!profile.businessId) {
+      throw ApiError.validation('Business must be linked before creating services');
+    }
+
     const sizeTier = input.sizeTier ?? null;
     const lengthTier = input.lengthTier ?? null;
 
@@ -268,6 +279,7 @@ export class ProfileService {
 
     const offering = await prisma.serviceOffering.create({
       data: {
+        businessId: profile.businessId,
         stylistId,
         styleName: input.styleName.trim(),
         sizeTier,
@@ -366,6 +378,11 @@ export class ProfileService {
       throw ApiError.validation('imageUrl is required when not uploading a file');
     }
 
+    const profile = await getStylistProfileById(stylistId);
+    if (!profile.businessId) {
+      throw ApiError.validation('Business must be linked before adding portfolio items');
+    }
+
     const maxOrder = await prisma.portfolioItem.aggregate({
       where: { stylistId },
       _max: { displayOrder: true },
@@ -373,6 +390,7 @@ export class ProfileService {
 
     const item = await prisma.portfolioItem.create({
       data: {
+        businessId: profile.businessId,
         stylistId,
         imageUrl: input.imageUrl,
         source: 'manual',
@@ -395,6 +413,11 @@ export class ProfileService {
       throw ApiError.validation('Image exceeds 5 MB limit');
     }
 
+    const profile = await getStylistProfileById(stylistId);
+    if (!profile.businessId) {
+      throw ApiError.validation('Business must be linked before uploading portfolio images');
+    }
+
     const extension =
       file.contentType === 'image/png' ? 'png' : file.contentType === 'image/webp' ? 'webp' : 'jpg';
     const key = `portfolio/${stylistId}/${randomUUID()}.${extension}`;
@@ -412,6 +435,7 @@ export class ProfileService {
 
     const item = await prisma.portfolioItem.create({
       data: {
+        businessId: profile.businessId,
         stylistId,
         imageUrl: uploaded.publicUrl,
         storageKey: uploaded.key,
@@ -475,6 +499,15 @@ export class ProfileService {
     depositPolicy: { type: 'flat' | 'percent'; value: number } | null;
   }> {
     const profile = await getStylistProfileById(stylistId);
+    if (profile.businessId) {
+      await ensureDefaultBusinessPolicy(profile.businessId);
+      const policy = await getBusinessPolicyByStylistId(stylistId);
+      return {
+        bufferMinutes: profile.bufferMinutes,
+        depositPolicy: policyToLegacyDeposit(policy),
+      };
+    }
+
     return {
       bufferMinutes: profile.bufferMinutes,
       depositPolicy: profile.depositPolicy as { type: 'flat' | 'percent'; value: number } | null,
@@ -486,6 +519,19 @@ export class ProfileService {
     workingHours: Record<Weekday, { enabled: boolean; start: string; end: string }>;
   }> {
     const profile = await getStylistProfileById(stylistId);
+    if (profile.businessId) {
+      const from = new Date().toISOString().slice(0, 10);
+      const to = new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const rules = await getBaseAvailabilityRules(profile.businessId, from, to);
+      return {
+        bufferMinutes: profile.bufferMinutes,
+        workingHours: baseRulesToLegacyWorkingHours(rules) as Record<
+          Weekday,
+          { enabled: boolean; start: string; end: string }
+        >,
+      };
+    }
+
     return {
       bufferMinutes: profile.bufferMinutes,
       workingHours:

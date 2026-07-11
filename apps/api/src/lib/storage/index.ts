@@ -18,4 +18,10 @@ export type {
   StorageProvider,
   StorageUploadInput,
   StorageUploadResult,
+  PresignedUploadInput,
+  PresignedUploadResult,
 } from './storage-provider.js';
+export {
+  verifyUploadToken,
+  createPortfolioStorageKey,
+} from './local-storage-provider.js';
