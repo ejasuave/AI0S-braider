@@ -18,8 +18,13 @@ Stripe Connect onboarding, deposit PaymentIntents, refunds/forfeiture, payouts r
 1. Stylist completes Stripe Connect (`POST /businesses/me/stripe/onboarding-link`).
 2. Client creates a hold (gated by `isPaymentReady` when deposit > 0).
 3. Client pays deposit (`POST /bookings/:id/deposit` or legacy `/payments/deposits`).
-4. `payment_intent.succeeded` webhook **or** `POST /payments/deposits/:bookingId/sync` after Stripe.js → booking confirmed.
-5. Cancel/no-show → domain event → full refund or forfeit per Ch.7 policy.
+4. `payment_intent.succeeded` webhook **or** `POST /payments/deposits/:bookingId/sync` after Stripe.js → booking confirmed; remaining balance becomes `due`.
+5. Client may pay the remaining balance online (`POST /payments/balances` / `/bookings/:id/balance`) or settle in person (`POST /bookings/:id/balance/paid-in-person` by stylist).
+6. Cancel/no-show → domain event → refund/forfeit:
+   - **Stylist cancel** → always full refund of captured online payments (deposit + balance).
+   - **Client cancel / no-show** → Ch.7 policy (`full_refund` or `forfeit_deposit`). Forfeit keeps the deposit but still refunds any online balance.
+
+Booking DTOs expose `balanceAmount`, `remainingToPay`, `totalPaid`, and `stylistExpectedTotal` for client/stylist tracking.
 
 ## Charge type
 
@@ -34,7 +39,8 @@ Mock Stripe when `STRIPE_SECRET_KEY` is unset. Use `POST /payments/deposits/:boo
 ## Tables
 
 - `payment_accounts` — Stripe Connect per business
-- `payments` — deposit PaymentIntent per booking
+- `payments` — one PaymentIntent per `(booking_id, kind)` where `kind` is `deposit` or `balance`
+- `bookings.balance_status` / `balance_paid_at` — remaining balance lifecycle
 - `dispute_evidence_packages` — assembled dispute evidence
 - `processed_webhook_events` — idempotency ledger
 

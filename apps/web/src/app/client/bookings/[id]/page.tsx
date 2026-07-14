@@ -8,8 +8,10 @@ import type {
   BookingActionResult,
   DepositPaymentResponse,
   Payment,
+  SyncBalanceResponse,
   SyncDepositResponse,
 } from '@project-braids/shared-types/api';
+import { BookingMoneySummary } from '@/features/bookings/money-summary';
 import {
   DepositCheckout,
   incompatibleMockClientSecretMessage,
@@ -40,16 +42,20 @@ function ClientBookingDetailContent() {
   const stripeCheckoutEnabled = isStripeCheckoutEnabled();
 
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [balanceClientSecret, setBalanceClientSecret] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(
     searchParams.get('deposit') === 'return',
   );
+  const [awaitingBalance, setAwaitingBalance] = useState(searchParams.get('balance') === 'return');
   const returnSyncStarted = useRef(false);
+  const balanceReturnSyncStarted = useRef(false);
 
   const invalidateBookingQueries = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: ['bookings', 'client', params.id] });
     void queryClient.invalidateQueries({ queryKey: ['bookings', 'client'] });
     void queryClient.invalidateQueries({ queryKey: ['payments', 'deposit', params.id] });
+    void queryClient.invalidateQueries({ queryKey: ['payments', 'balance', params.id] });
   }, [params.id, queryClient]);
 
   const applySyncResult = useCallback(
@@ -77,10 +83,26 @@ function ClientBookingDetailContent() {
     onSuccess: applySyncResult,
   });
 
+  const syncBalanceMutation = useMutation({
+    mutationFn: () =>
+      apiFetchData<SyncBalanceResponse>(`/payments/balances/${params.id}/sync`, {
+        method: 'POST',
+        json: {},
+      }),
+    onSuccess: (result) => {
+      if (result.balancePaid) {
+        setAwaitingBalance(false);
+        setBalanceClientSecret(null);
+        setCheckoutError(null);
+      }
+      invalidateBookingQueries();
+    },
+  });
+
   const bookingQuery = useQuery({
     queryKey: ['bookings', 'client', params.id],
     queryFn: () => apiFetchData<Booking>(`/bookings/mine/${params.id}`),
-    refetchInterval: awaitingConfirmation ? POLL_INTERVAL_MS : false,
+    refetchInterval: awaitingConfirmation || awaitingBalance ? POLL_INTERVAL_MS : false,
   });
 
   const paymentQuery = useQuery({
@@ -94,6 +116,20 @@ function ClientBookingDetailContent() {
       }
     },
     enabled: Boolean(bookingQuery.data),
+    retry: false,
+  });
+
+  const balancePaymentQuery = useQuery({
+    queryKey: ['payments', 'balance', params.id],
+    queryFn: async () => {
+      try {
+        return await apiFetchData<Payment>(`/payments/balances/${params.id}`);
+      } catch (err) {
+        if (err instanceof ApiClientError && err.status === 404) return null;
+        throw err;
+      }
+    },
+    enabled: Boolean(bookingQuery.data?.balanceStatus === 'due'),
     retry: false,
   });
 
@@ -115,11 +151,31 @@ function ClientBookingDetailContent() {
   }, [paymentQuery.data]);
 
   useEffect(() => {
+    if (
+      balancePaymentQuery.data?.clientSecret &&
+      balancePaymentQuery.data.status === 'pending' &&
+      !isIncompatibleMockClientSecret(balancePaymentQuery.data.clientSecret)
+    ) {
+      setBalanceClientSecret(balancePaymentQuery.data.clientSecret);
+    }
+  }, [balancePaymentQuery.data]);
+
+  useEffect(() => {
     if (bookingQuery.data?.status === 'confirmed' || bookingQuery.data?.depositStatus === 'paid') {
       setAwaitingConfirmation(false);
       setClientSecret(null);
     }
   }, [bookingQuery.data?.depositStatus, bookingQuery.data?.status]);
+
+  useEffect(() => {
+    if (
+      bookingQuery.data?.balanceStatus === 'paid_online' ||
+      bookingQuery.data?.balanceStatus === 'paid_in_person'
+    ) {
+      setAwaitingBalance(false);
+      setBalanceClientSecret(null);
+    }
+  }, [bookingQuery.data?.balanceStatus]);
 
   useEffect(() => {
     if (searchParams.get('deposit') !== 'return') return;
@@ -137,6 +193,29 @@ function ClientBookingDetailContent() {
       },
     });
   }, [bookingQuery.data, searchParams, syncDepositMutation]);
+
+  useEffect(() => {
+    if (searchParams.get('balance') !== 'return') return;
+    if (balanceReturnSyncStarted.current) return;
+    if (
+      !bookingQuery.data ||
+      bookingQuery.data.balanceStatus === 'paid_online' ||
+      bookingQuery.data.balanceStatus === 'paid_in_person'
+    ) {
+      return;
+    }
+
+    balanceReturnSyncStarted.current = true;
+    setAwaitingBalance(true);
+    syncBalanceMutation.mutate(undefined, {
+      onError: (err) => {
+        if (err instanceof ApiClientError && err.status === 409) {
+          return;
+        }
+        setCheckoutError(getApiErrorMessage(err, 'Could not confirm your balance payment yet.'));
+      },
+    });
+  }, [bookingQuery.data, searchParams, syncBalanceMutation]);
 
   const cancelMutation = useMutation({
     mutationFn: () =>
@@ -165,6 +244,24 @@ function ClientBookingDetailContent() {
       }
       setClientSecret(data.clientSecret);
       void queryClient.invalidateQueries({ queryKey: ['payments', 'deposit', params.id] });
+    },
+  });
+
+  const prepareBalanceCheckoutMutation = useMutation({
+    mutationFn: () =>
+      apiFetchData<DepositPaymentResponse>('/payments/balances', {
+        method: 'POST',
+        json: { bookingId: params.id },
+      }),
+    onSuccess: (data) => {
+      setCheckoutError(null);
+      if (isIncompatibleMockClientSecret(data.clientSecret)) {
+        setBalanceClientSecret(null);
+        setCheckoutError(incompatibleMockClientSecretMessage());
+        return;
+      }
+      setBalanceClientSecret(data.clientSecret);
+      void queryClient.invalidateQueries({ queryKey: ['payments', 'balance', params.id] });
     },
   });
 
@@ -199,21 +296,46 @@ function ClientBookingDetailContent() {
     }
   }, [applySyncResult, invalidateBookingQueries, syncDepositMutation]);
 
+  const handleBalancePaymentComplete = useCallback(async () => {
+    setCheckoutError(null);
+    setAwaitingBalance(true);
+    try {
+      await syncBalanceMutation.mutateAsync();
+      setAwaitingBalance(false);
+      setBalanceClientSecret(null);
+      invalidateBookingQueries();
+    } catch (err) {
+      if (err instanceof ApiClientError && err.status === 409) {
+        invalidateBookingQueries();
+        return;
+      }
+      setCheckoutError(
+        getApiErrorMessage(err, 'Payment succeeded but sync failed. Retrying…'),
+      );
+      invalidateBookingQueries();
+    }
+  }, [invalidateBookingQueries, syncBalanceMutation]);
+
   const booking = bookingQuery.data;
   const payment = paymentQuery.data;
   const needsDeposit = booking?.status === 'held' && booking.depositStatus === 'pending';
+  const needsBalance = booking?.balanceStatus === 'due' && Number(booking.remainingToPay) > 0;
   const showMockSimulate = !stripeCheckoutEnabled && process.env.NODE_ENV !== 'production';
 
   const error =
     prepareCheckoutMutation.error ||
+    prepareBalanceCheckoutMutation.error ||
     simulateMutation.error ||
     cancelMutation.error ||
-    syncDepositMutation.error
+    syncDepositMutation.error ||
+    syncBalanceMutation.error
       ? getApiErrorMessage(
           prepareCheckoutMutation.error ??
+            prepareBalanceCheckoutMutation.error ??
             simulateMutation.error ??
             cancelMutation.error ??
-            syncDepositMutation.error,
+            syncDepositMutation.error ??
+            syncBalanceMutation.error,
         )
       : checkoutError;
 
@@ -269,22 +391,6 @@ function ClientBookingDetailContent() {
                   <dd className="font-medium text-ink">Your stylist will confirm how to join.</dd>
                 </div>
               ) : null}
-              <div>
-                <dt className="text-ink-muted">Total price</dt>
-                <dd className="font-medium text-ink">{formatMoney(booking.agreedPrice)}</dd>
-              </div>
-              {Number(booking.homeVisitSurcharge) > 0 ? (
-                <div>
-                  <dt className="text-ink-muted">Includes home visit</dt>
-                  <dd className="font-medium text-ink">
-                    +{formatMoney(booking.homeVisitSurcharge)}
-                  </dd>
-                </div>
-              ) : null}
-              <div>
-                <dt className="text-ink-muted">Deposit due</dt>
-                <dd className="font-medium text-ink">{formatMoney(booking.depositAmount)}</dd>
-              </div>
               {booking.holdExpiresAt ? (
                 <div>
                   <dt className="text-ink-muted">Hold expires</dt>
@@ -296,9 +402,11 @@ function ClientBookingDetailContent() {
             </dl>
           </Card>
 
+          <BookingMoneySummary booking={booking} audience="client" />
+
           {payment ? (
             <Card className="space-y-2">
-              <p className="text-sm font-medium text-ink">Payment</p>
+              <p className="text-sm font-medium text-ink">Deposit payment</p>
               <StatusBadge label={paymentStatusLabel(payment.status)} tone="neutral" />
               <p className="text-sm text-ink-muted">
                 {formatMoney(payment.amount, payment.currency.toUpperCase())}
@@ -312,6 +420,12 @@ function ClientBookingDetailContent() {
             </Card>
           ) : null}
 
+          {awaitingBalance && needsBalance ? (
+            <Card className="bg-primary-subtle border-primary/20">
+              <p className="text-sm text-ink">Balance payment received — updating…</p>
+            </Card>
+          ) : null}
+
           {error ? <p className="text-sm text-error">{error}</p> : null}
 
           {needsDeposit &&
@@ -322,6 +436,9 @@ function ClientBookingDetailContent() {
               clientSecret={clientSecret}
               bookingId={params.id}
               amountLabel={formatMoney(booking.depositAmount)}
+              title="Pay your deposit"
+              submitLabel="Pay deposit"
+              returnQuery="deposit"
               onPaid={handlePaymentComplete}
               onError={setCheckoutError}
             />
@@ -365,6 +482,48 @@ function ClientBookingDetailContent() {
             </div>
           ) : null}
 
+          {needsBalance &&
+          balanceClientSecret &&
+          stripeCheckoutEnabled &&
+          !isIncompatibleMockClientSecret(balanceClientSecret) ? (
+            <DepositCheckout
+              clientSecret={balanceClientSecret}
+              bookingId={params.id}
+              amountLabel={formatMoney(booking.remainingToPay)}
+              title="Pay remaining balance"
+              submitLabel="Pay balance"
+              returnQuery="balance"
+              onPaid={handleBalancePaymentComplete}
+              onError={setCheckoutError}
+            />
+          ) : null}
+
+          {needsBalance && !balanceClientSecret && stripeCheckoutEnabled ? (
+            <div className="space-y-2">
+              <Button
+                fullWidth
+                onClick={() => prepareBalanceCheckoutMutation.mutate()}
+                disabled={prepareBalanceCheckoutMutation.isPending}
+              >
+                {prepareBalanceCheckoutMutation.isPending
+                  ? 'Preparing payment…'
+                  : `Pay remaining ${formatMoney(booking.remainingToPay)} online`}
+              </Button>
+              <p className="text-xs text-ink-muted">
+                Or pay in person at your appointment — your stylist will mark it received.
+              </p>
+            </div>
+          ) : null}
+
+          {needsBalance && !stripeCheckoutEnabled ? (
+            <Card>
+              <p className="text-sm text-ink-muted">
+                Remaining balance {formatMoney(booking.remainingToPay)} — pay in person at your
+                appointment, or ask the operator to enable Stripe card checkout.
+              </p>
+            </Card>
+          ) : null}
+
           {booking.depositStatus === 'paid' && booking.status === 'held' ? (
             <Card className="bg-success/5">
               <p className="text-sm text-success">
@@ -394,6 +553,7 @@ function ClientBookingDetailContent() {
     </PageShell>
   );
 }
+
 
 export default function ClientBookingDetailPage() {
   return (

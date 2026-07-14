@@ -519,6 +519,9 @@ model Booking {
   homeVisitSurcharge     Decimal              @default(0) @map("home_visit_surcharge") @db.Decimal(10, 2)
   /// Snapshot of client display name at booking time.
   clientDisplayName      String?              @map("client_display_name")
+  /// Remaining balance after deposit: not_due | due | paid_online | paid_in_person.
+  balanceStatus          BalanceStatus        @default(not_due) @map("balance_status")
+  balancePaidAt          DateTime?            @map("balance_paid_at") @db.Timestamptz(6)
   createdAt              DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
   cancelledAt            DateTime?            @map("cancelled_at") @db.Timestamptz(6)
   cancellationReason     String?              @map("cancellation_reason")
@@ -528,13 +531,22 @@ model Booking {
   notifications      Notification[]
   calendarConflicts  CalendarConflict[]
   externalCalendarLinks ExternalCalendarLink[]
-  payment            Payment?
+  payments           Payment[]
   disputeEvidencePackages DisputeEvidencePackage[]
 
   @@index([stylistId, status, startTime, endTime])
   @@index([clientId, status])
   @@index([holdExpiresAt])
   @@map("bookings")
+}
+
+enum BalanceStatus {
+  not_due
+  due
+  paid_online
+  paid_in_person
+
+  @@map("balance_status")
 }
 
 enum CalendarConflictResolution {
@@ -648,9 +660,17 @@ enum PaymentStatus {
   @@map("payment_status")
 }
 
+enum PaymentKind {
+  deposit
+  balance
+
+  @@map("payment_kind")
+}
+
 model Payment {
   id                    String        @id @default(uuid()) @db.Uuid
-  bookingId             String        @unique @map("booking_id") @db.Uuid
+  bookingId             String        @map("booking_id") @db.Uuid
+  kind                  PaymentKind   @default(deposit)
   stripePaymentIntentId String        @unique @map("stripe_payment_intent_id")
   amount                Decimal       @db.Decimal(10, 2)
   currency              String        @default("gbp")
@@ -662,6 +682,7 @@ model Payment {
   booking                 Booking                  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   disputeEvidencePackages DisputeEvidencePackage[]
 
+  @@unique([bookingId, kind])
   @@map("payments")
 }
 

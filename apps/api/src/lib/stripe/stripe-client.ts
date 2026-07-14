@@ -140,6 +140,7 @@ class LiveStripeProvider implements StripeProvider {
         bookingId: input.bookingId,
         stylistId: input.stylistId,
         clientId: input.clientId,
+        paymentKind: input.paymentKind ?? 'deposit',
       },
     });
 

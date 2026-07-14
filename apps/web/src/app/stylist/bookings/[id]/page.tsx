@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
 import type { Booking } from '@project-braids/shared-types/api';
+import { BookingMoneySummary } from '@/features/bookings/money-summary';
 import { apiFetchData, getApiErrorMessage } from '@/shared/lib/api-client';
 import {
   bookingStatusLabel,
@@ -51,8 +52,24 @@ export default function StylistBookingDetailPage() {
     },
   });
 
+  const markBalancePaidMutation = useMutation({
+    mutationFn: () =>
+      apiFetchData<Booking>(`/bookings/${params.id}/balance/paid-in-person`, {
+        method: 'POST',
+        json: {},
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['bookings'] });
+    },
+  });
+
   const booking = bookingQuery.data;
-  const error = actionMutation.error ? getApiErrorMessage(actionMutation.error) : null;
+  const error =
+    actionMutation.error || markBalancePaidMutation.error
+      ? getApiErrorMessage(actionMutation.error ?? markBalancePaidMutation.error)
+      : null;
+  const balanceDue =
+    booking?.balanceStatus === 'due' && Number(booking.remainingToPay) > 0;
 
   return (
     <PageShell>
@@ -105,10 +122,6 @@ export default function StylistBookingDetailPage() {
                   <dd className="font-medium text-ink whitespace-pre-wrap">{booking.venueAddress}</dd>
                 </div>
               ) : null}
-              <div>
-                <dt className="text-ink-muted">Price</dt>
-                <dd className="font-medium text-ink">{formatMoney(booking.agreedPrice)}</dd>
-              </div>
               {Number(booking.homeVisitSurcharge) > 0 ? (
                 <div>
                   <dt className="text-ink-muted">Home visit surcharge</dt>
@@ -118,15 +131,13 @@ export default function StylistBookingDetailPage() {
                 </div>
               ) : null}
               <div>
-                <dt className="text-ink-muted">Deposit</dt>
-                <dd className="font-medium text-ink">{formatMoney(booking.depositAmount)}</dd>
-              </div>
-              <div>
                 <dt className="text-ink-muted">Duration</dt>
                 <dd className="font-medium text-ink">{booking.agreedDurationMinutes} minutes</dd>
               </div>
             </dl>
           </Card>
+
+          <BookingMoneySummary booking={booking} audience="stylist" />
 
           {error ? <p className="text-sm text-error">{error}</p> : null}
 
@@ -139,6 +150,19 @@ export default function StylistBookingDetailPage() {
                 disabled={actionMutation.isPending}
               >
                 Confirm booking
+              </Button>
+            ) : null}
+            {balanceDue ? (
+              <Button
+                variant="secondary"
+                fullWidth
+                className="sm:w-auto"
+                onClick={() => markBalancePaidMutation.mutate()}
+                disabled={markBalancePaidMutation.isPending}
+              >
+                {markBalancePaidMutation.isPending
+                  ? 'Saving…'
+                  : `Mark ${formatMoney(booking.remainingToPay)} paid in person`}
               </Button>
             ) : null}
             {booking.status === 'confirmed' ? (
@@ -174,6 +198,12 @@ export default function StylistBookingDetailPage() {
               </Button>
             ) : null}
           </div>
+          {booking.status === 'confirmed' || booking.status === 'held' ? (
+            <p className="text-xs text-ink-muted">
+              Cancelling refunds any online deposit (and online balance) automatically. Client
+              cancellations still follow your cancellation window policy.
+            </p>
+          ) : null}
         </div>
       ) : (
         <p className="mt-6 text-sm text-error">Booking not found.</p>

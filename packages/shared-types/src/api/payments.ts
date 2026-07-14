@@ -3,6 +3,9 @@ import { z } from 'zod';
 export const PAYMENT_STATUSES = ['pending', 'captured', 'refunded', 'forfeited', 'failed'] as const;
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
+export const PAYMENT_KINDS = ['deposit', 'balance'] as const;
+export type PaymentKind = (typeof PAYMENT_KINDS)[number];
+
 export const PAYMENT_ONBOARDING_STATUSES = [
   'not_started',
   'in_progress',
@@ -43,6 +46,7 @@ export type CreateDepositPaymentRequest = z.infer<typeof createDepositPaymentReq
 export const depositPaymentResponseSchema = z.object({
   id: z.string().uuid(),
   bookingId: z.string().uuid(),
+  kind: z.enum(PAYMENT_KINDS),
   stripePaymentIntentId: z.string(),
   clientSecret: z.string(),
   amount: z.string(),
@@ -55,6 +59,7 @@ export type DepositPaymentResponse = z.infer<typeof depositPaymentResponseSchema
 export const paymentSchema = z.object({
   id: z.string().uuid(),
   bookingId: z.string().uuid(),
+  kind: z.enum(PAYMENT_KINDS),
   stripePaymentIntentId: z.string(),
   amount: z.string(),
   currency: z.string(),
@@ -68,12 +73,25 @@ export const paymentSchema = z.object({
 
 export type Payment = z.infer<typeof paymentSchema>;
 
+export const createBalancePaymentRequestSchema = z.object({
+  bookingId: z.string().uuid(),
+});
+
+export type CreateBalancePaymentRequest = z.infer<typeof createBalancePaymentRequestSchema>;
+
 export const syncDepositResponseSchema = z.object({
   payment: paymentSchema,
   bookingConfirmed: z.boolean(),
 });
 
 export type SyncDepositResponse = z.infer<typeof syncDepositResponseSchema>;
+
+export const syncBalanceResponseSchema = z.object({
+  payment: paymentSchema,
+  balancePaid: z.boolean(),
+});
+
+export type SyncBalanceResponse = z.infer<typeof syncBalanceResponseSchema>;
 
 export const partialRefundRequestSchema = z.object({
   amount: z.number().positive(),

@@ -17,7 +17,7 @@ import { getSystemQueue, JOB_NAMES } from '../../lib/queue.js';
 import { profileService } from '../profile/service.js';
 import { getBusinessPolicyByStylistId } from '../stylist-profile/policy.js';
 import { expireStaleHolds, findConflictingBookingIds } from './conflict.js';
-import { calculateBookingEndTime, calculateDepositAmount, toBooking } from './mappers.js';
+import { calculateBalanceAmount, calculateBookingEndTime, calculateDepositAmount, toBooking } from './mappers.js';
 import { evaluateCancellationDeposit, evaluateNoShowDeposit } from './policy.js';
 import { transitionBookingStatus } from './state-machine.js';
 import { slotMatchesAvailability } from '../calendar/availability.js';
@@ -510,11 +510,23 @@ export class BookingService {
       throw ApiError.notFound('Booking not found');
     }
 
+    const balanceFields = (() => {
+      const remaining = calculateBalanceAmount(
+        Number(booking.agreedPrice),
+        Number(booking.depositAmount),
+      );
+      return {
+        depositStatus: 'paid' as const,
+        holdExpiresAt: null,
+        balanceStatus: remaining > 0 ? ('due' as const) : ('not_due' as const),
+      };
+    })();
+
     if (booking.status === 'confirmed') {
       if (booking.depositStatus !== 'paid') {
         const updated = await prisma.booking.update({
           where: { id: booking.id },
-          data: { depositStatus: 'paid', holdExpiresAt: null },
+          data: balanceFields,
         });
         return { outcome: 'confirmed', booking: toBooking(updated) };
       }
@@ -534,10 +546,7 @@ export class BookingService {
     }
 
     const updated = await prisma.$transaction(async (tx) => {
-      const row = await transitionBookingStatus(tx, booking.id, 'held', 'confirmed', {
-        depositStatus: 'paid',
-        holdExpiresAt: null,
-      });
+      const row = await transitionBookingStatus(tx, booking.id, 'held', 'confirmed', balanceFields);
       return row;
     });
 
@@ -545,6 +554,47 @@ export class BookingService {
     void emitBookingConfirmed({ bookingId: updated.id }).catch(() => {});
 
     return { outcome: 'confirmed', booking: toBooking(updated) };
+  }
+
+  async markBalancePaidInPerson(stylistId: string, bookingId: string): Promise<Booking> {
+    const booking = await prisma.booking.findFirst({
+      where: { id: bookingId, stylistId },
+    });
+    if (!booking) {
+      throw ApiError.notFound('Booking not found');
+    }
+    if (booking.status !== 'confirmed' && booking.status !== 'completed') {
+      throw new ApiError('CONFLICT', 'Balance can only be marked paid for confirmed bookings', 409);
+    }
+    if (booking.depositStatus !== 'paid') {
+      throw new ApiError('CONFLICT', 'Deposit must be paid before settling the balance', 409);
+    }
+    if (
+      booking.balanceStatus === 'paid_online' ||
+      booking.balanceStatus === 'paid_in_person'
+    ) {
+      return toBooking(booking);
+    }
+    const remaining = calculateBalanceAmount(
+      Number(booking.agreedPrice),
+      Number(booking.depositAmount),
+    );
+    if (remaining <= 0) {
+      const updated = await prisma.booking.update({
+        where: { id: booking.id },
+        data: { balanceStatus: 'not_due' },
+      });
+      return toBooking(updated);
+    }
+
+    const updated = await prisma.booking.update({
+      where: { id: booking.id },
+      data: {
+        balanceStatus: 'paid_in_person',
+        balancePaidAt: new Date(),
+      },
+    });
+    return toBooking(updated);
   }
 
   /** Alias retained for Chapter 9 integration. */
@@ -595,7 +645,11 @@ export class BookingService {
       input.reason ?? (cancelledBy === 'client' ? 'cancelled_by_client' : 'cancelled_by_stylist');
 
     const policy = await getBusinessPolicyByStylistId(booking.stylistId);
-    const depositDisposition = evaluateCancellationDeposit(policy, booking, new Date());
+    // Stylist-initiated cancel always refunds the client; client cancel uses policy window.
+    const depositDisposition =
+      cancelledBy === 'stylist'
+        ? 'full_refund'
+        : evaluateCancellationDeposit(policy, booking, new Date());
 
     const updated = await prisma.$transaction(async (tx) => {
       return transitionBookingStatus(tx, booking.id, booking.status, 'cancelled', {

@@ -1,5 +1,9 @@
-import type { BookingStatus, BookingDepositStatus } from '@project-braids/shared-types/api';
-import type { PaymentStatus } from '@project-braids/shared-types/api';
+import type {
+  BalanceStatus,
+  BookingStatus,
+  BookingDepositStatus,
+  PaymentStatus,
+} from '@project-braids/shared-types/api';
 
 export function formatMoney(amount: string, currency = 'GBP'): string {
   const value = Number(amount);
@@ -51,6 +55,16 @@ export function depositStatusLabel(status: BookingDepositStatus): string {
     paid: 'Deposit paid',
     refunded: 'Refunded',
     forfeited: 'Forfeited',
+  };
+  return labels[status];
+}
+
+export function balanceStatusLabel(status: BalanceStatus): string {
+  const labels: Record<BalanceStatus, string> = {
+    not_due: 'No balance due',
+    due: 'Balance due',
+    paid_online: 'Balance paid online',
+    paid_in_person: 'Balance paid in person',
   };
   return labels[status];
 }

@@ -6,6 +6,7 @@ export function toPayment(payment: Payment): PaymentDto {
   return {
     id: payment.id,
     bookingId: payment.bookingId,
+    kind: payment.kind as PaymentDto['kind'],
     stripePaymentIntentId: payment.stripePaymentIntentId,
     amount: payment.amount.toFixed(2),
     currency: payment.currency,

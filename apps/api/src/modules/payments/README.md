@@ -4,12 +4,13 @@ Owns deposit capture, refunds, Stripe Connect, and dispute evidence per `docs/PA
 
 ## Routes
 
-| Area                   | Paths                                                                               |
-| ---------------------- | ----------------------------------------------------------------------------------- |
-| Business (Ch.9.1, 9.5) | `/businesses/me/stripe/*`, `/businesses/me/payouts`, `/businesses/me/income-report` |
-| Deposits (Ch.9.2)      | `/payments/deposits`, `/bookings/:id/deposit`                                       |
-| Refunds (Ch.9.3)       | `/bookings/:id/partial-refund`                                                      |
-| Webhooks               | `/webhooks/stripe`                                                                  |
+| Area                   | Paths                                                                                 |
+| ---------------------- | ------------------------------------------------------------------------------------- |
+| Business (Ch.9.1, 9.5) | `/businesses/me/stripe/*`, `/businesses/me/payouts`, `/businesses/me/income-report`   |
+| Deposits (Ch.9.2)      | `/payments/deposits`, `/bookings/:id/deposit`                                         |
+| Balance                | `/payments/balances`, `/bookings/:id/balance`, `/bookings/:id/balance/paid-in-person` |
+| Refunds (Ch.9.3)       | `/bookings/:id/partial-refund` (full/forfeit via domain events)                       |
+| Webhooks               | `/webhooks/stripe`                                                                    |
 
 Legacy `/payments/connect/*` remains for backward compatibility.
 

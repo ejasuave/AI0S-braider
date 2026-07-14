@@ -13,6 +13,8 @@ export type CreateDepositPaymentInput = {
   connectedAccountId: string;
   stylistId: string;
   clientId: string;
+  /** Defaults to deposit when omitted. */
+  paymentKind?: 'deposit' | 'balance';
 };
 
 export type CreateDepositPaymentResult = {

@@ -395,7 +395,7 @@ export class PaymentService {
     const stripe = getStripeProvider();
 
     const existingPayment = await prisma.payment.findUnique({
-      where: { bookingId },
+      where: { bookingId_kind: { bookingId, kind: 'deposit' } },
     });
     if (existingPayment) {
       if (existingPayment.status === 'pending') {
@@ -408,6 +408,7 @@ export class PaymentService {
           return {
             id: existingPayment.id,
             bookingId: existingPayment.bookingId,
+            kind: 'deposit',
             stripePaymentIntentId: existingPayment.stripePaymentIntentId,
             clientSecret: intent.clientSecret,
             amount: existingPayment.amount.toFixed(2),
@@ -416,7 +417,7 @@ export class PaymentService {
           };
         }
       } else if (isTerminalPaymentStatus(existingPayment.status)) {
-        throw new ApiError('CONFLICT', 'A payment already exists for this booking', 409);
+        throw new ApiError('CONFLICT', 'A deposit payment already exists for this booking', 409);
       }
     }
 
@@ -459,6 +460,7 @@ export class PaymentService {
     const payment = await prisma.payment.create({
       data: {
         bookingId: booking.id,
+        kind: 'deposit',
         stripePaymentIntentId: intent.paymentIntentId,
         amount: booking.depositAmount,
         currency: 'gbp',
@@ -469,6 +471,7 @@ export class PaymentService {
     return {
       id: payment.id,
       bookingId: payment.bookingId,
+      kind: 'deposit',
       stripePaymentIntentId: payment.stripePaymentIntentId,
       clientSecret: intent.clientSecret,
       amount: payment.amount.toFixed(2),
@@ -477,11 +480,15 @@ export class PaymentService {
     };
   }
 
-  async getPaymentForBooking(clientId: string, bookingId: string): Promise<PaymentDto> {
+  async getPaymentForBooking(
+    clientId: string,
+    bookingId: string,
+    kind: 'deposit' | 'balance' = 'deposit',
+  ): Promise<PaymentDto> {
     await bookingService.getBookingForClient(clientId, bookingId);
 
     const payment = await prisma.payment.findUnique({
-      where: { bookingId },
+      where: { bookingId_kind: { bookingId, kind } },
     });
     if (!payment) {
       throw ApiError.notFound('Payment not found');
@@ -513,14 +520,14 @@ export class PaymentService {
     await bookingService.getBookingForClient(clientId, bookingId);
 
     const payment = await prisma.payment.findUnique({
-      where: { bookingId },
+      where: { bookingId_kind: { bookingId, kind: 'deposit' } },
     });
     if (!payment) {
       throw ApiError.notFound('Payment not found');
     }
 
     if (payment.status === 'captured') {
-      return this.captureDepositFromWebhook(payment.stripePaymentIntentId, bookingId);
+      return this.capturePaymentFromWebhook(payment.stripePaymentIntentId, bookingId);
     }
 
     if (payment.status !== 'pending') {
@@ -534,10 +541,170 @@ export class PaymentService {
       throw new ApiError('CONFLICT', 'Deposit payment has not succeeded yet', 409);
     }
 
-    return this.captureDepositFromWebhook(payment.stripePaymentIntentId, bookingId);
+    return this.capturePaymentFromWebhook(payment.stripePaymentIntentId, bookingId);
   }
 
+  async createBalanceCharge(clientId: string, bookingId: string): Promise<DepositPaymentResponse> {
+    const booking = await bookingService.getBookingForClient(clientId, bookingId);
+
+    if (booking.status !== 'confirmed' && booking.status !== 'completed') {
+      throw new ApiError('CONFLICT', 'Balance can only be paid for confirmed bookings', 409);
+    }
+    if (booking.depositStatus !== 'paid') {
+      throw new ApiError('CONFLICT', 'Deposit must be paid before paying the remaining balance', 409);
+    }
+    if (booking.balanceStatus === 'paid_online' || booking.balanceStatus === 'paid_in_person') {
+      throw new ApiError('CONFLICT', 'Balance has already been paid for this booking', 409);
+    }
+    if (booking.balanceStatus !== 'due') {
+      throw new ApiError('CONFLICT', 'No remaining balance is due for this booking', 409);
+    }
+
+    const balanceAmount = Number(booking.balanceAmount);
+    if (balanceAmount <= 0) {
+      throw ApiError.validation('Balance amount must be greater than zero');
+    }
+
+    const profile = await prisma.stylistProfile.findUnique({
+      where: { id: booking.stylistId },
+      select: { businessId: true },
+    });
+    if (!profile?.businessId) {
+      throw ApiError.notFound('Business not found for booking');
+    }
+    if (!(await isBusinessPaymentReady(profile.businessId))) {
+      throw new ApiError('CONFLICT', 'Stylist has not completed Stripe Connect onboarding', 422);
+    }
+
+    const stripe = getStripeProvider();
+    const existingPayment = await prisma.payment.findUnique({
+      where: { bookingId_kind: { bookingId, kind: 'balance' } },
+    });
+    if (existingPayment) {
+      if (existingPayment.status === 'pending') {
+        if (isStaleMockPaymentIntent(existingPayment.stripePaymentIntentId)) {
+          await prisma.payment.delete({ where: { id: existingPayment.id } });
+        } else {
+          const intent = await stripe.retrieveDepositPaymentIntent(
+            existingPayment.stripePaymentIntentId,
+          );
+          return {
+            id: existingPayment.id,
+            bookingId: existingPayment.bookingId,
+            kind: 'balance',
+            stripePaymentIntentId: existingPayment.stripePaymentIntentId,
+            clientSecret: intent.clientSecret,
+            amount: existingPayment.amount.toFixed(2),
+            currency: existingPayment.currency,
+            status: existingPayment.status,
+          };
+        }
+      } else if (isTerminalPaymentStatus(existingPayment.status)) {
+        throw new ApiError('CONFLICT', 'A balance payment already exists for this booking', 409);
+      }
+    }
+
+    const connectAccount = await prisma.paymentAccount.findUnique({
+      where: { businessId: profile.businessId },
+    });
+    if (!connectAccount?.chargesEnabled) {
+      throw new ApiError('CONFLICT', 'Stylist has not completed Stripe Connect onboarding', 422);
+    }
+    if (
+      !allowsMockConnectAccount() &&
+      isStaleMockConnectAccount(connectAccount.stripeConnectAccountId)
+    ) {
+      throw new ApiError(
+        'CONFLICT',
+        'Stylist must reconnect Stripe — previous setup used development mock accounts',
+        422,
+      );
+    }
+
+    if (!booking.clientId) {
+      throw ApiError.validation('Booking has no client — balance payments require a linked client');
+    }
+
+    const amountPence = toPence(balanceAmount);
+    const intent = await stripe.createDepositPaymentIntent({
+      bookingId: booking.id,
+      amountPence,
+      currency: 'gbp',
+      connectedAccountId: connectAccount.stripeConnectAccountId,
+      stylistId: booking.stylistId,
+      clientId: booking.clientId,
+      paymentKind: 'balance',
+    });
+
+    const payment = await prisma.payment.create({
+      data: {
+        bookingId: booking.id,
+        kind: 'balance',
+        stripePaymentIntentId: intent.paymentIntentId,
+        amount: balanceAmount,
+        currency: 'gbp',
+        status: 'pending',
+      },
+    });
+
+    return {
+      id: payment.id,
+      bookingId: payment.bookingId,
+      kind: 'balance',
+      stripePaymentIntentId: payment.stripePaymentIntentId,
+      clientSecret: intent.clientSecret,
+      amount: payment.amount.toFixed(2),
+      currency: payment.currency,
+      status: payment.status,
+    };
+  }
+
+  async syncBalanceAfterClientCheckout(
+    clientId: string,
+    bookingId: string,
+  ): Promise<{ payment: PaymentDto; balancePaid: boolean }> {
+    await bookingService.getBookingForClient(clientId, bookingId);
+
+    const payment = await prisma.payment.findUnique({
+      where: { bookingId_kind: { bookingId, kind: 'balance' } },
+    });
+    if (!payment) {
+      throw ApiError.notFound('Balance payment not found');
+    }
+
+    if (payment.status === 'captured') {
+      return this.capturePaymentFromWebhook(payment.stripePaymentIntentId, bookingId).then(
+        (result) => ({
+          payment: result.payment,
+          balancePaid: true,
+        }),
+      );
+    }
+
+    if (payment.status !== 'pending') {
+      throw new ApiError('CONFLICT', 'Balance payment is not awaiting capture', 409);
+    }
+
+    const stripeStatus = await getStripeProvider().retrievePaymentIntentStatus(
+      payment.stripePaymentIntentId,
+    );
+    if (stripeStatus !== 'succeeded') {
+      throw new ApiError('CONFLICT', 'Balance payment has not succeeded yet', 409);
+    }
+
+    const result = await this.capturePaymentFromWebhook(payment.stripePaymentIntentId, bookingId);
+    return { payment: result.payment, balancePaid: true };
+  }
+
+  /** @deprecated Prefer capturePaymentFromWebhook — retained for call sites/tests. */
   async captureDepositFromWebhook(
+    paymentIntentId: string,
+    bookingId: string,
+  ): Promise<{ payment: PaymentDto; bookingConfirmed: boolean }> {
+    return this.capturePaymentFromWebhook(paymentIntentId, bookingId);
+  }
+
+  async capturePaymentFromWebhook(
     paymentIntentId: string,
     bookingId: string,
   ): Promise<{ payment: PaymentDto; bookingConfirmed: boolean }> {
@@ -551,6 +718,10 @@ export class PaymentService {
 
     if (payment.bookingId !== bookingId) {
       throw ApiError.validation('PaymentIntent booking metadata does not match payment record');
+    }
+
+    if (payment.kind === 'balance') {
+      return this.captureBalancePayment(payment);
     }
 
     if (payment.status === 'captured') {
@@ -585,62 +756,161 @@ export class PaymentService {
     };
   }
 
-  /** Ch.9.3 — full, partial, or forfeit captured deposits. */
+  private async captureBalancePayment(payment: {
+    id: string;
+    bookingId: string;
+    status: string;
+  }): Promise<{ payment: PaymentDto; bookingConfirmed: boolean }> {
+    if (payment.status === 'captured') {
+      const existing = await prisma.payment.findUniqueOrThrow({ where: { id: payment.id } });
+      return { payment: toPayment(existing), bookingConfirmed: false };
+    }
+
+    const captured = await prisma.$transaction(async (tx) => {
+      const updated = await tx.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: 'captured',
+          capturedAt: new Date(),
+        },
+      });
+      await tx.booking.update({
+        where: { id: payment.bookingId },
+        data: {
+          balanceStatus: 'paid_online',
+          balancePaidAt: new Date(),
+        },
+      });
+      return updated;
+    });
+
+    return { payment: toPayment(captured), bookingConfirmed: false };
+  }
+
+  /**
+   * Ch.9.3 — full refunds all captured online payments (deposit + balance).
+   * Partial refunds deposit only. Forfeit keeps deposit and still refunds any online balance.
+   */
   async processRefund(
     bookingId: string,
     refundType: 'full' | 'partial' | 'none',
     partialAmount?: number,
   ): Promise<PaymentDto | null> {
-    const payment = await prisma.payment.findFirst({
+    const capturedPayments = await prisma.payment.findMany({
       where: { bookingId, status: 'captured' },
+      orderBy: { createdAt: 'asc' },
     });
-    if (!payment) {
+    if (capturedPayments.length === 0) {
       return null;
     }
 
+    const depositPayment = capturedPayments.find((p) => p.kind === 'deposit') ?? null;
+    const balancePayment = capturedPayments.find((p) => p.kind === 'balance') ?? null;
+
     if (refundType === 'none') {
+      // Forfeit deposit policy — still refund any online balance the client paid.
+      if (balancePayment) {
+        await getStripeProvider().createRefund({
+          paymentIntentId: balancePayment.stripePaymentIntentId,
+        });
+      }
+
       const forfeited = await prisma.$transaction(async (tx) => {
+        let depositResult = depositPayment;
+        if (depositPayment) {
+          depositResult = await tx.payment.update({
+            where: { id: depositPayment.id },
+            data: { status: 'forfeited' },
+          });
+        }
+        if (balancePayment) {
+          await tx.payment.update({
+            where: { id: balancePayment.id },
+            data: {
+              status: 'refunded',
+              refundedAmount: balancePayment.amount,
+            },
+          });
+        }
+        await tx.booking.update({
+          where: { id: bookingId },
+          data: {
+            depositStatus: 'forfeited',
+            ...(balancePayment
+              ? { balanceStatus: 'not_due' as const, balancePaidAt: null }
+              : {}),
+          },
+        });
+        return depositResult;
+      });
+      return forfeited ? toPayment(forfeited) : null;
+    }
+
+    if (refundType === 'partial') {
+      if (!depositPayment) {
+        return null;
+      }
+      const capturedPence = toPence(depositPayment.amount);
+      const refundPence = toPence(partialAmount ?? 0);
+      if (refundPence <= 0 || refundPence > capturedPence) {
+        throw ApiError.validation('Refund amount must be between zero and the captured deposit');
+      }
+
+      await getStripeProvider().createRefund({
+        paymentIntentId: depositPayment.stripePaymentIntentId,
+        amountPence: refundPence,
+      });
+
+      const refunded = await prisma.$transaction(async (tx) => {
         const updated = await tx.payment.update({
-          where: { id: payment.id },
-          data: { status: 'forfeited' },
+          where: { id: depositPayment.id },
+          data: {
+            status: 'refunded',
+            refundedAmount: refundPence / 100,
+          },
         });
         await tx.booking.update({
           where: { id: bookingId },
-          data: { depositStatus: 'forfeited' },
+          data: { depositStatus: 'refunded' },
         });
         return updated;
       });
-      return toPayment(forfeited);
+      return toPayment(refunded);
     }
 
-    const capturedPence = toPence(payment.amount);
-    const refundPence = refundType === 'partial' ? toPence(partialAmount ?? 0) : capturedPence;
-
-    if (refundPence <= 0 || refundPence > capturedPence) {
-      throw ApiError.validation('Refund amount must be between zero and the captured deposit');
+    // Full refund — every captured online payment
+    const stripe = getStripeProvider();
+    for (const payment of capturedPayments) {
+      await stripe.createRefund({ paymentIntentId: payment.stripePaymentIntentId });
     }
-
-    await getStripeProvider().createRefund({
-      paymentIntentId: payment.stripePaymentIntentId,
-      amountPence: refundType === 'partial' ? refundPence : undefined,
-    });
 
     const refunded = await prisma.$transaction(async (tx) => {
-      const updated = await tx.payment.update({
-        where: { id: payment.id },
-        data: {
-          status: 'refunded',
-          refundedAmount: refundPence / 100,
-        },
-      });
+      let depositResult = depositPayment;
+      for (const payment of capturedPayments) {
+        const updated = await tx.payment.update({
+          where: { id: payment.id },
+          data: {
+            status: 'refunded',
+            refundedAmount: payment.amount,
+          },
+        });
+        if (payment.kind === 'deposit') {
+          depositResult = updated;
+        }
+      }
       await tx.booking.update({
         where: { id: bookingId },
-        data: { depositStatus: 'refunded' },
+        data: {
+          depositStatus: 'refunded',
+          ...(balancePayment
+            ? { balanceStatus: 'not_due' as const, balancePaidAt: null }
+            : {}),
+        },
       });
-      return updated;
+      return depositResult;
     });
 
-    return toPayment(refunded);
+    return refunded ? toPayment(refunded) : toPayment(capturedPayments[0]!);
   }
 
   async processPartialRefundForStylist(
@@ -717,8 +987,8 @@ export class PaymentService {
     let totalCaptured = 0;
     let totalForfeited = 0;
     let totalRefunded = 0;
-    let completedBookings = 0;
-    let noShowBookings = 0;
+    const completedBookingIds = new Set<string>();
+    const noShowBookingIds = new Set<string>();
 
     for (const payment of payments) {
       const amount = payment.amount.toNumber();
@@ -732,10 +1002,10 @@ export class PaymentService {
         totalRefunded += payment.refundedAmount?.toNumber() ?? amount;
       }
       if (payment.booking.status === 'completed') {
-        completedBookings += 1;
+        completedBookingIds.add(payment.bookingId);
       }
       if (payment.booking.status === 'no_show') {
-        noShowBookings += 1;
+        noShowBookingIds.add(payment.bookingId);
       }
     }
 
@@ -746,8 +1016,8 @@ export class PaymentService {
       totalCaptured: totalCaptured.toFixed(2),
       totalForfeited: totalForfeited.toFixed(2),
       totalRefunded: totalRefunded.toFixed(2),
-      completedBookings,
-      noShowBookings,
+      completedBookings: completedBookingIds.size,
+      noShowBookings: noShowBookingIds.size,
     };
   }
 
@@ -759,9 +1029,13 @@ export class PaymentService {
   }> {
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
-      include: { payment: true },
+      include: { payments: true },
     });
-    if (!booking?.payment) {
+    const depositPayment =
+      booking?.payments.find((p) => p.kind === 'deposit' && p.status === 'captured') ??
+      booking?.payments.find((p) => p.kind === 'deposit') ??
+      null;
+    if (!booking || !depositPayment) {
       throw ApiError.notFound('Captured payment not found for booking');
     }
 
@@ -788,7 +1062,7 @@ export class PaymentService {
 
     const record = await prisma.disputeEvidencePackage.create({
       data: {
-        paymentId: booking.payment.id,
+        paymentId: depositPayment.id,
         bookingId: booking.id,
         evidenceData: evidence,
         isComplete,
@@ -798,7 +1072,7 @@ export class PaymentService {
     return {
       isComplete: record.isComplete,
       evidence,
-      paymentId: booking.payment.id,
+      paymentId: depositPayment.id,
     };
   }
 
@@ -888,13 +1162,13 @@ export class PaymentService {
     await this.ensureMockConnectReady(booking.stylistId);
 
     let payment = await prisma.payment.findFirst({
-      where: { bookingId, status: 'pending' },
+      where: { bookingId, kind: 'deposit', status: 'pending' },
     });
 
     if (!payment) {
       await this.createDepositCharge(clientId, bookingId);
       payment = await prisma.payment.findFirst({
-        where: { bookingId, status: 'pending' },
+        where: { bookingId, kind: 'deposit', status: 'pending' },
       });
     }
 

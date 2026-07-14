@@ -83,6 +83,24 @@ export const bookingRoutes: FastifyPluginAsync = async (app) => {
     sendData(reply, payment, 201);
   });
 
+  app.post('/:id/balance', { preHandler: [requireClient] }, async (request, reply) => {
+    const auth = (request as AuthenticatedRequest).auth;
+    const { id } = request.params as { id: string };
+    const payment = await paymentService.createBalanceCharge(auth.user.id, id);
+    sendData(reply, payment, 201);
+  });
+
+  app.post(
+    '/:id/balance/paid-in-person',
+    { preHandler: [requireBusinessPermission('can_manage_bookings')] },
+    async (request, reply) => {
+      const auth = (request as AuthenticatedRequest).auth;
+      const { id } = request.params as { id: string };
+      const booking = await bookingService.markBalancePaidInPerson(auth.stylistId!, id);
+      sendData(reply, booking);
+    },
+  );
+
   app.post(
     '/:id/partial-refund',
     { preHandler: [requireBusinessPermission('can_view_payouts')] },

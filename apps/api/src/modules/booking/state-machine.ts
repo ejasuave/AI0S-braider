@@ -1,4 +1,8 @@
-import type { BookingStatus, BookingDepositStatus } from '@project-braids/shared-types/api';
+import type {
+  BookingStatus,
+  BookingDepositStatus,
+  BalanceStatus,
+} from '@project-braids/shared-types/api';
 import type { Booking as DbBooking, Prisma } from '@prisma/client';
 import { ApiError } from '../../lib/errors.js';
 
@@ -15,6 +19,8 @@ export type BookingTransitionPatch = {
   holdExpiresAt?: Date | null;
   cancelledAt?: Date | null;
   cancellationReason?: string | null;
+  balanceStatus?: BalanceStatus;
+  balancePaidAt?: Date | null;
 };
 
 export function assertBookingTransition(from: BookingStatus, to: BookingStatus): void {

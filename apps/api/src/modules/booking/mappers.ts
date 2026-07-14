@@ -1,4 +1,5 @@
 import type {
+  BalanceStatus,
   Booking,
   BookingDepositStatus,
   BookingSource,
@@ -9,6 +10,10 @@ import type { Booking as DbBooking } from '@prisma/client';
 
 function toIso(date: Date): string {
   return date.toISOString();
+}
+
+function money(n: number): string {
+  return (Math.round(n * 100) / 100).toFixed(2);
 }
 
 export type BookingMapOptions = {
@@ -24,8 +29,56 @@ function shouldRevealVenueAddress(
   if (audience === 'stylist') return true;
   if (booking.serviceVenueMode === 'come_to_client') return true;
   if (booking.serviceVenueMode === 'remote') return false;
-  // stylist_location: hide street address until confirmed (Playbook: no street pre-booking).
   return booking.status === 'confirmed' || booking.status === 'completed';
+}
+
+/** Balance portion of the service total (after deposit). */
+export function calculateBalanceAmount(agreedPrice: number, depositAmount: number): number {
+  return Math.max(0, Math.round((agreedPrice - depositAmount) * 100) / 100);
+}
+
+export function deriveMoneySummary(booking: DbBooking): {
+  balanceAmount: string;
+  remainingToPay: string;
+  totalPaid: string;
+  stylistExpectedTotal: string;
+} {
+  const agreed = Number(booking.agreedPrice);
+  const deposit = Number(booking.depositAmount);
+  const balanceAmount = calculateBalanceAmount(agreed, deposit);
+
+  const depositCounted =
+    booking.depositStatus === 'paid' || booking.depositStatus === 'forfeited';
+  const balanceCounted =
+    booking.balanceStatus === 'paid_online' || booking.balanceStatus === 'paid_in_person';
+
+  let paid = 0;
+  if (depositCounted) paid += deposit;
+  if (balanceCounted) paid += balanceAmount;
+
+  const remaining = Math.max(0, Math.round((agreed - paid) * 100) / 100);
+
+  // What stylist should expect to receive for this booking over its lifetime
+  let stylistExpected = paid;
+  if (booking.status === 'cancelled' || booking.status === 'no_show') {
+    if (booking.depositStatus === 'refunded') {
+      stylistExpected = balanceCounted && booking.balanceStatus === 'paid_in_person' ? balanceAmount : 0;
+      // online balance refunds are processed with full_refund — treat as not kept
+      if (booking.balanceStatus === 'paid_online') {
+        stylistExpected = 0;
+      }
+    }
+  } else if (depositCounted && !balanceCounted) {
+    // Deposit paid; balance still expected in person or online before/at appointment
+    stylistExpected = agreed;
+  }
+
+  return {
+    balanceAmount: money(balanceAmount),
+    remainingToPay: money(remaining),
+    totalPaid: money(paid),
+    stylistExpectedTotal: money(stylistExpected),
+  };
 }
 
 export function toBooking(booking: DbBooking, options?: BookingMapOptions): Booking {
@@ -39,6 +92,8 @@ export function toBooking(booking: DbBooking, options?: BookingMapOptions): Book
   const venueAddress = shouldRevealVenueAddress(booking, audience)
     ? booking.venueAddress
     : null;
+
+  const moneySummary = deriveMoneySummary(booking);
 
   return {
     id: booking.id,
@@ -61,6 +116,9 @@ export function toBooking(booking: DbBooking, options?: BookingMapOptions): Book
     ...(audience === 'stylist'
       ? { clientPhoneNumber: options?.clientPhoneNumber ?? null }
       : {}),
+    balanceStatus: booking.balanceStatus as BalanceStatus,
+    balancePaidAt: booking.balancePaidAt ? toIso(booking.balancePaidAt) : null,
+    ...moneySummary,
     createdAt: toIso(booking.createdAt),
     cancelledAt: booking.cancelledAt ? toIso(booking.cancelledAt) : null,
     cancellationReason: booking.cancellationReason,

@@ -1,6 +1,9 @@
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { Readable } from 'node:stream';
-import { createDepositPaymentRequestSchema } from '@project-braids/shared-types/api';
+import {
+  createBalancePaymentRequestSchema,
+  createDepositPaymentRequestSchema,
+} from '@project-braids/shared-types/api';
 import { sendData } from '../../lib/http.js';
 import { ApiError } from '../../lib/errors.js';
 import { getEnv } from '../../config/env.js';
@@ -79,6 +82,27 @@ export const paymentRoutes: FastifyPluginAsync = async (app) => {
     sendData(reply, result);
   });
 
+  app.post('/balances', { preHandler: [requireClient] }, async (request, reply) => {
+    const auth = (request as AuthenticatedRequest).auth;
+    const body = createBalancePaymentRequestSchema.parse(request.body);
+    const payment = await paymentService.createBalanceCharge(auth.user.id, body.bookingId);
+    sendData(reply, payment, 201);
+  });
+
+  app.get('/balances/:bookingId', { preHandler: [requireClient] }, async (request, reply) => {
+    const auth = (request as AuthenticatedRequest).auth;
+    const { bookingId } = request.params as { bookingId: string };
+    const payment = await paymentService.getPaymentForBooking(auth.user.id, bookingId, 'balance');
+    sendData(reply, payment);
+  });
+
+  app.post('/balances/:bookingId/sync', { preHandler: [requireClient] }, async (request, reply) => {
+    const auth = (request as AuthenticatedRequest).auth;
+    const { bookingId } = request.params as { bookingId: string };
+    const result = await paymentService.syncBalanceAfterClientCheckout(auth.user.id, bookingId);
+    sendData(reply, result);
+  });
+
   if (process.env.NODE_ENV !== 'production') {
     app.post(
       '/deposits/:bookingId/simulate-success',
@@ -138,7 +162,7 @@ export const stripeWebhookRoutes: FastifyPluginAsync = async (app) => {
             if (!paymentIntentId || !bookingId) {
               throw ApiError.validation('PaymentIntent missing required metadata');
             }
-            return paymentService.captureDepositFromWebhook(paymentIntentId, bookingId);
+            return paymentService.capturePaymentFromWebhook(paymentIntentId, bookingId);
           }
           case 'payment_intent.payment_failed': {
             const paymentIntentId = String(event.data.object.id ?? '');

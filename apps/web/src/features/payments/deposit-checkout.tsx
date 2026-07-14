@@ -69,11 +69,20 @@ function getStripePromise() {
 type CheckoutFormProps = {
   bookingId: string;
   amountLabel: string;
+  submitLabel?: string;
+  returnQuery?: string;
   onPaid: () => void;
   onError: (message: string) => void;
 };
 
-function CheckoutForm({ bookingId, amountLabel, onPaid, onError }: CheckoutFormProps) {
+function CheckoutForm({
+  bookingId,
+  amountLabel,
+  submitLabel = 'Pay',
+  returnQuery = 'deposit',
+  onPaid,
+  onError,
+}: CheckoutFormProps) {
   const stripe = useStripe();
   const elements = useElements();
   const [submitting, setSubmitting] = useState(false);
@@ -95,7 +104,7 @@ function CheckoutForm({ bookingId, amountLabel, onPaid, onError }: CheckoutFormP
       setSubmitting(true);
       onError('');
 
-      const returnUrl = `${window.location.origin}/client/bookings/${bookingId}?deposit=return`;
+      const returnUrl = `${window.location.origin}/client/bookings/${bookingId}?${returnQuery}=return`;
 
       const { error } = await stripe.confirmPayment({
         elements,
@@ -112,7 +121,7 @@ function CheckoutForm({ bookingId, amountLabel, onPaid, onError }: CheckoutFormP
       onPaid();
       setSubmitting(false);
     },
-    [bookingId, elements, onError, onPaid, stripe],
+    [bookingId, elements, onError, onPaid, returnQuery, stripe],
   );
 
   return (
@@ -126,10 +135,10 @@ function CheckoutForm({ bookingId, amountLabel, onPaid, onError }: CheckoutFormP
       {!elementLoadFailed ? (
         <>
           <Button type="submit" fullWidth disabled={!stripe || submitting}>
-            {submitting ? 'Processing…' : `Pay ${amountLabel} deposit`}
+            {submitting ? 'Processing…' : `${submitLabel} ${amountLabel}`}
           </Button>
           <p className="text-xs text-ink-muted">
-            Deposits are processed securely by Stripe and sent to your stylist&apos;s account.
+            Payments are processed securely by Stripe and sent to your stylist&apos;s account.
           </p>
           {isStripeTestMode() ? (
             <p className="text-xs text-ink-muted">
@@ -147,6 +156,10 @@ type DepositCheckoutProps = {
   clientSecret: string;
   bookingId: string;
   amountLabel: string;
+  title?: string;
+  submitLabel?: string;
+  /** Query param for Stripe return URL (default deposit). */
+  returnQuery?: string;
   onPaid: () => void;
   onError: (message: string) => void;
 };
@@ -155,6 +168,9 @@ export function DepositCheckout({
   clientSecret,
   bookingId,
   amountLabel,
+  title = 'Pay your deposit',
+  submitLabel = 'Pay',
+  returnQuery = 'deposit',
   onPaid,
   onError,
 }: DepositCheckoutProps) {
@@ -192,11 +208,13 @@ export function DepositCheckout({
 
   return (
     <Card className="space-y-3">
-      <p className="text-sm font-medium text-ink">Pay your deposit</p>
+      <p className="text-sm font-medium text-ink">{title}</p>
       <Elements key={clientSecret} stripe={stripe} options={options}>
         <CheckoutForm
           bookingId={bookingId}
           amountLabel={amountLabel}
+          submitLabel={submitLabel}
+          returnQuery={returnQuery}
           onPaid={onPaid}
           onError={onError}
         />

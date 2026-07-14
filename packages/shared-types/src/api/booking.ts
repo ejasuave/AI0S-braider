@@ -3,6 +3,9 @@ import { z } from 'zod';
 export const SERVICE_VENUE_MODES = ['remote', 'stylist_location', 'come_to_client'] as const;
 export type ServiceVenueMode = (typeof SERVICE_VENUE_MODES)[number];
 
+export const BALANCE_STATUSES = ['not_due', 'due', 'paid_online', 'paid_in_person'] as const;
+export type BalanceStatus = (typeof BALANCE_STATUSES)[number];
+
 export const BOOKING_STATUSES = ['held', 'confirmed', 'completed', 'cancelled', 'no_show'] as const;
 export type BookingStatus = (typeof BOOKING_STATUSES)[number];
 
@@ -43,6 +46,16 @@ export const bookingSchema = z.object({
   clientDisplayName: z.string().nullable(),
   /** Present for stylist audience when client is known. */
   clientPhoneNumber: z.string().nullable().optional(),
+  balanceStatus: z.enum(BALANCE_STATUSES),
+  balancePaidAt: z.string().datetime().nullable(),
+  /** agreedPrice − depositAmount (the post-deposit remainder). */
+  balanceAmount: z.string(),
+  /** Amount still owed by the client (0 if balance paid or not yet due). */
+  remainingToPay: z.string(),
+  /** Deposit captured/kept + balance paid (online or in person). */
+  totalPaid: z.string(),
+  /** What the stylist should expect to keep for this booking at current payment state. */
+  stylistExpectedTotal: z.string(),
   createdAt: z.string().datetime(),
   cancelledAt: z.string().datetime().nullable(),
   cancellationReason: z.string().nullable(),
