@@ -21,3 +21,6 @@ coverage/
 .sentryclirc
 *.pem
 .vercel
+
+# Staging secrets (never commit)
+.env.staging
