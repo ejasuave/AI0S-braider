@@ -36,6 +36,8 @@ export const bookingSchema = z.object({
   createdAt: z.string().datetime(),
   cancelledAt: z.string().datetime().nullable(),
   cancellationReason: z.string().nullable(),
+  stylistApprovedAt: z.string().datetime().nullable(),
+  pendingStylistApproval: z.boolean().optional(),
 });
 
 export type Booking = z.infer<typeof bookingSchema>;
@@ -97,6 +99,7 @@ export type ConfirmBookingResult = z.infer<typeof confirmBookingResultSchema>;
 
 export const bookingListQuerySchema = z.object({
   status: z.enum(BOOKING_STATUSES).optional(),
+  segment: z.enum(['upcoming', 'past', 'cancelled']).optional(),
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional(),
 });
@@ -119,6 +122,4 @@ export const resolveCalendarConflictRequestSchema = z.object({
   resolution: z.enum(CALENDAR_CONFLICT_RESOLUTIONS),
 });
 
-export type ResolveCalendarConflictRequest = z.infer<
-  typeof resolveCalendarConflictRequestSchema
->;
+export type ResolveCalendarConflictRequest = z.infer<typeof resolveCalendarConflictRequestSchema>;

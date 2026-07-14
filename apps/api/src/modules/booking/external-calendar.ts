@@ -1,8 +1,10 @@
-/**
- * Ch.7.3 / Ch.8 — external calendar push interface.
- * Chapter 8 implements the actual Google Calendar sync.
- */
+import { calendarSyncService } from '../calendar/sync.js';
+
+/** Ch.8.2 — delegates platform booking sync to the Calendar module. */
 export async function pushToExternalCalendar(bookingId: string): Promise<void> {
-  // TODO(Ch.8): enqueue calendar sync job for confirmed booking
-  void bookingId;
+  await calendarSyncService.pushToExternalCalendar(bookingId);
+}
+
+export async function removeExternalCalendarEvent(bookingId: string): Promise<void> {
+  await calendarSyncService.removeExternalCalendarEvent(bookingId);
 }

@@ -8,6 +8,5 @@ export function useEscalationCount() {
     queryKey: ['messaging', 'conversations', 'escalated'],
     queryFn: () => fetchStylistConversations('?escalatedOnly=true'),
     select: (data) => data.items.length,
-    refetchInterval: 60_000,
   });
 }

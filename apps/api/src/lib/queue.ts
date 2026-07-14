@@ -14,6 +14,7 @@ import {
   processNotificationSweepRemindersJob,
 } from '../jobs/notification-sweep.job.js';
 import { processInstagramTokenRefreshJob } from '../jobs/instagram-token-refresh.job.js';
+import { processCalendarReconcileJob } from '../jobs/calendar-reconcile.job.js';
 
 export const QUEUE_NAMES = {
   SYSTEM: 'system',
@@ -29,6 +30,7 @@ export const JOB_NAMES = {
   NOTIFICATION_SWEEP_DUE: 'notifications.sweep-due',
   NOTIFICATION_SWEEP_REMINDERS: 'notifications.sweep-reminders',
   INSTAGRAM_REFRESH_TOKENS: 'instagram.refresh-tokens',
+  CALENDAR_RECONCILE: 'calendar.reconcile',
 } as const;
 
 let systemQueue: Queue | undefined;
@@ -96,6 +98,15 @@ export async function scheduleRecurringJobs(): Promise<void> {
       jobId: 'recurring-booking-sweep-holds',
     },
   );
+
+  await queue.add(
+    JOB_NAMES.CALENDAR_RECONCILE,
+    {},
+    {
+      repeat: { every: 30 * 60 * 1000 },
+      jobId: 'recurring-calendar-reconcile',
+    },
+  );
 }
 
 export async function closeQueues(): Promise<void> {
@@ -128,6 +139,8 @@ export function createSystemWorker(): Worker {
           return processNotificationSweepRemindersJob();
         case JOB_NAMES.INSTAGRAM_REFRESH_TOKENS:
           return processInstagramTokenRefreshJob(job);
+        case JOB_NAMES.CALENDAR_RECONCILE:
+          return processCalendarReconcileJob(job);
         default:
           throw new Error(`Unknown job name: ${job.name}`);
       }

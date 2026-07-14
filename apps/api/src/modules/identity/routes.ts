@@ -33,6 +33,7 @@ import {
   normalizeIpAddress,
 } from '../../lib/security/rate-limit.js';
 import { AUTH_RATE_LIMITS } from './auth-rate-limits.js';
+import { resolvePermissionsForUser } from '../roles/resolve-permissions.js';
 
 async function assertOAuthPostRateLimit(request: { ip: string }): Promise<void> {
   await assertRateLimit(
@@ -47,7 +48,11 @@ export const identityRoutes: FastifyPluginAsync = async (app) => {
   app.post('/signup', async (request, reply) => {
     const body = signupRequestSchema.parse(request.body);
     if (body.role !== 'stylist_owner') {
-      throw new ApiError('VALIDATION_ERROR', 'Only stylist_owner self-service signup is allowed', 400);
+      throw new ApiError(
+        'VALIDATION_ERROR',
+        'Only stylist_owner self-service signup is allowed',
+        400,
+      );
     }
     const result = await identityService.registerStylist(body);
     sendData(
@@ -164,7 +169,13 @@ export const identityRoutes: FastifyPluginAsync = async (app) => {
 
   app.get('/me', { preHandler: authenticate }, async (request, reply) => {
     const auth = (request as AuthenticatedRequest).auth;
-    sendData(reply, { user: auth.user, stylistId: auth.stylistId, businessId: auth.businessId });
+    const permissions = await resolvePermissionsForUser(auth.user.id, auth.user.role);
+    sendData(reply, {
+      user: auth.user,
+      stylistId: auth.stylistId,
+      businessId: auth.businessId,
+      permissions,
+    });
   });
 
   app.get('/oauth/:provider/start', startOAuthFlow);

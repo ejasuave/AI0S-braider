@@ -9,7 +9,8 @@ import { useEscalationCount } from '@/features/dashboard/use-escalation-count';
 import { useStylistBookings } from '@/features/dashboard/use-stylist-bookings';
 import { apiFetchData } from '@/shared/lib/api-client';
 import { TOUCH_LINK_CLASS } from '@/shared/lib/touch-target';
-import { bookingOnDateKey, getDayRangeIso, todayDateKey } from '@/shared/lib/week-dates';
+import { bookingOnDateKey, getMultiWeekRangeIso, todayDateKey } from '@/shared/lib/week-dates';
+import { formatDateTime } from '@/shared/lib/format';
 import { Card } from '@/shared/ui/card';
 import { CardSkeleton } from '@/shared/ui/skeleton';
 import { PageHeader, PageShell } from '@/shared/ui/page-shell';
@@ -25,10 +26,10 @@ export default function StylistDashboardPage() {
     queryFn: () => apiFetchData<StylistProfile>('/profile/me'),
   });
 
-  const todayRange = getDayRangeIso(todayDateKey());
+  const upcomingRange = getMultiWeekRangeIso(new Date(), 2);
   const todayBookingsQuery = useStylistBookings({
-    from: todayRange.from,
-    to: todayRange.to,
+    from: upcomingRange.from,
+    to: upcomingRange.to,
   });
 
   const connectQuery = useQuery({
@@ -36,10 +37,15 @@ export default function StylistDashboardPage() {
     queryFn: () => apiFetchData<ConnectStatusResponse>('/payments/connect/status'),
   });
 
-  const todayBookings = (todayBookingsQuery.data ?? [])
+  const activeBookings = (todayBookingsQuery.data ?? [])
     .filter((b) => b.status === 'held' || b.status === 'confirmed')
-    .filter((b) => bookingOnDateKey(b.startTime, todayDateKey()))
     .sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+  const todayBookings = activeBookings.filter((b) => bookingOnDateKey(b.startTime, todayDateKey()));
+
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const nextUpcoming = activeBookings.find((b) => new Date(b.startTime) >= startOfToday) ?? null;
 
   const businessName = profileQuery.data?.businessName ?? 'Your business';
 
@@ -84,7 +90,18 @@ export default function StylistDashboardPage() {
               <CardSkeleton />
             </>
           ) : todayBookings.length === 0 ? (
-            <p className="text-sm text-ink-muted">No appointments today.</p>
+            nextUpcoming ? (
+              <div className="space-y-2">
+                <p className="text-sm text-ink-muted">No appointments today.</p>
+                <BookingCard booking={nextUpcoming} href={`/stylist/bookings/${nextUpcoming.id}`} />
+                <p className="text-xs text-ink-muted">
+                  Next up {formatDateTime(nextUpcoming.startTime)} — open Calendar for the full
+                  week.
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-ink-muted">No appointments today.</p>
+            )
           ) : (
             <div className="space-y-3">
               {todayBookings.map((booking) => (

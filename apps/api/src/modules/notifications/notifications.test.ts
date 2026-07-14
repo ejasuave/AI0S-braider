@@ -1,7 +1,24 @@
 import { describe, expect, it } from 'vitest';
+import {
+  TRANSACTIONAL_NOTIFICATION_TYPES,
+  type NotificationType,
+} from '@project-braids/shared-types/api';
 import { calculateReminderScheduledFor, reminderTypesForBooking } from './reminder-window.js';
 import { isStartKeyword, isStopKeyword } from './opt-out.js';
-import { buildNotificationContent } from '../receptionist/notification-content.js';
+import { generateNotificationContent } from './content.js';
+import {
+  isReminderNotificationType,
+  isTransactionalNotificationType,
+  shouldCheckAppointmentRemindersPreference,
+  shouldCheckMarketingPreference,
+} from './preference-gating.js';
+
+const baseContext = {
+  businessName: 'Braids by Amara',
+  styleName: 'Knotless braids',
+  startTime: new Date('2026-07-20T14:00:00.000Z'),
+  timeZone: 'Europe/London',
+};
 
 describe('calculateReminderScheduledFor', () => {
   const appointment = new Date('2026-07-20T14:00:00.000Z');
@@ -28,6 +45,11 @@ describe('calculateReminderScheduledFor', () => {
     const types = reminderTypesForBooking(appointment, new Date('2026-07-19T12:00:00.000Z'));
     expect(types).toEqual(['reminder_2h']);
   });
+
+  it('skips both reminders when lead time is under 2 hours', () => {
+    const types = reminderTypesForBooking(appointment, new Date('2026-07-20T13:30:00.000Z'));
+    expect(types).toEqual([]);
+  });
 });
 
 describe('STOP keyword handling', () => {
@@ -43,18 +65,81 @@ describe('STOP keyword handling', () => {
   });
 });
 
-describe('buildNotificationContent', () => {
-  it('scopes content to a single booking', () => {
-    const body = buildNotificationContent({
-      type: 'reminder_2h',
-      businessName: 'Braids by Amara',
-      styleName: 'Knotless braids',
-      startTime: new Date('2026-07-20T14:00:00.000Z'),
-      timeZone: 'Europe/London',
-    });
+describe('generateNotificationContent', () => {
+  const types = [
+    'confirmation',
+    'cancellation',
+    'no_show_notice',
+    'reminder_48h',
+    'reminder_2h',
+  ] as const;
 
+  it.each(types)('produces non-empty client copy for %s', (type) => {
+    const body = generateNotificationContent({
+      ...baseContext,
+      type,
+      audience: 'client',
+      depositDisposition: type === 'cancellation' ? 'full_refund' : undefined,
+    });
+    expect(body.length).toBeGreaterThan(20);
     expect(body).toContain('Knotless braids');
-    expect(body).toContain('Braids by Amara');
-    expect(body).toContain('2 hours');
+  });
+
+  it('includes refund language on cancellation', () => {
+    const body = generateNotificationContent({
+      ...baseContext,
+      type: 'cancellation',
+      audience: 'client',
+      depositDisposition: 'full_refund',
+    });
+    expect(body).toContain('refunded');
+  });
+
+  it('includes forfeit language on cancellation', () => {
+    const body = generateNotificationContent({
+      ...baseContext,
+      type: 'cancellation',
+      audience: 'client',
+      depositDisposition: 'forfeit_deposit',
+    });
+    expect(body).toContain('non-refundable');
+  });
+
+  it('includes deposit on stylist confirmation', () => {
+    const body = generateNotificationContent({
+      ...baseContext,
+      type: 'confirmation',
+      audience: 'stylist',
+      depositAmount: 30,
+      depositPaid: true,
+    });
+    expect(body).toContain('£30');
+  });
+});
+
+describe('preference gating regression (Ch.12.3/12.4)', () => {
+  it('only gates reminder types on appointment_reminders_enabled', () => {
+    expect(shouldCheckAppointmentRemindersPreference('reminder_48h')).toBe(true);
+    expect(shouldCheckAppointmentRemindersPreference('reminder_2h')).toBe(true);
+    for (const type of TRANSACTIONAL_NOTIFICATION_TYPES) {
+      expect(shouldCheckAppointmentRemindersPreference(type)).toBe(false);
+    }
+  });
+
+  it('never gates any type on marketing_messages_enabled', () => {
+    const allTypes: NotificationType[] = [
+      ...TRANSACTIONAL_NOTIFICATION_TYPES,
+      'reminder_48h',
+      'reminder_2h',
+    ];
+    for (const type of allTypes) {
+      expect(shouldCheckMarketingPreference(type)).toBe(false);
+    }
+  });
+
+  it('classifies transactional types correctly', () => {
+    expect(isTransactionalNotificationType('confirmation')).toBe(true);
+    expect(isReminderNotificationType('reminder_2h')).toBe(true);
+    expect(isTransactionalNotificationType('reminder_2h')).toBe(false);
   });
 });

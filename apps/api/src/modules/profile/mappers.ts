@@ -14,6 +14,7 @@ import {
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/db.js';
 import { businessService } from '../roles/business.service.js';
+import { ensureDefaultWorkingHoursForBusiness } from '../stylist-profile/availability.js';
 import { ApiError } from '../../lib/errors.js';
 
 function toIso(date: Date): string {
@@ -127,6 +128,9 @@ export function toStyleCategory(category: {
 export async function ensureStylistProfileForUser(userId: string) {
   const existing = await prisma.stylistProfile.findUnique({ where: { userId } });
   if (existing) {
+    if (existing.businessId) {
+      await ensureDefaultWorkingHoursForBusiness(existing.businessId);
+    }
     return existing;
   }
 
@@ -148,6 +152,12 @@ export async function ensureStylistProfileForUser(userId: string) {
           where: { id: profile.id },
           data: { businessId: business.id },
         });
+      }
+      return profile;
+    })
+    .then(async (profile) => {
+      if (profile.businessId) {
+        await ensureDefaultWorkingHoursForBusiness(profile.businessId);
       }
       return profile;
     });

@@ -10,7 +10,16 @@ function toIso(date: Date): string {
   return date.toISOString();
 }
 
-export function toBooking(booking: DbBooking): Booking {
+export function toBooking(
+  booking: DbBooking,
+  options?: { requireStylistApproval?: boolean },
+): Booking {
+  const pendingStylistApproval =
+    options?.requireStylistApproval === true &&
+    booking.status === 'held' &&
+    booking.source === 'ai_agent' &&
+    booking.stylistApprovedAt === null;
+
   return {
     id: booking.id,
     stylistId: booking.stylistId,
@@ -28,6 +37,8 @@ export function toBooking(booking: DbBooking): Booking {
     createdAt: toIso(booking.createdAt),
     cancelledAt: booking.cancelledAt ? toIso(booking.cancelledAt) : null,
     cancellationReason: booking.cancellationReason,
+    stylistApprovedAt: booking.stylistApprovedAt ? toIso(booking.stylistApprovedAt) : null,
+    ...(pendingStylistApproval ? { pendingStylistApproval: true } : {}),
   };
 }
 

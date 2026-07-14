@@ -1,8 +1,10 @@
 export {
+  createFreshStripeProvider,
   getStripeProvider,
   setStripeProvider,
   getMockStripeProvider,
   isStripeMockMode,
+  resetStripeProvider,
 } from './stripe-client.js';
 export type {
   StripeProvider,

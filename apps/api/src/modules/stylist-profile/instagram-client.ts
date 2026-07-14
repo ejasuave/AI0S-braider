@@ -28,7 +28,10 @@ export interface InstagramApiClient {
 }
 
 export class MockInstagramApiClient implements InstagramApiClient {
-  async exchangeCode(input: { code: string; redirectUri: string }): Promise<InstagramTokenResponse> {
+  async exchangeCode(input: {
+    code: string;
+    redirectUri: string;
+  }): Promise<InstagramTokenResponse> {
     if (input.code === 'ineligible') {
       throw new InstagramAccountIneligibleError();
     }

@@ -3,6 +3,7 @@ export type ConnectAccountStatus = {
   chargesEnabled: boolean;
   payoutsEnabled: boolean;
   onboardingComplete: boolean;
+  restricted?: boolean;
 };
 
 export type CreateDepositPaymentInput = {
@@ -27,6 +28,17 @@ export type StripeWebhookEvent = {
   };
 };
 
+export type StripePayoutRecord = {
+  id: string;
+  amount: number;
+  currency: string;
+  status: string;
+  arrivalDate: string;
+  createdAt: string;
+};
+
+export type StripePaymentIntentStatus = 'pending' | 'succeeded' | 'failed' | 'canceled';
+
 export interface StripeProvider {
   createConnectAccount(input: {
     stylistId: string;
@@ -44,6 +56,20 @@ export interface StripeProvider {
   createDepositPaymentIntent(input: CreateDepositPaymentInput): Promise<CreateDepositPaymentResult>;
 
   retrieveDepositPaymentIntent(paymentIntentId: string): Promise<CreateDepositPaymentResult>;
+
+  retrievePaymentIntentStatus(paymentIntentId: string): Promise<StripePaymentIntentStatus>;
+
+  createRefund(input: {
+    paymentIntentId: string;
+    amountPence?: number;
+  }): Promise<{ refundId: string }>;
+
+  listPayouts(connectedAccountId: string): Promise<StripePayoutRecord[]>;
+
+  submitDisputeEvidence(input: {
+    disputeId: string;
+    evidence: Record<string, unknown>;
+  }): Promise<{ submitted: boolean }>;
 
   constructWebhookEvent(
     payload: Buffer | string,

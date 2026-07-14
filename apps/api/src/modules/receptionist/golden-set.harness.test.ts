@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  evaluateGoldenSet,
-  formatGoldenSetReport,
-} from './evaluate-golden-set.js';
+import { evaluateGoldenSet, formatGoldenSetReport } from './evaluate-golden-set.js';
 
 describe('receptionist golden-set harness', () => {
   it('passes the consolidated functional and adversarial fixtures', () => {

@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import type { ConversationSummary } from '@project-braids/shared-types/api';
+import { formatEscalationReason } from '@/features/messaging/escalation-labels';
 import { fetchStylistConversations } from '@/features/messaging/api';
 import { formatDateTime } from '@/shared/lib/format';
 import { Card } from '@/shared/ui/card';
@@ -12,6 +13,9 @@ import { PageHeader, PageShell } from '@/shared/ui/page-shell';
 import { StatusBadge } from '@/shared/ui/status-badge';
 
 function ConversationRow({ conversation }: { conversation: ConversationSummary }) {
+  const reason = conversation.openEscalation?.reason;
+  const reasonLabel = reason ? formatEscalationReason(reason) : null;
+
   return (
     <Link href={`/stylist/inbox/${conversation.id}`} className="block active:opacity-95">
       <Card className="transition-shadow active:shadow-raised">
@@ -20,13 +24,18 @@ function ConversationRow({ conversation }: { conversation: ConversationSummary }
             <p className="truncate font-medium text-ink">
               {conversation.clientPhoneNumber ?? 'Client'}
             </p>
+            {reasonLabel ? <p className="text-xs font-medium text-warning">{reasonLabel}</p> : null}
             <p className="line-clamp-2 text-sm text-ink-muted">
               {conversation.lastMessagePreview ?? 'No messages yet'}
             </p>
             <p className="text-xs text-ink-muted">{formatDateTime(conversation.lastMessageAt)}</p>
           </div>
           <StatusBadge
-            label={conversation.status === 'escalated' ? 'Needs reply' : conversation.status}
+            label={
+              conversation.status === 'escalated'
+                ? (reasonLabel ?? 'Needs reply')
+                : conversation.status
+            }
             tone={conversation.status === 'escalated' ? 'warning' : 'neutral'}
             className="shrink-0"
           />

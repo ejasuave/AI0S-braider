@@ -1,4 +1,3 @@
-import type { NotificationType } from '@project-braids/shared-types/api';
 import {
   REMINDER_NOTIFICATION_TYPES,
   type ReminderNotificationType,
@@ -25,15 +24,5 @@ export function reminderTypesForBooking(
 ): ReminderNotificationType[] {
   return REMINDER_NOTIFICATION_TYPES.filter(
     (type) => calculateReminderScheduledFor(appointmentStart, type, now) !== null,
-  );
-}
-
-export function isTransactionalNotificationType(type: NotificationType): boolean {
-  return (
-    type === 'confirmation' ||
-    type === 'cancellation' ||
-    type === 'no_show_notice' ||
-    type === 'reminder_48h' ||
-    type === 'reminder_2h'
   );
 }

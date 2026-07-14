@@ -72,7 +72,7 @@ type ApiFetchOptions = RequestInit & {
   json?: unknown;
 };
 
-async function refreshAccessToken(): Promise<string | null> {
+export async function refreshAccessToken(): Promise<string | null> {
   const baseUrl = getWebEnv().NEXT_PUBLIC_API_URL;
   const response = await fetch(`${baseUrl}${API_V1_PREFIX}/auth/refresh`, {
     method: 'POST',
@@ -149,7 +149,10 @@ export async function apiFetchData<T>(path: string, options: ApiFetchOptions = {
   return envelope.data;
 }
 
-export async function fetchPing(params?: { page?: number; pageSize?: number }): Promise<PingResponse> {
+export async function fetchPing(params?: {
+  page?: number;
+  pageSize?: number;
+}): Promise<PingResponse> {
   const search = new URLSearchParams();
   if (params?.page) search.set('page', String(params.page));
   if (params?.pageSize) search.set('pageSize', String(params.pageSize));

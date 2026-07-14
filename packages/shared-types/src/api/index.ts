@@ -13,4 +13,6 @@ export * from './payments.js';
 export * from './messaging.js';
 export * from './receptionist.js';
 export * from './notifications.js';
+export * from './client-profile.js';
 export * from './directory.js';
+export * from './calendar.js';

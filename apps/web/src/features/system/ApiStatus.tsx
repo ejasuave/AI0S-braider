@@ -33,9 +33,7 @@ export function ApiStatus() {
     <div className="space-y-3 rounded-lg border border-border bg-surface p-4 text-sm text-ink-muted shadow-card">
       <p>
         <span className="font-medium text-ink">API</span> — connected (ping {ping.data?.timestamp}
-        {ping.data?.meta
-          ? ` · page ${ping.data.meta.page}, size ${ping.data.meta.pageSize}`
-          : null}
+        {ping.data?.meta ? ` · page ${ping.data.meta.page}, size ${ping.data.meta.pageSize}` : null}
         )
       </p>
       <p>

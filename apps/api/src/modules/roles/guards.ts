@@ -100,10 +100,10 @@ const IMPERSONATION_BLOCKED_PATTERNS: RegExp[] = [
   /^\/api\/v1\/payments\/connect/,
 ];
 
-export function rejectImpersonationOnSensitiveRoutes(
+export async function rejectImpersonationOnSensitiveRoutes(
   request: FastifyRequest,
   _reply: FastifyReply,
-): void {
+): Promise<void> {
   const auth = (request as AuthenticatedRequest).auth;
   if (!auth?.impersonation) {
     return;

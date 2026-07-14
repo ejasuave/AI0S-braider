@@ -1,5 +1,8 @@
 import { z } from 'zod';
-import { e164PhoneSchema } from './auth.js';
+
+const e164PhoneSchema = z
+  .string()
+  .regex(/^\+[1-9]\d{6,14}$/, 'Phone number must be E.164 format (e.g. +447700900123)');
 
 /** Granular business permission flags (Ch.4.1 + Ch.6.1). */
 export const BUSINESS_PERMISSION_FLAGS = [

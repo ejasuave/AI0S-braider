@@ -1,5 +1,8 @@
+import { randomUUID } from 'node:crypto';
 import type { Weekday } from '@project-braids/shared-types/api';
+import { DEFAULT_WORKING_HOURS } from '@project-braids/shared-types/api';
 import { prisma } from '../../lib/db.js';
+import { WEEKDAY_NAME_TO_INDEX } from './mappers.js';
 
 export type AvailabilityDayRule = {
   date: string;
@@ -105,7 +108,9 @@ export function baseRulesToLegacyWorkingHours(
   ] as const;
 
   for (const name of weekdayNames) {
-    const sample = rules.days.find((day) => weekdayIndexFromDateKey(day.date) === weekdayNames.indexOf(name));
+    const sample = rules.days.find(
+      (day) => weekdayIndexFromDateKey(day.date) === weekdayNames.indexOf(name),
+    );
     if (!sample || sample.isClosed || sample.ranges.length === 0) {
       result[name] = { enabled: false, start: '09:00', end: '17:00' };
       continue;
@@ -118,6 +123,41 @@ export function baseRulesToLegacyWorkingHours(
   }
 
   return result;
+}
+
+export type LegacyWorkingHours = Record<string, { enabled: boolean; start: string; end: string }>;
+
+export function legacyWorkingHoursToRows(
+  hours: LegacyWorkingHours,
+): Array<{ dayOfWeek: number; startTime: string; endTime: string; isActive: boolean }> {
+  return Object.entries(hours).flatMap(([weekday, day]) => {
+    if (!day.enabled) {
+      return [];
+    }
+    const dayOfWeek = WEEKDAY_NAME_TO_INDEX[weekday];
+    if (dayOfWeek === undefined) {
+      return [];
+    }
+    return [{ dayOfWeek, startTime: day.start, endTime: day.end, isActive: true }];
+  });
+}
+
+/** Seed Ch.8 `working_hours` when a business is first linked (profile JSON alone is not enough). */
+export async function ensureDefaultWorkingHoursForBusiness(businessId: string): Promise<void> {
+  const count = await prisma.workingHour.count({ where: { businessId } });
+  if (count > 0) {
+    return;
+  }
+
+  const rows = legacyWorkingHoursToRows(DEFAULT_WORKING_HOURS).map((row) => ({
+    id: randomUUID(),
+    businessId,
+    ...row,
+  }));
+
+  if (rows.length > 0) {
+    await prisma.workingHour.createMany({ data: rows });
+  }
 }
 
 export function validateWorkingHourRows(

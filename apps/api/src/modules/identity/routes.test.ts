@@ -38,10 +38,22 @@ describe('auth routes', () => {
     if (!databaseAvailable) skip();
     const app = await buildApp();
 
-    await app.inject({
+    const first = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/signup',
       payload: stylist,
+    });
+    expect(first.statusCode).toBe(201);
+
+    const otp = getLastDevOtp();
+    await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/otp/verify',
+      payload: {
+        phoneNumber: stylist.phoneNumber,
+        code: otp?.code,
+        purpose: 'phone_verify',
+      },
     });
 
     const duplicate = await app.inject({

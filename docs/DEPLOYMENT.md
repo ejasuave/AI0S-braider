@@ -37,7 +37,7 @@ Copy `.env.staging.example` / `.env.production.example` — never share `DATABAS
 
 1. Import monorepo; set root directory `apps/web`
 2. Build: `pnpm build` (configure install from repo root)
-3. Env: `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_PLATFORM_DISPLAY_NAME`
+3. Env: `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_PLATFORM_DISPLAY_NAME`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
 4. Staging: deploy previews from `main`; Production: promote after checklist
 
 **API + Worker (Fly.io)**
@@ -142,6 +142,9 @@ pnpm ops:rollback   # prints procedure
 | `pnpm ops:migrate-deploy`    | Check + `prisma migrate deploy` |
 | `pnpm ops:kill-switch-drill` | Kill switch verification        |
 | `pnpm ops:rollback`          | Rollback runbook                |
+| `pnpm ops:smoke-staging`     | Post-deploy API smoke test      |
+
+**First-time staging:** follow [STAGING_SETUP.md](./STAGING_SETUP.md) end to end.
 
 ## Production readiness (M7 beta)
 

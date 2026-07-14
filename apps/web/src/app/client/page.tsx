@@ -15,13 +15,11 @@ export default function ClientHomePage() {
   const auth = useAuth();
 
   const bookingsQuery = useQuery({
-    queryKey: ['bookings', 'client'],
-    queryFn: () => apiFetchData<Booking[]>('/bookings/mine'),
+    queryKey: ['bookings', 'client', 'upcoming'],
+    queryFn: () => apiFetchData<Booking[]>('/bookings/mine?segment=upcoming'),
   });
 
-  const upcoming = (bookingsQuery.data ?? [])
-    .filter((b) => b.status === 'held' || b.status === 'confirmed')
-    .slice(0, 2);
+  const upcoming = (bookingsQuery.data ?? []).slice(0, 2);
 
   return (
     <PageShell>
@@ -71,12 +69,37 @@ export default function ClientHomePage() {
         </div>
 
         <Card className="space-y-2">
+          <p className="text-sm font-medium text-ink">Profile & saved stylists</p>
+          <p className="text-sm text-ink-muted">
+            Optional display name, saved favourites, and notification preferences.
+          </p>
+          <div className="flex flex-wrap gap-4">
+            <Link href="/client/profile" className={TOUCH_LINK_CLASS}>
+              Profile →
+            </Link>
+            <Link href="/client/saved-stylists" className={TOUCH_LINK_CLASS}>
+              Saved stylists →
+            </Link>
+          </div>
+        </Card>
+
+        <Card className="space-y-2">
           <p className="text-sm font-medium text-ink">SMS conversations</p>
           <p className="text-sm text-ink-muted">
             Threads with stylists you have texted appear in your message inbox.
           </p>
           <Link href="/client/inbox" className={TOUCH_LINK_CLASS}>
             Open inbox →
+          </Link>
+        </Card>
+
+        <Card className="space-y-2">
+          <p className="text-sm font-medium text-ink">Notifications</p>
+          <p className="text-sm text-ink-muted">
+            Manage appointment reminders and marketing messages.
+          </p>
+          <Link href="/client/notifications" className={TOUCH_LINK_CLASS}>
+            Notification preferences →
           </Link>
         </Card>
 

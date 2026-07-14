@@ -71,15 +71,17 @@ async function buildProposedSlotsMessage(
   output: ReceptionistTurnOutput,
   slots: SlotState,
   introMessage: string,
-): Promise<{ clientMessage: string; metadata: Record<string, unknown>; output: ReceptionistTurnOutput }> {
+): Promise<{
+  clientMessage: string;
+  metadata: Record<string, unknown>;
+  output: ReceptionistTurnOutput;
+}> {
   const serviceOfferingId = await resolveServiceOfferingId(context.stylistId, slots);
   if (!serviceOfferingId) {
     throw ApiError.validation('serviceOfferingId required to propose slots');
   }
 
-  const from = slots.preferredDate
-    ? new Date(`${slots.preferredDate}T00:00:00.000Z`)
-    : new Date();
+  const from = slots.preferredDate ? new Date(`${slots.preferredDate}T00:00:00.000Z`) : new Date();
   const lastAi = getLastAiMessageContent(context);
   const widenSearch = /couldn't find open slots|no slots showing/i.test(lastAi);
   const rangeDays = widenSearch ? 14 : 7;
@@ -226,6 +228,12 @@ export async function dispatchReceptionistTurn(
         metadata = { booking_id: booking.id };
         output = { ...output, extracted_slots: slots };
 
+        const needsApproval = await bookingService.requiresStylistApproval(context.stylistId);
+        if (needsApproval && booking.pendingStylistApproval) {
+          clientMessage = `${clientMessage}\n\nYour stylist will confirm this booking shortly. You'll receive a deposit link once approved.`;
+          break;
+        }
+
         const payment = await paymentService.createDepositPayment(context.clientId, booking.id);
         const depositUrl = `${env.WEB_APP_URL}/client/bookings/${booking.id}`;
         const cancellationNote = context.stylistContext.cancellationPolicy
@@ -243,7 +251,7 @@ export async function dispatchReceptionistTurn(
           context,
           output,
           slots,
-          "Sorry — that slot was just taken. Here are the next available times:",
+          'Sorry — that slot was just taken. Here are the next available times:',
         );
         clientMessage = reoffer.clientMessage;
         metadata = reoffer.metadata;

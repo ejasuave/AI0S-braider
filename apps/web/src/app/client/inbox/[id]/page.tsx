@@ -42,9 +42,7 @@ export default function ClientConversationPage() {
       />
 
       <div className="mt-4">
-        {conversation ? (
-          <StatusBadge label={conversation.status} tone="neutral" />
-        ) : null}
+        {conversation ? <StatusBadge label={conversation.status} tone="neutral" /> : null}
       </div>
 
       <div className="mt-6 space-y-3">

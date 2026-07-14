@@ -105,9 +105,7 @@ export class IdentityService {
     return { userId: user.id, otpPurpose: 'phone_verify' };
   }
 
-  async registerClient(input: {
-    phoneNumber: string;
-  }): Promise<{ otpPurpose: OtpPurpose }> {
+  async registerClient(input: { phoneNumber: string }): Promise<{ otpPurpose: OtpPurpose }> {
     const existing = await prisma.user.findUnique({
       where: { phoneNumber: input.phoneNumber },
     });
@@ -166,7 +164,9 @@ export class IdentityService {
 
     const user = input.email
       ? await prisma.user.findUnique({ where: { email: normalizeEmail(input.email) } })
-      : await prisma.user.findUnique({ where: { phoneNumber: normalizePhoneNumber(input.phoneNumber!) } });
+      : await prisma.user.findUnique({
+          where: { phoneNumber: normalizePhoneNumber(input.phoneNumber!) },
+        });
 
     if (!user || !user.passwordHash || user.deactivatedAt) {
       throw new ApiError('UNAUTHORIZED', 'Invalid credentials', 401);
@@ -244,7 +244,9 @@ export class IdentityService {
     }
 
     if (challenge.expiresAt <= new Date()) {
-      throw new ApiError('UNAUTHORIZED', 'Verification code expired', 401, { reason: 'OTP_EXPIRED' });
+      throw new ApiError('UNAUTHORIZED', 'Verification code expired', 401, {
+        reason: 'OTP_EXPIRED',
+      });
     }
 
     if (challenge.attempts >= 5) {

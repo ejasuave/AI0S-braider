@@ -14,52 +14,59 @@ Booking Engine owns state transitions. Payments owns capture/refund execution. T
 { outcome: 'confirmed', booking: Booking }
 ```
 
-- Booking must be `held` with a non-expired `hold_expires_at`
-- Transitions `held → confirmed`, sets `deposit_status = paid`, clears `hold_expires_at`
-- Idempotent: already-`confirmed` bookings return success without error
-
 ### Expired hold race
 
 ```typescript
 { outcome: 'hold_expired', booking: Booking, refundRequired: true }
 ```
 
-When payment arrives after `hold_expires_at`, the booking **must not** be confirmed. Payments must refund the captured deposit and mark `deposit_status = refunded`.
+Payments calls `processRefund(bookingId, 'full')` — issues a Stripe refund and marks the payment `refunded`.
 
-`PaymentService` implements this via `refundCapturedDeposit(bookingId)`.
+## Cancellation / no-show — domain events (Ch.9.3)
 
-## Cancellation — `cancelBooking(actor, bookingId, reason)`
-
-**Returns:**
+Booking Engine **does not import** Payments. After `cancelBooking` or `markNoShow`, it emits:
 
 ```typescript
-{
-  booking: Booking;
-  depositDisposition: 'full_refund' | 'forfeit_deposit' | 'no_action';
-}
+emitBookingDepositDisposition({ bookingId, depositDisposition });
 ```
 
-- `full_refund` — cancellation within `cancellation_window_hours` (Ch.6 policy)
-- `forfeit_deposit` — cancellation outside the window; Payments should forfeit captured deposit
-- Callable by client (`POST /bookings/mine/:id/cancel`) or stylist (`POST /bookings/:id/cancel`)
+Payments subscribes in `apps/api/src/modules/payments/events.ts` and maps:
 
-Payments Ch.9.3 should consume `depositDisposition` — do not re-derive policy logic.
+| `depositDisposition` | Payments action                                   |
+| -------------------- | ------------------------------------------------- |
+| `full_refund`        | `processRefund(..., 'full')`                      |
+| `forfeit_deposit`    | `processRefund(..., 'none')` → status `forfeited` |
+| `no_action`          | skip                                              |
 
-## No-show — `markNoShow(stylistId, bookingId)`
+## Policy snapshot (Ch.9.6)
 
-**Returns:** same `BookingActionResult` shape as cancel.
+New holds store `bookings.policy_snapshot` (JSON) at creation time. Dispute evidence assembly uses this snapshot rather than live policy rows.
 
-- `forfeit_deposit` when `no_show_fee_type` is `forfeit_deposit` or `flat_fee`
-- `no_action` when `no_show_fee_type` is `no_fee`
+**Extension point:** `assembleDisputeEvidence()` includes `conversationHistory: null` until Chapters 11/13 populate SMS/AI transcripts.
 
-Requires `can_manage_bookings`.
+## Stripe Connect readiness — `isPaymentReady(businessId)`
 
-## Slot conflicts
+**Location:** `apps/api/src/modules/payments/readiness.ts`
 
-Hold creation throws `409 SLOT_UNAVAILABLE` when the stylist slot is taken. Payments and Receptionist should surface a user-friendly message and re-offer alternatives.
+Booking holds with `depositAmount > 0` are rejected with `422` when this returns `false`.
+
+## Endpoints (Chapter 9)
+
+| Method | Path                                    | Auth                                      |
+| ------ | --------------------------------------- | ----------------------------------------- |
+| GET    | `/businesses/me/stripe/onboarding-link` | `can_view_payouts`                        |
+| POST   | `/businesses/me/stripe/onboarding-link` | `can_view_payouts`                        |
+| GET    | `/businesses/me/stripe/status`          | `can_view_payouts`                        |
+| GET    | `/businesses/me/payouts`                | `can_view_payouts`                        |
+| GET    | `/businesses/me/income-report`          | `can_view_payouts`                        |
+| POST   | `/bookings/:bookingId/deposit`          | client                                    |
+| POST   | `/bookings/:bookingId/partial-refund`   | `can_view_payouts`                        |
+| POST   | `/payments/deposits`                    | client (legacy alias)                     |
+| POST   | `/payments/deposits/:bookingId/sync`    | client — confirm after Stripe.js checkout |
+| POST   | `/webhooks/stripe`                      | Stripe signature                          |
 
 ## Do not
 
-- Update `bookings.status` from Payments routes
+- Update `bookings.status` from Payments routes directly
 - Confirm bookings without calling `confirmBooking()`
-- Skip refund when `hold_expired` is returned
+- Re-derive cancellation policy in Payments — consume `depositDisposition` only

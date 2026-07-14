@@ -12,6 +12,7 @@ export function toPayment(payment: Payment): PaymentDto {
     status: payment.status as PaymentDto['status'],
     createdAt: payment.createdAt.toISOString(),
     capturedAt: payment.capturedAt?.toISOString() ?? null,
+    refundedAmount: payment.refundedAmount?.toFixed(2) ?? null,
   };
 }
 

@@ -44,7 +44,9 @@ function ResetPasswordForm() {
   return (
     <div className="space-y-6">
       <div className="space-y-2 text-center">
-        <h1 className="font-display text-2xl font-semibold text-ink md:text-3xl">Choose a new password</h1>
+        <h1 className="font-display text-2xl font-semibold text-ink md:text-3xl">
+          Choose a new password
+        </h1>
       </div>
 
       <Card>

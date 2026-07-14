@@ -1,45 +1,67 @@
 # Calendar & availability (Chapter 8)
 
-## MVP scope
+## Scope
 
-| Prompt | Status      | Deliverable                                            |
-| ------ | ----------- | ------------------------------------------------------ |
-| 8.1    | Complete    | `GET /api/v1/bookings/availability` computation engine |
-| 8.2    | Deferred V2 | Google Calendar two-way sync                           |
-| 8.3    | Complete    | Duration + buffer-aware slot generation                |
-| 8.4    | Deferred V2 | Calendar reconciliation job                            |
+| Prompt | Status   | Deliverable                                                                 |
+| ------ | -------- | --------------------------------------------------------------------------- |
+| 8.1    | Complete | `GET /api/v1/businesses/:businessId/availability` — public slot computation |
+| 8.2    | Complete | Google Calendar two-way sync, webhooks, `pushToExternalCalendar`            |
+| 8.3    | Complete | Buffer-aware slot generation (`buffer_minutes`, default 15)                 |
+| 8.4    | Complete | `calendar.reconcile` job every 30 minutes                                   |
 
-## How it works
+Module: `apps/api/src/modules/calendar/`. See [ARCHITECTURE.md](../ARCHITECTURE.md).
 
-1. Reads `working_hours` and `buffer_minutes` from the stylist profile (Ch.6)
-2. Reads `estimated_duration_minutes` from the selected `service_offering`
-3. Generates candidate slots at `AVAILABILITY_SLOT_INTERVAL_MINUTES` (default 15)
-4. Excludes overlaps with active `held` / `confirmed` bookings (respecting hold TTL)
-5. Client holds validate the requested `startTime` against generated slots
+## How availability works
 
-**Timezone:** `PLATFORM_TIMEZONE` (default `Europe/London` for UK MVP).
+1. Calls `getBaseAvailabilityRules` (Ch.6) for per-day windows and exceptions
+2. Loads active `held` / `confirmed` bookings (respecting hold TTL)
+3. Pads existing bookings by `buffer_minutes` on both sides (Ch.8.3)
+4. Generates candidates at `AVAILABILITY_SLOT_INTERVAL_MINUTES` (default 15)
+5. Filters candidates whose full duration + buffer would overlap padded bookings
 
-## Response shape
+**Timezone:** `PLATFORM_TIMEZONE` (default `Europe/London`).
 
-```json
-{
-  "data": {
-    "stylistId": "...",
-    "serviceOfferingId": "...",
-    "timezone": "Europe/London",
-    "slots": [
-      {
-        "startTime": "2026-08-01T08:00:00.000Z",
-        "endTime": "2026-08-01T13:15:00.000Z",
-        "durationMinutes": 300,
-        "bufferMinutes": 15
-      }
-    ]
-  }
-}
-```
+**Range cap:** `AVAILABILITY_MAX_DAYS` (default 60).
 
-Slots expose times only — no client identity leakage (Playbook §4.7).
+## Endpoints
+
+- **Public:** `GET /businesses/:businessId/availability?serviceOfferingId=…` or `durationMinutes=…`
+- **Legacy (authenticated):** `GET /bookings/availability` — delegates to the same engine
+- **Scheduling:** `GET/PATCH /businesses/me/scheduling` — buffer configuration
+
+## Google Calendar sync
+
+- Connect: `POST /businesses/me/calendar/google/connect` with OAuth `code` + `redirectUri`
+- Confirmed bookings push events to Google; cancellations delete them
+- Inbound webhook: `POST /webhooks/google/calendar` — flags untracked events via `flagExternalCalendarConflict` (never silent block)
+- Reconciliation job catches missed webhooks and renews push subscriptions
+
+### Real vs mock mode
+
+| Mode     | When                                                       | Behaviour                                                     |
+| -------- | ---------------------------------------------------------- | ------------------------------------------------------------- |
+| **Live** | `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` set on the API | `RealGoogleCalendarApiClient` talks to Google Calendar API v3 |
+| **Mock** | Either secret unset                                        | In-memory mock (tests / local without Google Cloud)           |
+
+Also set on the web app:
+
+- `NEXT_PUBLIC_GOOGLE_CLIENT_ID` — same client ID; starts Google OAuth from `/stylist/calendar`
+
+Google Cloud Console setup:
+
+1. Create an OAuth 2.0 Web client
+2. Authorized redirect URI: `http://localhost:3000/stylist/calendar` (and production URL)
+3. Enable **Google Calendar API**
+4. Scopes: `https://www.googleapis.com/auth/calendar.events`
+
+**Localhost note:** Google push webhooks require a public HTTPS `API_PUBLIC_URL`. Without a tunnel, connect still succeeds and **outbound** create/delete sync works; inbound updates rely on the 30-minute reconcile job.
+
+Disconnect any previous **dev mock** connection after enabling live keys, then Connect again.
+
+## Frontend
+
+- `/stylist/calendar` — connect Google, buffer minutes, conflict list
+- `/book` — public availability before client sign-in (hold still requires auth)
 
 ## Manual stylist bookings
 

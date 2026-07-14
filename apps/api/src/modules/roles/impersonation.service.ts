@@ -60,7 +60,9 @@ export async function verifyImpersonationAccessToken(
   return payload as ImpersonationAccessTokenPayload;
 }
 
-export function isImpersonationPayload(payload: JWTPayload): payload is ImpersonationAccessTokenPayload {
+export function isImpersonationPayload(
+  payload: JWTPayload,
+): payload is ImpersonationAccessTokenPayload {
   return payload.imp === true && typeof payload.admin_sub === 'string';
 }
 

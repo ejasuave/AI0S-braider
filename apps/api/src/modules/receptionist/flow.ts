@@ -171,7 +171,10 @@ export function inferBookingPhase(
     return 'general';
   }
 
-  if (styleName && (PRICE_INTENT_PATTERN.test(latest) || clientWantsToBook(latest) || preferredDate)) {
+  if (
+    styleName &&
+    (PRICE_INTENT_PATTERN.test(latest) || clientWantsToBook(latest) || preferredDate)
+  ) {
     return 'quote_price';
   }
 

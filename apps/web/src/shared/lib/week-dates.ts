@@ -59,8 +59,23 @@ export function getWeekRangeIso(anchor = new Date()): { from: string; to: string
   return { from, to };
 }
 
+/** Fetch window covering the visible week plus following weeks (for bookings just over week boundary). */
+export function getMultiWeekRangeIso(
+  anchor = new Date(),
+  weekCount = 2,
+): { from: string; to: string } {
+  const { from } = getWeekRangeIso(anchor);
+  const lastWeekAnchor = shiftWeekAnchor(anchor, weekCount - 1);
+  const { to } = getWeekRangeIso(lastWeekAnchor);
+  return { from, to };
+}
+
+export function bookingDateKey(startTimeIso: string): string {
+  return formatDateKey(new Date(startTimeIso));
+}
+
 export function bookingOnDateKey(startTimeIso: string, dateKey: string): boolean {
-  return formatDateKey(new Date(startTimeIso)) === dateKey;
+  return bookingDateKey(startTimeIso) === dateKey;
 }
 
 export function shiftWeekAnchor(anchor: Date, weeks: number): Date {

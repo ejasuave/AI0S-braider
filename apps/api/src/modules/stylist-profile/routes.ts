@@ -20,7 +20,9 @@ import type { AuthenticatedRequest } from '../identity/middleware.js';
 import { calendarConflictService } from '../booking/calendar-conflicts.js';
 import { stylistProfileService } from './service.js';
 
-async function resolveMe(request: FastifyRequest): Promise<{ businessId: string; stylistId: string }> {
+async function resolveMe(
+  request: FastifyRequest,
+): Promise<{ businessId: string; stylistId: string }> {
   const auth = (request as AuthenticatedRequest).auth;
   return stylistProfileService.resolveBusinessContext(auth.user.id, auth.user.role);
 }
@@ -36,18 +38,26 @@ export const stylistProfileRoutes: FastifyPluginAsync = async (app) => {
     sendData(reply, profile, 201);
   });
 
-  app.get('/me', { preHandler: [requireBusinessPermission('can_manage_profile')] }, async (request, reply) => {
-    const { businessId } = await resolveMe(request);
-    const profile = await stylistProfileService.getBusinessProfile(businessId);
-    sendData(reply, profile);
-  });
+  app.get(
+    '/me',
+    { preHandler: [requireBusinessPermission('can_manage_profile')] },
+    async (request, reply) => {
+      const { businessId } = await resolveMe(request);
+      const profile = await stylistProfileService.getBusinessProfile(businessId);
+      sendData(reply, profile);
+    },
+  );
 
-  app.patch('/me', { preHandler: [requireBusinessPermission('can_manage_profile')] }, async (request, reply) => {
-    const { businessId } = await resolveMe(request);
-    const body = updateBusinessProfileRequestSchema.parse(request.body);
-    const profile = await stylistProfileService.updateBusinessProfile(businessId, body);
-    sendData(reply, profile);
-  });
+  app.patch(
+    '/me',
+    { preHandler: [requireBusinessPermission('can_manage_profile')] },
+    async (request, reply) => {
+      const { businessId } = await resolveMe(request);
+      const body = updateBusinessProfileRequestSchema.parse(request.body);
+      const profile = await stylistProfileService.updateBusinessProfile(businessId, body);
+      sendData(reply, profile);
+    },
+  );
 
   app.patch(
     '/me/onboarding-status',
@@ -65,7 +75,10 @@ export const stylistProfileRoutes: FastifyPluginAsync = async (app) => {
     async (request, reply) => {
       const { businessId } = await resolveMe(request);
       const body = portfolioUploadUrlRequestSchema.parse(request.body ?? {});
-      const result = await stylistProfileService.createPortfolioUploadUrl(businessId, body.contentType);
+      const result = await stylistProfileService.createPortfolioUploadUrl(
+        businessId,
+        body.contentType,
+      );
       sendData(reply, result);
     },
   );
@@ -135,18 +148,26 @@ export const stylistProfileRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 
-  app.get('/me/services', { preHandler: [requireBusinessPermission('can_manage_pricing')] }, async (request, reply) => {
-    const { businessId } = await resolveMe(request);
-    const services = await stylistProfileService.listServices(businessId, false);
-    sendData(reply, services);
-  });
+  app.get(
+    '/me/services',
+    { preHandler: [requireBusinessPermission('can_manage_pricing')] },
+    async (request, reply) => {
+      const { businessId } = await resolveMe(request);
+      const services = await stylistProfileService.listServices(businessId, false);
+      sendData(reply, services);
+    },
+  );
 
-  app.post('/me/services', { preHandler: [requireBusinessPermission('can_manage_pricing')] }, async (request, reply) => {
-    const { businessId, stylistId } = await resolveMe(request);
-    const body = createBusinessServiceRequestSchema.parse(request.body);
-    const service = await stylistProfileService.createService(businessId, stylistId, body);
-    sendData(reply, service, 201);
-  });
+  app.post(
+    '/me/services',
+    { preHandler: [requireBusinessPermission('can_manage_pricing')] },
+    async (request, reply) => {
+      const { businessId, stylistId } = await resolveMe(request);
+      const body = createBusinessServiceRequestSchema.parse(request.body);
+      const service = await stylistProfileService.createService(businessId, stylistId, body);
+      sendData(reply, service, 201);
+    },
+  );
 
   app.patch(
     '/me/services/:serviceId',
@@ -177,18 +198,26 @@ export const stylistProfileRoutes: FastifyPluginAsync = async (app) => {
     sendData(reply, services);
   });
 
-  app.get('/me/policy', { preHandler: [requireBusinessPermission('can_manage_pricing')] }, async (request, reply) => {
-    const { businessId } = await resolveMe(request);
-    const policy = await stylistProfileService.getPolicy(businessId);
-    sendData(reply, policy);
-  });
+  app.get(
+    '/me/policy',
+    { preHandler: [requireBusinessPermission('can_manage_pricing')] },
+    async (request, reply) => {
+      const { businessId } = await resolveMe(request);
+      const policy = await stylistProfileService.getPolicy(businessId);
+      sendData(reply, policy);
+    },
+  );
 
-  app.patch('/me/policy', { preHandler: [requireBusinessPermission('can_manage_pricing')] }, async (request, reply) => {
-    const { businessId } = await resolveMe(request);
-    const body = updateBusinessPolicyRequestSchema.parse(request.body);
-    const policy = await stylistProfileService.updatePolicy(businessId, body);
-    sendData(reply, policy);
-  });
+  app.patch(
+    '/me/policy',
+    { preHandler: [requireBusinessPermission('can_manage_pricing')] },
+    async (request, reply) => {
+      const { businessId } = await resolveMe(request);
+      const body = updateBusinessPolicyRequestSchema.parse(request.body);
+      const policy = await stylistProfileService.updatePolicy(businessId, body);
+      sendData(reply, policy);
+    },
+  );
 
   app.get('/:businessId/policy', async (request, reply) => {
     const { businessId } = request.params as { businessId: string };
@@ -235,7 +264,11 @@ export const stylistProfileRoutes: FastifyPluginAsync = async (app) => {
       const { businessId } = await resolveMe(request);
       const { exceptionId } = request.params as { exceptionId: string };
       const body = updateScheduleExceptionRequestSchema.parse(request.body);
-      const row = await stylistProfileService.updateScheduleException(businessId, exceptionId, body);
+      const row = await stylistProfileService.updateScheduleException(
+        businessId,
+        exceptionId,
+        body,
+      );
       sendData(reply, row);
     },
   );

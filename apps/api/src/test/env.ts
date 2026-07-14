@@ -1,8 +1,9 @@
 import { resetEnvCache } from '../config/env.js';
+import { resolveTestDatabaseUrl } from './database-url.js';
 
 const BASE_TEST_ENV: Record<string, string> = {
   NODE_ENV: 'test',
-  DATABASE_URL: 'postgresql://braids:braids@localhost:5432/braids_test',
+  DATABASE_URL: resolveTestDatabaseUrl(),
   REDIS_URL: 'redis://localhost:6379',
   JWT_SECRET: 'test-jwt-secret-at-least-32-characters-long',
   AI_RECEPTIONIST_ENABLED: 'true',

@@ -2,11 +2,11 @@
 
 **Every feature prompt executed in this codebase must be checked against this document.** If a prompt would require one service to reach into another service's owned data or logic directly, flag that conflict before proceeding rather than implementing it silently.
 
-**Last updated:** 2026-07-11 (Ch.6 Stylist profile)
+**Last updated:** 2026-07-11 (Ch.17 Dashboards)
 
 This document defines service boundaries, cross-module rules, and patterns every feature must follow. If implementation diverges from this file, update this document in the same commit.
 
-Related: [docs/API_CONVENTIONS.md](docs/API_CONVENTIONS.md) · [docs/BFF.md](docs/BFF.md) · [docs/BACKGROUND_JOBS.md](docs/BACKGROUND_JOBS.md) · [docs/WEBHOOK_CONVENTIONS.md](docs/WEBHOOK_CONVENTIONS.md) · [docs/PERMISSIONS.md](docs/PERMISSIONS.md)
+Related: [docs/API_CONVENTIONS.md](docs/API_CONVENTIONS.md) · [docs/BFF.md](docs/BFF.md) · [docs/BACKGROUND_JOBS.md](docs/BACKGROUND_JOBS.md) · [docs/WEBHOOK_CONVENTIONS.md](docs/WEBHOOK_CONVENTIONS.md) · [docs/PERMISSIONS.md](docs/PERMISSIONS.md) · [docs/REALTIME.md](docs/REALTIME.md)
 
 ---
 
@@ -38,31 +38,35 @@ Project Braids is an AI receptionist and operating system for independent UK hai
 
 Each module owns its domain logic, database tables, and HTTP routes. **Never query another module's tables directly** — call the owning module's service layer.
 
-| Service              | Module path                | Owns                                                                | Does not own                                  |
-| -------------------- | -------------------------- | ------------------------------------------------------------------- | --------------------------------------------- |
-| **Identity**         | `modules/identity/`        | Authentication, sessions, OTP                                       | Profile content, permission evaluation        |
-| **Roles**            | `modules/roles/`           | Businesses, staff permissions, guards, impersonation audit          | Profile content, auth session issuance        |
-| **Stylist Profile**  | `modules/stylist-profile/` | Bio, portfolio, pricing taxonomy, policies, availability rules      | Slot computation (Booking Engine)             |
-| **Profile (legacy)** | `modules/profile/`         | Directory search, legacy `/profile/*` compat                        | New Ch.6 routes (use stylist-profile)         |
-| **Booking Engine**   | `modules/booking/`         | Slot holds, confirmations, cancellations, state machine             | Payment capture                               |
-| **AI Receptionist**  | `modules/receptionist/`    | Conversation state, intent, escalation, booking dispatch            | Calendar source of truth                      |
-| **Payments**         | `modules/payments/`        | Deposit capture, refunds, Stripe webhooks                           | Pricing decisions                             |
-| **Notifications**    | `modules/notifications/`   | Reminder delivery, STOP compliance, lifecycle notices               | Message content generation                    |
-| **Messaging**        | `modules/messaging/`       | Conversations, SMS channel, `sendMessage`/`receiveMessage`, handoff | AI content (Ch.13), notification jobs (Ch.12) |
-| **Directory**        | `modules/directory/`       | Beta public stylist search (read-only)                              | Profile writes, booking state                 |
-| **System**           | `modules/system/`          | Ping, ops status, Ch.2 example jobs                                 | Domain features                               |
+| Service                | Module path                   | Owns                                                                                                         | Does not own                                                        |
+| ---------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------- |
+| **Identity**           | `modules/identity/`           | Authentication, sessions, OTP                                                                                | Profile content, permission evaluation                              |
+| **Roles**              | `modules/roles/`              | Businesses, staff permissions, guards, impersonation audit                                                   | Profile content, auth session issuance                              |
+| **Stylist Profile**    | `modules/stylist-profile/`    | Bio, portfolio, pricing taxonomy, policies, availability rules                                               | Slot computation (Calendar module)                                  |
+| **Profile (legacy)**   | `modules/profile/`            | Directory search, legacy `/profile/*` compat                                                                 | New Ch.6 routes (use stylist-profile)                               |
+| **Calendar**           | `modules/calendar/`           | Availability computation, buffer settings, Google Calendar sync                                              | Working-hours storage, booking state                                |
+| **Booking Engine**     | `modules/booking/`            | Slot holds, confirmations, cancellations, state machine                                                      | Payment capture                                                     |
+| **AI Receptionist**    | `modules/receptionist/`       | Conversation state, intent, escalation, booking dispatch                                                     | Calendar source of truth                                            |
+| **Payments**           | `modules/payments/`           | Deposit capture, refunds, Stripe webhooks                                                                    | Pricing decisions                                                   |
+| **Notifications**      | `modules/notifications/`      | Reminder scheduling/delivery, lifecycle notices, preference gating at send                                   | Message content generation (stub in `content.ts`; Ch.13 may enrich) |
+| **Client preferences** | `modules/client-preferences/` | `notification_preferences`, STOP/START keywords (Ch.5.4), `client_profiles`, `saved_stylists`, opt-out audit | Notification delivery timing                                        |
+| **Messaging**          | `modules/messaging/`          | Conversations, SMS channel, `sendMessage`/`receiveMessage`, handoff                                          | AI content (Ch.13), notification jobs (Ch.12)                       |
+| **Realtime**           | `modules/realtime/`           | Stylist SSE fan-out from domain events (Ch.17.5)                                                             | Business logic; persists nothing                                    |
+| **Directory**          | `modules/directory/`          | Beta public stylist search (read-only)                                                                       | Profile writes, booking state                                       |
+| **System**             | `modules/system/`             | Ping, ops status, Ch.2 example jobs                                                                          | Domain features                                                     |
 
 ### Allowed cross-service calls
 
-| Caller        | May call (service layer)                               | Must never                                  |
-| ------------- | ------------------------------------------------------ | ------------------------------------------- |
-| Receptionist  | `messaging`, `profile`, `booking`, `payments` services | Query `bookings`/`messages` tables directly |
-| Booking       | `profile` (offerings, hours)                           | `payments` tables; capture deposits itself  |
-| Payments      | `booking` service to confirm after deposit             | Set `agreedPrice` or pricing policy         |
-| Notifications | `messaging.sendMessage`, `booking` reads               | Generate AI conversation content            |
-| Messaging     | `identity` (client lookup), `notifications` (STOP)     | Run Claude turns                            |
-| Profile       | `storage` lib only                                     | Compute availability slots                  |
-| Directory     | `profile` read APIs                                    | Update stylist profiles                     |
+| Caller             | May call (service layer)                                | Must never                                  |
+| ------------------ | ------------------------------------------------------- | ------------------------------------------- |
+| Receptionist       | `messaging`, `profile`, `booking`, `payments` services  | Query `bookings`/`messages` tables directly |
+| Booking            | `profile` (offerings, hours)                            | `payments` tables; capture deposits itself  |
+| Payments           | `booking` service to confirm after deposit              | Set `agreedPrice` or pricing policy         |
+| Notifications      | `messaging.sendMessage`, domain events from Booking     | Generate AI conversation content            |
+| Messaging          | `identity` (client lookup), `client-preferences` (STOP) | Run Claude turns                            |
+| Client preferences | `identity` (user by phone)                              | Send notifications                          |
+| Profile            | `storage` lib only                                      | Compute availability slots                  |
+| Directory          | `profile` read APIs                                     | Update stylist profiles                     |
 
 ### Cross-cutting infrastructure (no feature owner)
 

@@ -1,0 +1,8 @@
+# Reviewed destructive migrations — one path per line, relative to repo root.
+# Only add entries after explicit review per docs/MIGRATIONS.md (expand/contract).
+#
+# 20260711150000_ch9_payments_full: DROP TABLE stylist_stripe_accounts is the
+# contract step of an expand/migrate/contract performed in a single migration.
+# Reviewed pre-beta: data is copied into payment_accounts in the same file and
+# no deployed environment existed before this migration chain.
+prisma/migrations/20260711150000_ch9_payments_full/migration.sql

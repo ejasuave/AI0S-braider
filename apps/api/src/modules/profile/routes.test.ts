@@ -28,7 +28,7 @@ describe('profile routes', () => {
   });
 
   afterEach(async () => {
-    if (!databaseAvailable) return;
+    if (!databaseAvailable || !stylistProfileId) return;
     await prisma.portfolioItem.deleteMany({ where: { stylistId: stylistProfileId } });
     await prisma.serviceOffering.deleteMany({ where: { stylistId: stylistProfileId } });
     await prisma.stylistProfile.deleteMany({ where: { userId: stylistUserId } });

@@ -80,8 +80,12 @@ model User {
   adminImpersonations ImpersonationSession[]     @relation("ImpersonationAdmin")
   targetImpersonations ImpersonationSession[]    @relation("ImpersonationTarget")
   stylistMembership     StylistMembership?
-  stylistProfile        StylistProfile?
-  notifications         Notification[]
+  stylistProfile           StylistProfile?
+  notifications            Notification[]
+  notificationPreferences  NotificationPreference?
+  optOutAuditEvents        OptOutAuditLog[]
+  clientProfile            ClientProfile?
+  savedStylists            SavedStylist[]         @relation("SavedStylistClient")
 
   @@index([role])
   @@map("users")
@@ -123,7 +127,10 @@ model Business {
   portfolioItems       PortfolioItem[]
   serviceOfferings     ServiceOffering[]
   instagramConnection  InstagramConnection?
+  calendarConnection CalendarConnection?
   calendarConflicts    CalendarConflict[]
+  externalCalendarLinks ExternalCalendarLink[]
+  paymentAccount       PaymentAccount?
 
   @@map("businesses")
 }
@@ -368,8 +375,9 @@ model StylistProfile {
   cancellationPolicy  Json?            @map("cancellation_policy")
   depositPolicy       Json?            @map("deposit_policy")
   workingHours        Json?            @map("working_hours")
-  bufferMinutes       Int              @default(0) @map("buffer_minutes")
-  onboardingStatus    OnboardingStatus @default(in_progress) @map("onboarding_status")
+  bufferMinutes            Int              @default(15) @map("buffer_minutes")
+  requireStylistApproval   Boolean          @default(false) @map("require_stylist_approval")
+  onboardingStatus         OnboardingStatus @default(in_progress) @map("onboarding_status")
   directoryVisible    Boolean          @default(false) @map("directory_visible")
   createdAt           DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -379,6 +387,7 @@ model StylistProfile {
   portfolioItems   PortfolioItem[]
   serviceOfferings ServiceOffering[]
   conversations    Conversation[]
+  savedByClients   SavedStylist[]
 
   smsBookingNumber String? @unique @map("sms_booking_number")
 
@@ -490,9 +499,14 @@ model Booking {
   createdAt              DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
   cancelledAt            DateTime?            @map("cancelled_at") @db.Timestamptz(6)
   cancellationReason     String?              @map("cancellation_reason")
+  policySnapshot         Json?                @map("policy_snapshot")
+  stylistApprovedAt      DateTime?            @map("stylist_approved_at") @db.Timestamptz(6)
 
   notifications      Notification[]
   calendarConflicts  CalendarConflict[]
+  externalCalendarLinks ExternalCalendarLink[]
+  payment            Payment?
+  disputeEvidencePackages DisputeEvidencePackage[]
 
   @@index([stylistId, status, startTime, endTime])
   @@index([clientId, status])
@@ -524,19 +538,81 @@ model CalendarConflict {
   @@map("calendar_conflicts")
 }
 
+enum ExternalCalendarProvider {
+  google
+
+  @@map("external_calendar_provider")
+}
+
+enum ExternalCalendarSyncStatus {
+  synced
+  pending
+  failed
+
+  @@map("external_calendar_sync_status")
+}
+
+/// Ch.8.2 — Google Calendar connection per business (independent of login OAuth).
+model CalendarConnection {
+  businessId            String                   @id @map("business_id") @db.Uuid
+  provider              ExternalCalendarProvider @default(google)
+  refreshTokenEnc       String                   @map("refresh_token_enc")
+  accessTokenEnc        String?                  @map("access_token_enc")
+  tokenExpiresAt        DateTime?                @map("token_expires_at") @db.Timestamptz(6)
+  calendarId            String                   @default("primary") @map("calendar_id")
+  channelId             String?                  @map("channel_id")
+  channelResourceId     String?                  @map("channel_resource_id")
+  subscriptionExpiresAt DateTime?                @map("subscription_expires_at") @db.Timestamptz(6)
+  connectedAt           DateTime                 @default(now()) @map("connected_at") @db.Timestamptz(6)
+  updatedAt             DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@map("calendar_connections")
+}
+
+/// Ch.8.2 — maps platform bookings to external calendar events.
+model ExternalCalendarLink {
+  id              String                     @id @default(uuid()) @db.Uuid
+  businessId      String                     @map("business_id") @db.Uuid
+  provider        ExternalCalendarProvider   @default(google)
+  externalEventId String                     @map("external_event_id")
+  bookingId       String?                    @map("booking_id") @db.Uuid
+  syncStatus      ExternalCalendarSyncStatus @default(pending) @map("sync_status")
+  createdAt       DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  booking  Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  @@unique([businessId, provider, externalEventId])
+  @@index([businessId, bookingId])
+  @@map("external_calendar_links")
+}
+
 // --- Payments (Chapter 9) ---
 
-model StylistStripeAccount {
-  id                 String   @id @default(uuid()) @db.Uuid
-  stylistId          String   @unique @map("stylist_id") @db.Uuid
-  stripeAccountId    String   @unique @map("stripe_account_id")
-  chargesEnabled     Boolean  @default(false) @map("charges_enabled")
-  payoutsEnabled     Boolean  @default(false) @map("payouts_enabled")
-  onboardingComplete Boolean  @default(false) @map("onboarding_complete")
-  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+enum PaymentOnboardingStatus {
+  not_started
+  in_progress
+  complete
+  restricted
 
-  @@map("stylist_stripe_accounts")
+  @@map("payment_onboarding_status")
+}
+
+model PaymentAccount {
+  businessId             String                  @id @map("business_id") @db.Uuid
+  stripeConnectAccountId String                  @unique @map("stripe_connect_account_id")
+  onboardingStatus       PaymentOnboardingStatus @default(not_started) @map("onboarding_status")
+  chargesEnabled         Boolean                 @default(false) @map("charges_enabled")
+  payoutsEnabled         Boolean                 @default(false) @map("payouts_enabled")
+  createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@map("payment_accounts")
 }
 
 enum PaymentStatus {
@@ -556,10 +632,30 @@ model Payment {
   amount                Decimal       @db.Decimal(10, 2)
   currency              String        @default("gbp")
   status                PaymentStatus @default(pending)
+  refundedAmount        Decimal?      @map("refunded_amount") @db.Decimal(10, 2)
   createdAt             DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   capturedAt            DateTime?     @map("captured_at") @db.Timestamptz(6)
 
+  booking                 Booking                  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  disputeEvidencePackages DisputeEvidencePackage[]
+
   @@map("payments")
+}
+
+model DisputeEvidencePackage {
+  id                  String    @id @default(uuid()) @db.Uuid
+  paymentId           String    @map("payment_id") @db.Uuid
+  bookingId           String    @map("booking_id") @db.Uuid
+  assembledAt         DateTime  @default(now()) @map("assembled_at") @db.Timestamptz(6)
+  submittedToStripeAt DateTime? @map("submitted_to_stripe_at") @db.Timestamptz(6)
+  evidenceData        Json      @map("evidence_data")
+  isComplete          Boolean   @default(false) @map("is_complete")
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@map("dispute_evidence_packages")
 }
 
 // --- Messaging (Chapter 11) ---
@@ -675,22 +771,78 @@ enum NotificationStatus {
 
 model Notification {
   id            String             @id @default(uuid()) @db.Uuid
-  bookingId     String             @map("booking_id") @db.Uuid
+  bookingId     String?            @map("booking_id") @db.Uuid
   recipientId   String             @map("recipient_id") @db.Uuid
   type          NotificationType
   status        NotificationStatus @default(scheduled)
   scheduledFor  DateTime?          @map("scheduled_for") @db.Timestamptz(6)
   sentAt        DateTime?          @map("sent_at") @db.Timestamptz(6)
-  failureReason String?            @map("failure_reason")
-  createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  failureReason      String?            @map("failure_reason")
+  skipReason         String?            @map("skip_reason")
+  depositDisposition String?            @map("deposit_disposition")
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  recipient User    @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  booking   Booking? @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  recipient User     @relation(fields: [recipientId], references: [id], onDelete: Cascade)
 
   @@unique([bookingId, recipientId, type])
   @@index([status, scheduledFor])
   @@index([bookingId])
   @@map("notifications")
+}
+
+/// Per-user notification preferences (Ch.5.4 / Ch.12). No field to disable transactional messages.
+model NotificationPreference {
+  userId                       String   @id @map("user_id") @db.Uuid
+  appointmentRemindersEnabled  Boolean  @default(true) @map("appointment_reminders_enabled")
+  marketingMessagesEnabled     Boolean  @default(true) @map("marketing_messages_enabled")
+  updatedAt                    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
+}
+
+/// Append-only compliance log for STOP/START and profile preference changes (Ch.12.4).
+model OptOutAuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  phoneNumber String   @map("phone_number")
+  userId      String?  @map("user_id") @db.Uuid
+  action      String
+  channel     String
+  keyword     String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([phoneNumber, createdAt])
+  @@index([userId, createdAt])
+  @@map("opt_out_audit_log")
+}
+
+/// Ch.5.1 / Ch.17.4 — optional client display name (phone remains canonical identity).
+model ClientProfile {
+  userId      String   @id @map("user_id") @db.Uuid
+  displayName String?  @map("display_name")
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("client_profiles")
+}
+
+/// Ch.5.3 / Ch.17.4 — client saved stylists for quick rebooking.
+model SavedStylist {
+  clientId  String   @map("client_id") @db.Uuid
+  stylistId String   @map("stylist_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  client  User           @relation("SavedStylistClient", fields: [clientId], references: [id], onDelete: Cascade)
+  stylist StylistProfile @relation(fields: [stylistId], references: [id], onDelete: Cascade)
+
+  @@id([clientId, stylistId])
+  @@index([clientId, createdAt])
+  @@map("saved_stylists")
 }
 
 /// Platform-level SMS preferences (Ch.12.4 — STOP halts AI, not transactional notices).

@@ -1,0 +1,31 @@
+# flyctl launch added from .gitignore
+**/node_modules
+**/.pnpm-store
+**/dist
+**/.next
+**/out
+**/.turbo
+**/uploads
+**/*.tsbuildinfo
+**/.env
+**/.env.local
+**/.env.*.local
+**/.local
+**/logs
+**/*.log
+**/.DS_Store
+**/.idea
+**/.vscode/*
+!**/.vscode/extensions.json
+!**/.vscode/settings.json
+**/coverage
+**/.sentryclirc
+**/*.pem
+**/.vercel
+
+# flyctl launch added from .husky/_/.gitignore
+.husky/_/**/*
+
+# flyctl launch added from node_modules/.pnpm/tailwindcss@3.4.19_tsx@4.23.0_yaml@2.9.0/node_modules/tailwindcss/stubs/.gitignore
+!node_modules/.pnpm/tailwindcss@3.4.19_tsx@4.23.0_yaml@2.9.0/node_modules/tailwindcss/stubs/**/*
+fly.toml

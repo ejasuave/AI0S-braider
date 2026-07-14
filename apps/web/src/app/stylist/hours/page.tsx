@@ -48,9 +48,7 @@ export default function StylistHoursPage() {
   const saveMutation = useMutation({
     mutationFn: () => {
       const hours = days.flatMap((day, dayOfWeek) =>
-        day.enabled
-          ? [{ dayOfWeek, startTime: day.start, endTime: day.end, isActive: true }]
-          : [],
+        day.enabled ? [{ dayOfWeek, startTime: day.start, endTime: day.end, isActive: true }] : [],
       );
       return apiFetchData<WorkingHourRow[]>('/businesses/me/working-hours', {
         method: 'PUT',
@@ -80,7 +78,10 @@ export default function StylistHoursPage() {
       <Card className="mt-6">
         <form className="space-y-4" onSubmit={handleSubmit}>
           {days.map((day, index) => (
-            <div key={DAY_LABELS[index]} className="grid grid-cols-[3rem_1fr_1fr_auto] items-center gap-2">
+            <div
+              key={DAY_LABELS[index]}
+              className="grid grid-cols-[3rem_1fr_1fr_auto] items-center gap-2"
+            >
               <span className="text-sm font-medium text-ink">{DAY_LABELS[index]}</span>
               <Input
                 label="Start"

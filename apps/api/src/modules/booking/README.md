@@ -9,14 +9,14 @@ Owns `booking` domain logic per `docs/ARCHITECTURE.md` (Chapter 7).
 
 ## Chapter 7 deliverables
 
-| Prompt | Deliverable                                                              |
-| ------ | ------------------------------------------------------------------------ |
-| 7.1    | `transitionBookingStatus()` — centralized state machine                  |
-| 7.2    | TTL holds, `FOR UPDATE` conflicts, `POST /bookings/hold`                 |
-| 7.3    | `confirmBooking()` + expired-hold contract for Ch.9                      |
-| 7.4    | Policy-driven cancel/no-show with `depositDisposition`                   |
-| 7.5    | `POST /bookings/manual` — confirmed immediately, optional client/service |
-| 7.6    | `hasConflictingBooking`, `calendar_conflicts` + flag/resolve API         |
+| Prompt | Deliverable                                                                                     |
+| ------ | ----------------------------------------------------------------------------------------------- |
+| 7.1    | `transitionBookingStatus()` — centralized state machine                                         |
+| 7.2    | TTL holds, `FOR UPDATE` conflicts, `POST /bookings/hold`                                        |
+| 7.3    | `confirmBooking()` + expired-hold contract for Ch.9; `pushToExternalCalendar` → Calendar module |
+| 7.4    | Policy-driven cancel/no-show with `depositDisposition`                                          |
+| 7.5    | `POST /bookings/manual` — confirmed immediately, optional client/service                        |
+| 7.6    | `hasConflictingBooking`, `calendar_conflicts` + flag/resolve API                                |
 
 ## Tenant scoping
 

@@ -1,13 +1,16 @@
+import type { DepositDisposition } from '@project-braids/shared-types/api';
 import type { NotificationStatus, NotificationType } from '@prisma/client';
 import { prisma } from '../../lib/db.js';
+import { clientPreferencesRepository } from '../client-preferences/repository.js';
 
 export type NotificationRecord = {
   id: string;
-  bookingId: string;
+  bookingId: string | null;
   recipientId: string;
   type: NotificationType;
   status: NotificationStatus;
   scheduledFor: Date | null;
+  depositDisposition: string | null;
 };
 
 export type BookingNotificationContext = {
@@ -17,6 +20,8 @@ export type BookingNotificationContext = {
   status: string;
   startTime: Date;
   cancellationReason: string | null;
+  depositAmount: number | null;
+  depositStatus: string;
   stylistUserId: string;
   stylistPhone: string;
   clientPhone: string;
@@ -75,6 +80,8 @@ export class NotificationsRepository {
       status: booking.status,
       startTime: booking.startTime,
       cancellationReason: booking.cancellationReason,
+      depositAmount: booking.depositAmount ? Number(booking.depositAmount) : null,
+      depositStatus: booking.depositStatus,
       stylistUserId: stylistUser.id,
       stylistPhone: stylistUser.phoneNumber,
       clientPhone: clientUser.phoneNumber,
@@ -88,6 +95,7 @@ export class NotificationsRepository {
     recipientId: string;
     type: NotificationType;
     scheduledFor: Date | null;
+    depositDisposition?: DepositDisposition | null;
   }): Promise<NotificationRecord> {
     const existing = await prisma.notification.findUnique({
       where: {
@@ -104,6 +112,7 @@ export class NotificationsRepository {
         type: true,
         status: true,
         scheduledFor: true,
+        depositDisposition: true,
       },
     });
 
@@ -125,11 +134,14 @@ export class NotificationsRepository {
         type: input.type,
         status: 'scheduled',
         scheduledFor: input.scheduledFor,
+        depositDisposition: input.depositDisposition ?? null,
       },
       update: {
         scheduledFor: input.scheduledFor,
         status: 'scheduled',
         failureReason: null,
+        skipReason: null,
+        depositDisposition: input.depositDisposition ?? undefined,
       },
       select: {
         id: true,
@@ -138,6 +150,7 @@ export class NotificationsRepository {
         type: true,
         status: true,
         scheduledFor: true,
+        depositDisposition: true,
       },
     });
     return row;
@@ -166,6 +179,7 @@ export class NotificationsRepository {
         type: true,
         status: true,
         scheduledFor: true,
+        depositDisposition: true,
       },
     });
   }
@@ -177,6 +191,7 @@ export class NotificationsRepository {
         status: 'sent',
         sentAt: new Date(),
         failureReason: null,
+        skipReason: null,
       },
     });
   }
@@ -186,7 +201,7 @@ export class NotificationsRepository {
       where: { id: notificationId },
       data: {
         status: 'skipped',
-        failureReason: reason,
+        skipReason: reason,
       },
     });
   }
@@ -225,32 +240,13 @@ export class NotificationsRepository {
         type: true,
         status: true,
         scheduledFor: true,
+        depositDisposition: true,
       },
     });
   }
 
-  async getSmsPreference(phoneNumber: string) {
-    return prisma.smsPreference.findUnique({ where: { phoneNumber } });
-  }
-
-  async setAiOptOut(phoneNumber: string, optedOut: boolean): Promise<void> {
-    const now = new Date();
-    await prisma.smsPreference.upsert({
-      where: { phoneNumber },
-      create: {
-        phoneNumber,
-        aiOptedOut: optedOut,
-        marketingOptedOut: optedOut,
-        optedOutAt: optedOut ? now : null,
-        optedInAt: optedOut ? null : now,
-      },
-      update: {
-        aiOptedOut: optedOut,
-        marketingOptedOut: optedOut,
-        optedOutAt: optedOut ? now : undefined,
-        optedInAt: optedOut ? null : now,
-      },
-    });
+  async getRecipientPreferences(recipientId: string) {
+    return clientPreferencesRepository.getPreferencesForRecipient(recipientId);
   }
 
   async hasActiveConversationRecently(input: {
@@ -270,6 +266,25 @@ export class NotificationsRepository {
       select: { id: true },
     });
     return Boolean(conversation);
+  }
+
+  async listScheduledRemindersForBooking(bookingId: string): Promise<NotificationRecord[]> {
+    return prisma.notification.findMany({
+      where: {
+        bookingId,
+        type: { in: ['reminder_48h', 'reminder_2h'] },
+        status: { in: ['scheduled', 'cancelled'] },
+      },
+      select: {
+        id: true,
+        bookingId: true,
+        recipientId: true,
+        type: true,
+        status: true,
+        scheduledFor: true,
+        depositDisposition: true,
+      },
+    });
   }
 }
 

@@ -80,10 +80,7 @@ export default function StylistStaffPage() {
 
   return (
     <PageShell>
-      <PageHeader
-        title="Team"
-        subtitle="Invite staff and manage permissions (Ch.4.3)."
-      />
+      <PageHeader title="Team" subtitle="Invite staff and manage permissions (Ch.4.3)." />
 
       <div className="mt-6 space-y-4">
         <Card>

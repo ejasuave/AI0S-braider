@@ -13,17 +13,14 @@ import type {
   UpdateBusinessServiceRequest,
   WorkingHourRow,
 } from '@project-braids/shared-types/api';
-import { DEFAULT_WORKING_HOURS } from '@project-braids/shared-types/api';
 import { prisma } from '../../lib/db.js';
 import { ApiError } from '../../lib/errors.js';
-import {
-  createPortfolioStorageKey,
-  getStorageProvider,
-} from '../../lib/storage/index.js';
+import { createPortfolioStorageKey, getStorageProvider } from '../../lib/storage/index.js';
 import { businessService } from '../roles/business.service.js';
 import { ensureStylistProfileForUser } from '../profile/mappers.js';
 import {
   baseRulesToLegacyWorkingHours,
+  ensureDefaultWorkingHoursForBusiness,
   getBaseAvailabilityRules,
   validateWorkingHourRows,
 } from './availability.js';
@@ -36,7 +33,6 @@ import {
   toPortfolioItem,
   toServiceOffering,
   toStyleCategory,
-  WEEKDAY_NAME_TO_INDEX,
 } from './mappers.js';
 
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -50,7 +46,10 @@ export class StylistProfileService {
     return this.getBusinessProfile(business.id);
   }
 
-  async resolveBusinessContext(userId: string, role: string): Promise<{
+  async resolveBusinessContext(
+    userId: string,
+    role: string,
+  ): Promise<{
     businessId: string;
     stylistId: string;
   }> {
@@ -220,7 +219,10 @@ export class StylistProfileService {
     return items.map(toPortfolioItem);
   }
 
-  async reorderPortfolio(businessId: string, input: ReorderPortfolioRequest): Promise<PortfolioItem[]> {
+  async reorderPortfolio(
+    businessId: string,
+    input: ReorderPortfolioRequest,
+  ): Promise<PortfolioItem[]> {
     const items = await prisma.portfolioItem.findMany({ where: { businessId } });
     const itemIds = new Set(items.map((item) => item.id));
     if (input.orderedIds.length !== items.length) {
@@ -321,7 +323,11 @@ export class StylistProfileService {
       },
     });
     if (duplicate) {
-      throw new ApiError('CONFLICT', 'A service offering with this style and tier already exists', 409);
+      throw new ApiError(
+        'CONFLICT',
+        'A service offering with this style and tier already exists',
+        409,
+      );
     }
 
     const offering = await prisma.serviceOffering.create({
@@ -398,7 +404,10 @@ export class StylistProfileService {
     return ensureDefaultBusinessPolicy(businessId);
   }
 
-  async updatePolicy(businessId: string, input: UpdateBusinessPolicyRequest): Promise<BusinessPolicy> {
+  async updatePolicy(
+    businessId: string,
+    input: UpdateBusinessPolicyRequest,
+  ): Promise<BusinessPolicy> {
     const policy = await prisma.businessPolicy.upsert({
       where: { businessId },
       create: {
@@ -451,7 +460,10 @@ export class StylistProfileService {
     }));
   }
 
-  async replaceWorkingHours(businessId: string, hours: WorkingHourRow[]): Promise<WorkingHourRow[]> {
+  async replaceWorkingHours(
+    businessId: string,
+    hours: WorkingHourRow[],
+  ): Promise<WorkingHourRow[]> {
     try {
       validateWorkingHourRows(hours);
     } catch (error) {
@@ -489,28 +501,7 @@ export class StylistProfileService {
   }
 
   async ensureDefaultWorkingHours(businessId: string): Promise<void> {
-    const count = await prisma.workingHour.count({ where: { businessId } });
-    if (count > 0) {
-      return;
-    }
-
-    const rows = Object.entries(DEFAULT_WORKING_HOURS).flatMap(([weekday, day]) => {
-      if (!day.enabled) {
-        return [];
-      }
-      return [
-        {
-          id: randomUUID(),
-          businessId,
-          dayOfWeek: WEEKDAY_NAME_TO_INDEX[weekday]!,
-          startTime: day.start,
-          endTime: day.end,
-          isActive: true,
-        },
-      ];
-    });
-
-    await prisma.workingHour.createMany({ data: rows });
+    await ensureDefaultWorkingHoursForBusiness(businessId);
   }
 
   async createScheduleException(

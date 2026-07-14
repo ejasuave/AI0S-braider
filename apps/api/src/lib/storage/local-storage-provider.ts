@@ -16,11 +16,7 @@ function getUploadSecret(): string {
   return process.env.STORAGE_UPLOAD_SECRET ?? process.env.JWT_ACCESS_SECRET ?? 'dev-upload-secret';
 }
 
-function signUploadToken(payload: {
-  key: string;
-  contentType: string;
-  expiresAt: number;
-}): string {
+function signUploadToken(payload: { key: string; contentType: string; expiresAt: number }): string {
   const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
   const signature = createHmac('sha256', getUploadSecret()).update(body).digest('base64url');
   return `${body}.${signature}`;

@@ -22,10 +22,7 @@ describe('roles permissions helpers', () => {
 
   it('treats removed staff as inactive even when permission flag is true', () => {
     expect(
-      staffHasPermission(
-        { ...activeStaff, removedAt: new Date() },
-        'can_manage_bookings',
-      ),
+      staffHasPermission({ ...activeStaff, removedAt: new Date() }, 'can_manage_bookings'),
     ).toBe(false);
   });
 

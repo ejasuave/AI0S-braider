@@ -2,7 +2,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-function applyEnvFile(content: string): void {
+/** @internal Exported for unit tests. */
+export function applyEnvFile(content: string, target: NodeJS.ProcessEnv = process.env): void {
   for (const line of content.split('\n')) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith('#')) continue;
@@ -11,7 +12,7 @@ function applyEnvFile(content: string): void {
     if (separator === -1) continue;
 
     const key = trimmed.slice(0, separator).trim();
-    if (!key || process.env[key] !== undefined) continue;
+    if (!key) continue;
 
     let value = trimmed.slice(separator + 1).trim();
     if (
@@ -21,7 +22,11 @@ function applyEnvFile(content: string): void {
       value = value.slice(1, -1);
     }
 
-    process.env[key] = value;
+    // Shell overrides like STRIPE_SECRET_KEY= must not block loading real keys from `.env`.
+    const existing = target[key];
+    if (existing !== undefined && existing !== '') continue;
+
+    target[key] = value;
   }
 }
 

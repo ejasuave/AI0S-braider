@@ -63,7 +63,10 @@ export const updateBusinessPolicyRequestSchema = z
     noShowFeeValue: z.number().nonnegative().nullable().optional(),
   })
   .superRefine((value, ctx) => {
-    if (value.depositType === 'percentage' && (value.depositValue < 1 || value.depositValue > 100)) {
+    if (
+      value.depositType === 'percentage' &&
+      (value.depositValue < 1 || value.depositValue > 100)
+    ) {
       ctx.addIssue({
         code: 'custom',
         message: 'Percentage deposit must be between 1 and 100',
@@ -160,7 +163,11 @@ export const createBusinessServiceRequestSchema = z
     sizeTier: z.string().trim().min(1).max(60).nullable().optional(),
     lengthTier: z.string().trim().min(1).max(60).nullable().optional(),
     basePrice: z.number().positive().max(100_000),
-    estimatedDurationMinutes: z.number().int().positive().max(24 * 60),
+    estimatedDurationMinutes: z
+      .number()
+      .int()
+      .positive()
+      .max(24 * 60),
     hairIncluded: z.boolean().optional(),
   })
   .superRefine((value, ctx) => {
@@ -186,7 +193,12 @@ const businessServiceFieldsSchema = z.object({
   sizeTier: z.string().trim().min(1).max(60).nullable().optional(),
   lengthTier: z.string().trim().min(1).max(60).nullable().optional(),
   basePrice: z.number().positive().max(100_000).optional(),
-  estimatedDurationMinutes: z.number().int().positive().max(24 * 60).optional(),
+  estimatedDurationMinutes: z
+    .number()
+    .int()
+    .positive()
+    .max(24 * 60)
+    .optional(),
   hairIncluded: z.boolean().optional(),
   active: z.boolean().optional(),
 });

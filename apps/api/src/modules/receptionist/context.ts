@@ -4,7 +4,11 @@ import { receptionistTurnOutputSchema } from '@project-braids/shared-types/api';
 import { getEnv } from '../../config/env.js';
 import { messagingRepository } from '../messaging/repository.js';
 import { profileService } from '../profile/service.js';
-import { wasPriceAlreadyQuoted } from './flow.js';
+import {
+  wasPriceAlreadyQuoted,
+  extractStyleFromMessages,
+  parsePreferredDateFromText,
+} from './flow.js';
 
 export type ConversationTurnContext = {
   conversationId: string;
@@ -120,9 +124,7 @@ function getLatestClientMessage(messages: Message[]): string {
   return '';
 }
 
-function getLastAiNextAction(
-  messages: Message[],
-): ReceptionistTurnOutput['next_action'] | null {
+function getLastAiNextAction(messages: Message[]): ReceptionistTurnOutput['next_action'] | null {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index]!;
     if (message.sender !== 'ai' || !message.structuredOutput) continue;
@@ -148,6 +150,32 @@ export async function buildConversationTurnContext(
   const fullProfile = await profileService.getProfileByStylistId(conversation.stylistId);
 
   const mergedSlots = mergeSlotsFromMessages(messages);
+  const fullMessageHistory = messages.map((message) => ({
+    sender: message.sender,
+    content: message.content,
+    createdAt: message.createdAt.toISOString(),
+  }));
+
+  if (!mergedSlots.styleName) {
+    const styleName = extractStyleFromMessages(fullMessageHistory);
+    if (styleName) {
+      mergedSlots.styleName = styleName;
+    }
+  }
+
+  if (!mergedSlots.preferredDate) {
+    const now = new Date();
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index]!;
+      if (message.sender !== 'client') continue;
+      const preferredDate = parsePreferredDateFromText(message.content, now);
+      if (preferredDate) {
+        mergedSlots.preferredDate = preferredDate;
+        break;
+      }
+    }
+  }
+
   const pendingBookingId = mergedSlots.bookingId ?? null;
   const latestClientMessage = getLatestClientMessage(messages);
   const priceAlreadyQuoted = wasPriceAlreadyQuoted(messages, mergedSlots);

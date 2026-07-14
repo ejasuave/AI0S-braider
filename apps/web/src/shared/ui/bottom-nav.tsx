@@ -5,7 +5,9 @@ import { usePathname } from 'next/navigation';
 import type { LucideIcon } from 'lucide-react';
 import { Calendar, CreditCard, Home, Menu, MessageSquare, Search } from 'lucide-react';
 import { useEscalationCount } from '@/features/dashboard/use-escalation-count';
+import { useStylistPermissions } from '@/features/dashboard/use-stylist-permissions';
 import { cn } from '@/shared/lib/cn';
+import { filterStylistNavItems } from '@/shared/ui/bottom-nav-items';
 
 type NavItem = {
   href: string;
@@ -14,14 +16,13 @@ type NavItem = {
   badge?: boolean;
 };
 
-/** Five primary tabs per visual-identity-and-ux.md — avoids overcrowding at 375px. */
-const stylistItems: NavItem[] = [
-  { href: '/stylist', label: 'Home', icon: Home },
-  { href: '/stylist/bookings', label: 'Calendar', icon: Calendar },
-  { href: '/stylist/inbox', label: 'Inbox', icon: MessageSquare, badge: true },
-  { href: '/stylist/payments', label: 'Pay', icon: CreditCard },
-  { href: '/stylist/more', label: 'More', icon: Menu },
-];
+const stylistItemMeta: Record<string, Omit<NavItem, 'href' | 'label'> & { label: string }> = {
+  '/stylist': { label: 'Home', icon: Home },
+  '/stylist/bookings': { label: 'Calendar', icon: Calendar },
+  '/stylist/inbox': { label: 'Inbox', icon: MessageSquare, badge: true },
+  '/stylist/payments': { label: 'Pay', icon: CreditCard },
+  '/stylist/more': { label: 'More', icon: Menu },
+};
 
 const clientItems: NavItem[] = [
   { href: '/client', label: 'Home', icon: Home },
@@ -29,9 +30,25 @@ const clientItems: NavItem[] = [
   { href: '/directory', label: 'Find', icon: Search },
 ];
 
+function stylistNavItems(permissions: ReturnType<typeof useStylistPermissions>): NavItem[] {
+  return filterStylistNavItems(permissions).flatMap((item) => {
+    const meta = stylistItemMeta[item.href];
+    if (!meta) return [];
+    return [
+      {
+        href: item.href,
+        label: meta.label,
+        icon: meta.icon,
+        badge: meta.badge,
+      },
+    ];
+  });
+}
+
 export function BottomNav({ role }: { role: 'stylist' | 'client' }) {
   const pathname = usePathname();
-  const items = role === 'stylist' ? stylistItems : clientItems;
+  const permissions = useStylistPermissions();
+  const items = role === 'stylist' ? stylistNavItems(permissions) : clientItems;
   const escalationCountQuery = useEscalationCount();
   const escalationCount = role === 'stylist' ? (escalationCountQuery.data ?? 0) : 0;
 
@@ -47,7 +64,9 @@ export function BottomNav({ role }: { role: 'stylist' | 'client' }) {
             pathname.startsWith(`${href}/`) ||
             (href === '/stylist/more' &&
               (pathname.startsWith('/stylist/services') ||
-                pathname.startsWith('/stylist/profile')));
+                pathname.startsWith('/stylist/profile') ||
+                pathname.startsWith('/stylist/staff') ||
+                pathname.startsWith('/stylist/reviews')));
 
           const showBadge = Boolean(badge) && escalationCount > 0;
 

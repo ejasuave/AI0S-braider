@@ -2,9 +2,7 @@ import { getEnv } from '../../config/env.js';
 import { ApiError } from '../errors.js';
 import { getRedis } from '../redis.js';
 
-export type RateLimitResult =
-  | { allowed: true }
-  | { allowed: false; retryAfterSeconds: number };
+export type RateLimitResult = { allowed: true } | { allowed: false; retryAfterSeconds: number };
 
 type WindowEntry = {
   count: number;
@@ -29,7 +27,10 @@ export function buildRateLimitKey(namespace: string, value: string): string {
   return `auth:rl:${namespace}:${value}`;
 }
 
-async function incrementRedis(key: string, windowMs: number): Promise<{ count: number; ttlMs: number }> {
+async function incrementRedis(
+  key: string,
+  windowMs: number,
+): Promise<{ count: number; ttlMs: number }> {
   const redis = getRedis();
   const count = await redis.incr(key);
   if (count === 1) {

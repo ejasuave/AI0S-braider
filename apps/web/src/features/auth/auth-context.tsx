@@ -2,8 +2,13 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import type { AuthSessionResponse, AuthUser, OtpPurpose } from '@project-braids/shared-types/api';
-import { ApiClientError, apiFetchData } from '@/shared/lib/api-client';
+import type {
+  AuthSessionResponse,
+  AuthUser,
+  BusinessStaffPermissions,
+  OtpPurpose,
+} from '@project-braids/shared-types/api';
+import { ApiClientError, apiFetchData, refreshAccessToken } from '@/shared/lib/api-client';
 import {
   clearAccessToken,
   clearPendingOtp,
@@ -15,6 +20,8 @@ import {
 type AuthMe = {
   user: AuthUser;
   stylistId: string | null;
+  businessId: string | null;
+  permissions: BusinessStaffPermissions | null;
 };
 
 type RegisterResponse = {
@@ -28,6 +35,8 @@ type OtpVerifyResponse = AuthSessionResponse | { verified: true };
 type AuthContextValue = {
   user: AuthUser | null;
   stylistId: string | null;
+  businessId: string | null;
+  permissions: BusinessStaffPermissions | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   isStylist: boolean;
@@ -53,7 +62,17 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 const AUTH_ME_KEY = ['auth', 'me'] as const;
 
 async function fetchMe(): Promise<AuthMe> {
-  return apiFetchData<AuthMe>('/auth/me');
+  try {
+    return await apiFetchData<AuthMe>('/auth/me');
+  } catch (error) {
+    if (error instanceof ApiClientError && error.status === 401) {
+      const token = await refreshAccessToken();
+      if (token) {
+        return apiFetchData<AuthMe>('/auth/me');
+      }
+    }
+    throw error;
+  }
 }
 
 function isSessionResponse(value: OtpVerifyResponse): value is AuthSessionResponse {
@@ -68,6 +87,8 @@ async function hydrateSession(
   queryClient.setQueryData<AuthMe>(AUTH_ME_KEY, {
     user: session.user,
     stylistId: null,
+    businessId: null,
+    permissions: null,
   });
 
   try {
@@ -82,7 +103,7 @@ async function hydrateSession(
       queryClient.setQueryData(AUTH_ME_KEY, null);
       throw error;
     }
-    return { user: session.user, stylistId: null };
+    return { user: session.user, stylistId: null, businessId: null, permissions: null };
   }
 }
 
@@ -185,11 +206,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<AuthContextValue>(() => {
     const user = meQuery.data?.user ?? null;
     const stylistId = meQuery.data?.stylistId ?? null;
+    const businessId = meQuery.data?.businessId ?? null;
+    const permissions = meQuery.data?.permissions ?? null;
     const resolvingSession = hasToken && !user && (meQuery.isPending || !meQuery.isFetched);
 
     return {
       user,
       stylistId,
+      businessId,
+      permissions,
       isLoading: !bootstrapped || resolvingSession,
       isAuthenticated: Boolean(user),
       isStylist: user?.role === 'stylist_owner' || user?.role === 'stylist_staff',

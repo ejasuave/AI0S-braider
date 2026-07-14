@@ -42,7 +42,9 @@ describe('stylist-profile routes', () => {
     await prisma.businessPolicy.deleteMany({ where: { businessId } });
     await prisma.businessStaff.deleteMany({ where: { businessId } });
     await prisma.business.deleteMany({ where: { ownerUserId } });
-    await prisma.stylistProfile.deleteMany({ where: { userId: { in: [ownerUserId, staffUserId] } } });
+    await prisma.stylistProfile.deleteMany({
+      where: { userId: { in: [ownerUserId, staffUserId] } },
+    });
     await prisma.user.deleteMany({ where: { id: { in: [ownerUserId, staffUserId] } } });
     businessId = '';
     stylistProfileId = '';
@@ -96,7 +98,11 @@ describe('stylist-profile routes', () => {
 
     const app = await buildApp();
     const ownerAuth = { authorization: await bearerFor(ownerUserId, 'stylist_owner') };
-    const create = await app.inject({ method: 'POST', url: '/api/v1/businesses', headers: ownerAuth });
+    const create = await app.inject({
+      method: 'POST',
+      url: '/api/v1/businesses',
+      headers: ownerAuth,
+    });
     businessId = create.json().data.id;
 
     await prisma.businessStaff.create({
@@ -142,8 +148,9 @@ describe('stylist-profile routes', () => {
     expect(response.statusCode).toBe(400);
     expect(response.json().error.message).toContain('service');
 
-    businessId = (await app.inject({ method: 'GET', url: '/api/v1/businesses/me', headers: auth })).json()
-      .data.id;
+    businessId = (
+      await app.inject({ method: 'GET', url: '/api/v1/businesses/me', headers: auth })
+    ).json().data.id;
     await app.close();
   });
 
@@ -167,8 +174,9 @@ describe('stylist-profile routes', () => {
     });
 
     expect(response.statusCode).toBe(400);
-    businessId = (await app.inject({ method: 'GET', url: '/api/v1/businesses/me', headers: auth })).json()
-      .data.id;
+    businessId = (
+      await app.inject({ method: 'GET', url: '/api/v1/businesses/me', headers: auth })
+    ).json().data.id;
     await app.close();
   });
 
@@ -192,8 +200,9 @@ describe('stylist-profile routes', () => {
     });
 
     expect(response.statusCode).toBe(400);
-    businessId = (await app.inject({ method: 'GET', url: '/api/v1/businesses/me', headers: auth })).json()
-      .data.id;
+    businessId = (
+      await app.inject({ method: 'GET', url: '/api/v1/businesses/me', headers: auth })
+    ).json().data.id;
     await app.close();
   });
 
@@ -244,8 +253,9 @@ describe('stylist-profile routes', () => {
 
     expect(response.statusCode).toBe(422);
     expect(response.json().error.code).toBe('INSTAGRAM_ACCOUNT_INELIGIBLE');
-    businessId = (await app.inject({ method: 'GET', url: '/api/v1/businesses/me', headers: auth })).json()
-      .data.id;
+    businessId = (
+      await app.inject({ method: 'GET', url: '/api/v1/businesses/me', headers: auth })
+    ).json().data.id;
     await app.close();
   });
 });

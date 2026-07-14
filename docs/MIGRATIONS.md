@@ -39,6 +39,14 @@ Set `DATABASE_URL` to the **target environment** before running.
 
 If found, the script **fails** and requires explicit review. Override only when the expand/contract sequence is documented in the PR.
 
+### Allowlist for reviewed migrations
+
+After review, add the migration's path (relative to repo root) to
+`scripts/ops/migration-allowlist.txt` with a comment explaining why it is safe.
+Allowlisted files are reported as `NOTE: Reviewed destructive migration` and do
+not fail the check. Never allowlist a migration that has not completed its
+expand/contract sequence on every deployed environment.
+
 ## CI integration
 
 - `ci.yml` runs `check-migrations` on every PR

@@ -101,6 +101,13 @@ const DEFAULT_WORKING_HOURS = {
   sunday: { enabled: false, start: '10:00', end: '16:00' },
 };
 
+function availabilitySearchWindow(): { from: string; to: string } {
+  const from = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+  from.setUTCHours(0, 0, 0, 0);
+  const to = new Date(from.getTime() + 14 * 24 * 60 * 60 * 1000);
+  return { from: from.toISOString(), to: to.toISOString() };
+}
+
 async function main(): Promise<void> {
   console.log('Project Braids — MVP demo\n');
   console.log(`API: ${API}\n`);
@@ -180,9 +187,10 @@ async function main(): Promise<void> {
   const clientToken = await verifyPhone(clientPhone);
 
   console.log('5. Check availability & create hold…');
+  const { from, to } = availabilitySearchWindow();
   const availability = await api<{ slots: Array<{ startTime: string }> }>(
     'GET',
-    `/api/v1/bookings/availability?stylistId=${stylistProfileId}&serviceOfferingId=${offering.id}&limit=5`,
+    `/api/v1/bookings/availability?stylistId=${stylistProfileId}&serviceOfferingId=${offering.id}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&limit=5`,
     undefined,
     clientToken,
   );

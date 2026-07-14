@@ -2,10 +2,7 @@ import { getEnv } from '../../config/env.js';
 import { prisma } from '../../lib/db.js';
 import { ApiError } from '../../lib/errors.js';
 import { encryptAtRest, decryptAtRest } from '../../lib/security/encryption.js';
-import {
-  getInstagramApiClient,
-  InstagramAccountIneligibleError,
-} from './instagram-client.js';
+import { getInstagramApiClient, InstagramAccountIneligibleError } from './instagram-client.js';
 import { PORTFOLIO_ITEM_LIMIT } from './mappers.js';
 
 function encryptionSecret(): string {
@@ -74,7 +71,9 @@ export class InstagramService {
         limit,
       });
 
-      const existingCount = await prisma.portfolioItem.count({ where: { businessId: input.businessId } });
+      const existingCount = await prisma.portfolioItem.count({
+        where: { businessId: input.businessId },
+      });
       let imported = 0;
 
       for (const item of media) {

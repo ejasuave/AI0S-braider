@@ -1,4 +1,9 @@
-import type { ConversationChannel, MessageDeliveryStatus, MessageSender, Prisma } from '@prisma/client';
+import type {
+  ConversationChannel,
+  MessageDeliveryStatus,
+  MessageSender,
+  Prisma,
+} from '@prisma/client';
 import type {
   ConversationDetail,
   ConversationListQuery,
@@ -12,6 +17,7 @@ import { assertInboundMessagingAllowed } from '../../lib/messaging-rate-limit.js
 import { isValidE164Phone, normalizePhoneNumber } from '../../lib/phone.js';
 import { getSmsProvider } from '../../lib/sms/sms-provider.js';
 import { identityService } from '../identity/service.js';
+import { emitConversationEscalated, emitConversationMessage } from '../../lib/domain-events.js';
 import { toConversationDetail, toConversationSummary } from './mappers.js';
 import { messagingRepository } from './repository.js';
 
@@ -77,6 +83,14 @@ export class MessagingService {
       content: input.content.trim(),
       providerMessageId: input.providerMessageId,
     });
+
+    if (conversation.status === 'escalated') {
+      void emitConversationMessage({
+        conversationId: conversation.id,
+        stylistId: input.stylistId,
+        messageId: message.id,
+      }).catch(() => {});
+    }
 
     return {
       conversationId: conversation.id,
@@ -177,8 +191,14 @@ export class MessagingService {
     );
   }
 
-  async getClientConversation(clientId: string, conversationId: string): Promise<ConversationDetail> {
-    const conversation = await messagingRepository.getConversationForClient(clientId, conversationId);
+  async getClientConversation(
+    clientId: string,
+    conversationId: string,
+  ): Promise<ConversationDetail> {
+    const conversation = await messagingRepository.getConversationForClient(
+      clientId,
+      conversationId,
+    );
     if (!conversation) {
       throw ApiError.notFound('Conversation not found');
     }
@@ -338,6 +358,7 @@ export class MessagingService {
     }
 
     await messagingRepository.escalateConversation({ conversationId, reason });
+    void emitConversationEscalated({ conversationId, stylistId, reason }).catch(() => {});
     await this.notifyStylistOfEscalation(stylistId, reason);
 
     await this.sendOutboundMessage({
@@ -449,6 +470,11 @@ export class MessagingService {
       modelConfidence: modelContext?.modelConfidence,
       modelNextAction: modelContext?.modelNextAction,
     });
+    void emitConversationEscalated({
+      conversationId,
+      stylistId: conversation.stylistId,
+      reason,
+    }).catch(() => {});
     await this.notifyStylistOfEscalation(conversation.stylistId, reason);
 
     await this.sendOutboundMessage({

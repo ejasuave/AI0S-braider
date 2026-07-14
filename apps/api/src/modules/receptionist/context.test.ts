@@ -1,10 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { Message } from '@prisma/client';
 import type { ReceptionistTurnOutput } from '@project-braids/shared-types/api';
-import {
-  mergeSlotsFromMessages,
-  selectMessagesForPrompt,
-} from './context.js';
+import { mergeSlotsFromMessages, selectMessagesForPrompt } from './context.js';
+import { extractStyleFromMessages } from './flow.js';
 
 function aiMessage(output: Partial<ReceptionistTurnOutput>, index: number): Message {
   const full: ReceptionistTurnOutput = {
@@ -38,14 +36,17 @@ describe('mergeSlotsFromMessages', () => {
 
   it('clears stale pricing/hold slots when style changes mid-conversation', () => {
     const merged = mergeSlotsFromMessages([
-      aiMessage({
-        extracted_slots: {
-          styleName: 'Knotless braids',
-          serviceOfferingId: '11111111-1111-4111-8111-111111111111',
-          selectedSlotIndex: 2,
-          bookingId: '22222222-2222-4222-8222-222222222222',
+      aiMessage(
+        {
+          extracted_slots: {
+            styleName: 'Knotless braids',
+            serviceOfferingId: '11111111-1111-4111-8111-111111111111',
+            selectedSlotIndex: 2,
+            bookingId: '22222222-2222-4222-8222-222222222222',
+          },
         },
-      }, 0),
+        0,
+      ),
       aiMessage({ extracted_slots: { styleName: 'Cornrows' } }, 1),
     ]);
     expect(merged.styleName).toBe('Cornrows');
@@ -65,5 +66,20 @@ describe('selectMessagesForPrompt', () => {
     expect(selected).toHaveLength(12);
     expect(selected[0]?.content).toBe('message-8');
     expect(selected[11]?.content).toBe('message-19');
+  });
+});
+
+describe('conversation context slot enrichment', () => {
+  it('loses style from client text when only truncated messages are searched', () => {
+    const messages = Array.from({ length: 15 }, (_, index) => ({
+      sender: 'client' as const,
+      content: index === 0 ? 'I want box braids please' : `follow up ${index}`,
+      createdAt: `2026-07-10T10:${String(index).padStart(2, '0')}:00.000Z`,
+    }));
+
+    expect(extractStyleFromMessages(messages)).toBe('Box braids');
+
+    const truncated = selectMessagesForPrompt(messages, 12);
+    expect(extractStyleFromMessages(truncated)).toBeUndefined();
   });
 });

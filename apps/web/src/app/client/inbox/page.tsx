@@ -42,10 +42,7 @@ export default function ClientInboxPage() {
 
   return (
     <PageShell>
-      <PageHeader
-        title="Messages"
-        subtitle="SMS threads with stylists you have contacted."
-      />
+      <PageHeader title="Messages" subtitle="SMS threads with stylists you have contacted." />
 
       <div className="mt-6 space-y-3" aria-live="polite">
         {conversationsQuery.isLoading ? (

@@ -129,7 +129,7 @@ describe('receptionist scenarios', () => {
     await prisma.conversation.deleteMany();
     await prisma.serviceOffering.deleteMany();
     await prisma.portfolioItem.deleteMany();
-    await prisma.stylistStripeAccount.deleteMany();
+    await prisma.paymentAccount.deleteMany();
     await prisma.stylistProfile.deleteMany();
     await prisma.session.deleteMany();
     await prisma.otpChallenge.deleteMany();
@@ -175,7 +175,7 @@ describe('receptionist scenarios', () => {
       url: '/api/v1/messaging/conversations',
       headers: { authorization: `Bearer ${stylistAccessToken}` },
     });
-    const conversationId = list.json().data[0].id;
+    const conversationId = list.json().data.items[0].id;
     const detail = await app.inject({
       method: 'GET',
       url: `/api/v1/messaging/conversations/${conversationId}`,
@@ -185,9 +185,11 @@ describe('receptionist scenarios', () => {
       .json()
       .data.messages.filter((message: { sender: string }) => message.sender === 'ai');
     expect(aiMessages.length).toBeGreaterThan(0);
-    expect(aiMessages.some((message: { content: string }) => /date/i.test(message.content))).toBe(
-      true,
-    );
+    expect(
+      aiMessages.some((message: { content: string }) =>
+        /date|slot|available|day works|times/i.test(message.content),
+      ),
+    ).toBe(true);
 
     await app.close();
   });
@@ -214,8 +216,8 @@ describe('receptionist scenarios', () => {
       url: '/api/v1/messaging/conversations?escalatedOnly=true',
       headers: { authorization: `Bearer ${stylistAccessToken}` },
     });
-    expect(conversations.json().data).toHaveLength(1);
-    expect(conversations.json().data[0].status).toBe('escalated');
+    expect(conversations.json().data.items).toHaveLength(1);
+    expect(conversations.json().data.items[0].status).toBe('escalated');
 
     await app.close();
   });

@@ -20,7 +20,12 @@ import { DEFAULT_WORKING_HOURS } from '@project-braids/shared-types/api';
 import { prisma } from '../../lib/db.js';
 import { ApiError } from '../../lib/errors.js';
 import { getStorageProvider } from '../../lib/storage/index.js';
-import { getBaseAvailabilityRules, baseRulesToLegacyWorkingHours } from '../stylist-profile/availability.js';
+import {
+  getBaseAvailabilityRules,
+  baseRulesToLegacyWorkingHours,
+  legacyWorkingHoursToRows,
+} from '../stylist-profile/availability.js';
+import { stylistProfileService } from '../stylist-profile/service.js';
 import {
   ensureDefaultBusinessPolicy,
   getBusinessPolicyByStylistId,
@@ -53,6 +58,7 @@ export class ProfileService {
   }
 
   async getPublicBookingPage(stylistId: string): Promise<{
+    businessId: string | null;
     stylistId: string;
     businessName: string;
     locationArea: string | null;
@@ -66,6 +72,7 @@ export class ProfileService {
     const profile = await getStylistProfileById(stylistId);
     const offerings = await listActiveServiceOfferings(stylistId);
     return {
+      businessId: profile.businessId,
       stylistId: profile.id,
       businessName: profile.businessName,
       locationArea: profile.locationArea,
@@ -91,6 +98,14 @@ export class ProfileService {
       });
     }
 
+    if (input.workingHours !== undefined && existing.businessId) {
+      const rows = legacyWorkingHoursToRows(input.workingHours);
+      if (rows.length === 0) {
+        throw ApiError.validation('At least one enabled working day is required');
+      }
+      await stylistProfileService.replaceWorkingHours(existing.businessId, rows);
+    }
+
     const profile = await prisma.stylistProfile.update({
       where: { id: stylistId },
       data: {
@@ -104,7 +119,9 @@ export class ProfileService {
           ? { cancellationPolicy: input.cancellationPolicy }
           : {}),
         ...(input.depositPolicy !== undefined ? { depositPolicy: input.depositPolicy } : {}),
-        ...(input.workingHours !== undefined ? { workingHours: input.workingHours } : {}),
+        ...(input.workingHours !== undefined && !existing.businessId
+          ? { workingHours: input.workingHours }
+          : {}),
         ...(input.bufferMinutes !== undefined ? { bufferMinutes: input.bufferMinutes } : {}),
         ...(input.onboardingStatus !== undefined
           ? { onboardingStatus: input.onboardingStatus }
@@ -520,10 +537,8 @@ export class ProfileService {
   }> {
     const profile = await getStylistProfileById(stylistId);
     const legacyWorkingHours =
-      (profile.workingHours as Record<
-        Weekday,
-        { enabled: boolean; start: string; end: string }
-      >) ?? DEFAULT_WORKING_HOURS;
+      (profile.workingHours as Record<Weekday, { enabled: boolean; start: string; end: string }>) ??
+      DEFAULT_WORKING_HOURS;
 
     if (profile.businessId) {
       const from = new Date().toISOString().slice(0, 10);

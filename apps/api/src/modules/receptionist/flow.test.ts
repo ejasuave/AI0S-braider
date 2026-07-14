@@ -39,7 +39,8 @@ const repeatPriceOutput = {
   extracted_slots: { styleName: 'Box braids' },
   confidence: 0.9,
   next_action: 'confirm_style_price' as const,
-  client_message: 'Great — I can help with Box braids. Let me confirm pricing and find times for you.',
+  client_message:
+    'Great — I can help with Box braids. Let me confirm pricing and find times for you.',
 };
 
 describe('advanceBookingFlow', () => {
@@ -52,7 +53,11 @@ describe('advanceBookingFlow', () => {
         lastAiNextAction: 'confirm_style_price',
         mergedSlots: { styleName: 'Box braids', serviceOfferingId: 'off-1' },
         messages: [
-          { sender: 'client', content: 'box braids on saturday', createdAt: '2026-07-11T09:00:00.000Z' },
+          {
+            sender: 'client',
+            content: 'box braids on saturday',
+            createdAt: '2026-07-11T09:00:00.000Z',
+          },
           {
             sender: 'ai',
             content: 'Box braids: £20, about 90 mins.',

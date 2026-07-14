@@ -8,6 +8,7 @@ import {
   shiftWeekAnchor,
   type WeekDay,
 } from '@/shared/lib/week-dates';
+import { statusDotClass } from '@/features/dashboard/booking-status-colors';
 import { cn } from '@/shared/lib/cn';
 import { Button } from '@/shared/ui/button';
 
@@ -58,7 +59,7 @@ export function WeekCalendar({
           <DayPill
             key={day.dateKey}
             day={day}
-            count={bookings.filter((b) => bookingOnDateKey(b.startTime, day.dateKey)).length}
+            bookings={bookings.filter((b) => bookingOnDateKey(b.startTime, day.dateKey))}
             selected={selectedDateKey === day.dateKey}
             onSelect={() => onSelectDateKey(day.dateKey)}
           />
@@ -87,15 +88,17 @@ function formatWeekRangeLabel(days: WeekDay[]): string {
 
 function DayPill({
   day,
-  count,
+  bookings,
   selected,
   onSelect,
 }: {
   day: WeekDay;
-  count: number;
+  bookings: Booking[];
   selected: boolean;
   onSelect: () => void;
 }) {
+  const statuses = [...new Set(bookings.map((b) => b.status))].slice(0, 3);
+
   return (
     <button
       type="button"
@@ -117,13 +120,17 @@ function DayPill({
         {day.weekdayLabel}
       </span>
       <span className="text-sm font-semibold text-ink">{day.dayLabel}</span>
-      {count > 0 ? (
-        <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-primary" aria-hidden />
-      ) : (
-        <span className="mt-0.5 h-1.5 w-1.5" aria-hidden />
-      )}
+      <span className="mt-0.5 flex h-1.5 items-center gap-0.5" aria-hidden>
+        {statuses.length > 0 ? (
+          statuses.map((status) => (
+            <span key={status} className={cn('h-1.5 w-1.5 rounded-full', statusDotClass(status))} />
+          ))
+        ) : (
+          <span className="h-1.5 w-1.5" />
+        )}
+      </span>
       <span className="sr-only">
-        {count} booking{count === 1 ? '' : 's'}
+        {bookings.length} booking{bookings.length === 1 ? '' : 's'}
         {day.isToday ? ', today' : ''}
       </span>
     </button>

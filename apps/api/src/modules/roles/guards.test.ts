@@ -191,7 +191,12 @@ describe('roles guards and staff lifecycle', () => {
       data: {
         businessId,
         userId: staffUser.id,
-        permissions: { can_manage_bookings: true, can_manage_pricing: false, can_view_payouts: false, can_manage_staff: false },
+        permissions: {
+          can_manage_bookings: true,
+          can_manage_pricing: false,
+          can_view_payouts: false,
+          can_manage_staff: false,
+        },
         acceptedAt: new Date(),
         removedAt: new Date(),
       },

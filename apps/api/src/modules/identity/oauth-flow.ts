@@ -77,7 +77,10 @@ export async function startOAuthFlow(
 }
 
 export async function handleOAuthCallback(
-  request: FastifyRequest<{ Params: { provider: string }; Querystring: { code?: string; state?: string } }>,
+  request: FastifyRequest<{
+    Params: { provider: string };
+    Querystring: { code?: string; state?: string };
+  }>,
   reply: FastifyReply,
 ): Promise<void> {
   await assertRateLimit(

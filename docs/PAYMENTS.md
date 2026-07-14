@@ -1,57 +1,47 @@
 # Payments (Chapter 9)
 
-Stripe Connect onboarding, deposit PaymentIntents, and idempotent webhook handling.
+Stripe Connect onboarding, deposit PaymentIntents, refunds/forfeiture, payouts reporting, and dispute evidence.
 
-## Scope (MVP)
+## Scope
 
-| Prompt | Status   | Notes                                                                          |
-| ------ | -------- | ------------------------------------------------------------------------------ |
-| 9.1    | Done     | `POST /api/v1/payments/connect/onboard`, `GET /connect/status`                 |
-| 9.2    | Done     | `POST /api/v1/payments/deposits` — destination charge on connected account     |
-| 9.3    | Deferred | Refund/forfeiture on cancellation (V2 follow-up)                               |
-| 9.4    | Done     | `POST /api/v1/webhooks/stripe` — signature verify + `processed_webhook_events` |
-| 9.5    | Deferred | Payout scheduling                                                              |
-| 9.6    | Deferred | Chargeback evidence                                                            |
+| Prompt | Status | Notes                                                           |
+| ------ | ------ | --------------------------------------------------------------- |
+| 9.1    | Done   | `payment_accounts`, `/businesses/me/stripe/*`, `isPaymentReady` |
+| 9.2    | Done   | `createDepositCharge`, `/bookings/:id/deposit`, capture webhook |
+| 9.3    | Done   | `processRefund`, domain events, `/bookings/:id/partial-refund`  |
+| 9.4    | Done   | Webhook hardening, reconcile script                             |
+| 9.5    | Done   | `/businesses/me/payouts`, `/businesses/me/income-report`        |
+| 9.6    | Done   | `policy_snapshot`, dispute evidence packages                    |
 
 ## Flow
 
-1. Stylist completes Stripe Connect onboarding (`/payments/connect/onboard` → hosted link).
-2. Client creates a booking hold (Ch.7).
-3. Client requests deposit payment (`POST /payments/deposits`) → receives `clientSecret` for Stripe-hosted UI.
-4. Stripe sends `payment_intent.succeeded` webhook → payment `captured`, booking `held` → `confirmed`, `deposit_status` → `paid`.
+1. Stylist completes Stripe Connect (`POST /businesses/me/stripe/onboarding-link`).
+2. Client creates a hold (gated by `isPaymentReady` when deposit > 0).
+3. Client pays deposit (`POST /bookings/:id/deposit` or legacy `/payments/deposits`).
+4. `payment_intent.succeeded` webhook **or** `POST /payments/deposits/:bookingId/sync` after Stripe.js → booking confirmed.
+5. Cancel/no-show → domain event → full refund or forfeit per Ch.7 policy.
+
+## Charge type
+
+**Destination charges** — funds route to the stylist's connected account. See `docs/BUSINESS_MODEL_NOTES.md`.
 
 ## Local development
 
-When `STRIPE_SECRET_KEY` is unset, the API uses `MockStripeProvider`:
+Mock Stripe when `STRIPE_SECRET_KEY` is unset. Use `POST /payments/deposits/:bookingId/simulate-success` in dev.
 
-- Connect onboarding URLs are mock redirects.
-- Deposit PaymentIntents use `pi_mock_*` IDs.
-- `POST /payments/deposits/:bookingId/simulate-success` (non-production, mock Stripe only) creates a pending deposit if needed, provisions mock Connect when missing, then captures without Stripe.
-- Webhook tests sign payloads with `mock_<hmac>` using `STRIPE_WEBHOOK_SECRET` or `mock_webhook_secret`.
-
-Set real Stripe test keys for sandbox integration:
-
-```env
-STRIPE_SECRET_KEY=sk_test_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-STRIPE_CONNECT_RETURN_URL=http://localhost:3000/stylist/payments
-STRIPE_CONNECT_REFRESH_URL=http://localhost:3000/stylist/payments
-```
+**Real card testing locally:** set matching **test** keys on API and web (`sk_test_` + `pk_test_`). After paying with test card `4242…`, the web app calls `/payments/deposits/:id/sync` so bookings confirm without Stripe CLI. For production-like webhook testing, run `stripe listen --forward-to localhost:3001/api/v1/webhooks/stripe` and set `STRIPE_WEBHOOK_SECRET`. See [STRIPE_LIVE_SETUP.md](./STRIPE_LIVE_SETUP.md).
 
 ## Tables
 
-- `stylist_stripe_accounts` — Connect account linkage per stylist profile
-- `payments` — one deposit PaymentIntent per booking
-- `processed_webhook_events` — idempotency ledger (Ch.2.6)
+- `payment_accounts` — Stripe Connect per business
+- `payments` — deposit PaymentIntent per booking
+- `dispute_evidence_packages` — assembled dispute evidence
+- `processed_webhook_events` — idempotency ledger
 
-## Module boundaries
+## Reconciliation
 
-- **Owns:** `payments`, `stylist_stripe_accounts`, Stripe webhook handling for payment events
-- **Calls:** `bookingService.confirmBookingAfterDeposit()` on successful capture (no direct booking table writes elsewhere)
-- **Does not own:** pricing/deposit policy (profile module), slot holds (booking module)
+```bash
+pnpm --filter @project-braids/api exec tsx src/scripts/reconcile-payments.ts
+```
 
-## Security
-
-- No card data on platform servers — client secret / Stripe-hosted elements only.
-- Webhook signature verified on every request; unsigned requests rejected.
-- Payout bank details live in Stripe Connect only.
+See also `docs/PAYMENTS_INTEGRATION.md`.

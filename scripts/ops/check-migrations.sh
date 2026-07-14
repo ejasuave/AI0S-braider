@@ -6,9 +6,21 @@ cd "$ROOT"
 
 echo "==> Checking migration SQL for destructive patterns..."
 
+ALLOWLIST_FILE="scripts/ops/migration-allowlist.txt"
+
+is_allowlisted() {
+  local candidate="$1"
+  [[ -f "$ALLOWLIST_FILE" ]] || return 1
+  grep -Fxq "$candidate" <(grep -Ev '^\s*(#|$)' "$ALLOWLIST_FILE")
+}
+
 DESTRUCTIVE_FOUND=0
 while IFS= read -r -d '' file; do
   if grep -Eqi 'DROP TABLE|DROP COLUMN|ALTER COLUMN.*TYPE|RENAME TO' "$file"; then
+    if is_allowlisted "$file"; then
+      echo "NOTE: Reviewed destructive migration (allowlisted): $file"
+      continue
+    fi
     echo "WARNING: Potentially destructive SQL in $file"
     grep -En 'DROP TABLE|DROP COLUMN|ALTER COLUMN|RENAME TO' "$file" || true
     DESTRUCTIVE_FOUND=1

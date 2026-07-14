@@ -3,7 +3,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { ServiceOffering, StyleCategory } from '@project-braids/shared-types/api';
+import { useAuth } from '@/features/auth/auth-context';
 import { apiFetchData, getApiErrorMessage } from '@/shared/lib/api-client';
+import { serviceBookingUrl, stylistBookingUrl } from '@/shared/lib/booking-links';
 import { formatMoney } from '@/shared/lib/format';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
@@ -13,6 +15,7 @@ import { StatusBadge } from '@/shared/ui/status-badge';
 import { EmptyState } from '@/shared/ui/empty-state';
 
 export default function StylistServicesPage() {
+  const auth = useAuth();
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [styleCategoryId, setStyleCategoryId] = useState('');
@@ -23,6 +26,7 @@ export default function StylistServicesPage() {
   const [duration, setDuration] = useState('120');
   const [formError, setFormError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copiedMainLink, setCopiedMainLink] = useState(false);
 
   const categoriesQuery = useQuery({
     queryKey: ['style-categories'],
@@ -35,15 +39,31 @@ export default function StylistServicesPage() {
   });
 
   const selectedCategory = categoriesQuery.data?.find((c) => c.id === styleCategoryId);
+  const stylistId = auth.stylistId ?? servicesQuery.data?.[0]?.stylistId ?? '';
 
-  function bookingUrl(service: ServiceOffering): string {
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
-    return `${origin}/book?stylistId=${service.stylistId}&serviceOfferingId=${service.id}`;
+  function mainBookingLink(): string {
+    return stylistId ? stylistBookingUrl(stylistId) : '';
+  }
+
+  function perServiceBookingLink(service: ServiceOffering): string {
+    return serviceBookingUrl(service.stylistId, service.id);
+  }
+
+  async function copyMainBookingLink() {
+    const url = mainBookingLink();
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedMainLink(true);
+      setTimeout(() => setCopiedMainLink(false), 2000);
+    } catch {
+      setCopiedMainLink(false);
+    }
   }
 
   async function copyBookingLink(service: ServiceOffering) {
     try {
-      await navigator.clipboard.writeText(bookingUrl(service));
+      await navigator.clipboard.writeText(perServiceBookingLink(service));
       setCopiedId(service.id);
       setTimeout(() => setCopiedId(null), 2000);
     } catch {
@@ -56,9 +76,7 @@ export default function StylistServicesPage() {
       apiFetchData<ServiceOffering>('/businesses/me/services', {
         method: 'POST',
         json: {
-          ...(styleCategoryId
-            ? { styleCategoryId }
-            : { customStyleName: customStyleName.trim() }),
+          ...(styleCategoryId ? { styleCategoryId } : { customStyleName: customStyleName.trim() }),
           sizeTier: sizeTier || null,
           lengthTier: lengthTier || null,
           basePrice: Number(basePrice),
@@ -112,6 +130,21 @@ export default function StylistServicesPage() {
       />
 
       <div className="mt-6 space-y-4">
+        {stylistId && services.length > 0 ? (
+          <Card className="space-y-3">
+            <div>
+              <h2 className="font-medium text-ink">Client booking link</h2>
+              <p className="mt-1 text-sm text-ink-muted">
+                Share one link — clients choose from all your active services, then pick a time.
+              </p>
+            </div>
+            <p className="break-all text-xs text-ink-muted">{mainBookingLink()}</p>
+            <Button variant="secondary" fullWidth onClick={() => void copyMainBookingLink()}>
+              {copiedMainLink ? 'Copied!' : 'Copy booking link'}
+            </Button>
+          </Card>
+        ) : null}
+
         <Button fullWidth onClick={() => setShowForm((v) => !v)}>
           {showForm ? 'Cancel' : 'Add service'}
         </Button>
@@ -230,14 +263,14 @@ export default function StylistServicesPage() {
                     tone={service.active ? 'success' : 'neutral'}
                   />
                 </div>
-                <p className="break-all text-xs text-ink-muted">{bookingUrl(service)}</p>
+                <p className="break-all text-xs text-ink-muted">{perServiceBookingLink(service)}</p>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <Button
                     variant="secondary"
                     fullWidth
                     onClick={() => void copyBookingLink(service)}
                   >
-                    {copiedId === service.id ? 'Copied!' : 'Copy link'}
+                    {copiedId === service.id ? 'Copied!' : 'Copy direct link'}
                   </Button>
                   <Button
                     variant="secondary"

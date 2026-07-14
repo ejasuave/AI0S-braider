@@ -1,11 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ReceptionistTurnOutput } from '@project-braids/shared-types/api';
 import { ESCALATION_REASONS } from '@project-braids/shared-types/api';
-import {
-  detectPromptInjection,
-  isAmbiguousSlotSelection,
-  shouldEscalate,
-} from './escalation.js';
+import { detectPromptInjection, isAmbiguousSlotSelection, shouldEscalate } from './escalation.js';
 
 function turn(partial: Partial<ReceptionistTurnOutput>): ReceptionistTurnOutput {
   return {
@@ -42,9 +38,12 @@ describe('shouldEscalate', () => {
   });
 
   it('escalates ambiguous slot selection with standard reason', () => {
-    const decision = shouldEscalate(turn({ intent: 'slot_selection', next_action: 'create_hold' }), {
-      ambiguousSlotSelection: true,
-    });
+    const decision = shouldEscalate(
+      turn({ intent: 'slot_selection', next_action: 'create_hold' }),
+      {
+        ambiguousSlotSelection: true,
+      },
+    );
     expect(decision.escalate).toBe(true);
     expect(decision.reason).toBe(ESCALATION_REASONS.ambiguousSlotSelection);
   });

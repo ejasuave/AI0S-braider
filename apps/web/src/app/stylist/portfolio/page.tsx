@@ -108,7 +108,9 @@ export default function StylistPortfolioPage() {
             {items.map((item) => (
               <Card key={item.id} className="space-y-2 p-2">
                 <img
-                  src={item.imageUrl.startsWith('http') ? item.imageUrl : `${API_BASE}${item.imageUrl}`}
+                  src={
+                    item.imageUrl.startsWith('http') ? item.imageUrl : `${API_BASE}${item.imageUrl}`
+                  }
                   alt="Portfolio"
                   className="aspect-square w-full rounded-md object-cover"
                 />

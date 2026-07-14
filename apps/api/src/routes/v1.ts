@@ -13,9 +13,14 @@ import { profileRoutes } from '../modules/profile/routes.js';
 import { profileUploadRoutes } from '../modules/profile/upload.routes.js';
 import { bookingRoutes } from '../modules/booking/routes.js';
 import { paymentRoutes, stripeWebhookRoutes } from '../modules/payments/routes.js';
+import { clientPreferencesRoutes } from '../modules/client-preferences/routes.js';
 import { messagingRoutes } from '../modules/messaging/routes.js';
 import { directoryRoutes } from '../modules/directory/routes.js';
 import { twilioWebhookRoutes } from '../modules/messaging/twilio-webhook.js';
+import { paymentBusinessRoutes } from '../modules/payments/business.routes.js';
+import { calendarBusinessRoutes, googleCalendarWebhookRoutes } from '../modules/calendar/routes.js';
+import { realtimeRoutes } from '../modules/realtime/routes.js';
+import '../modules/realtime/events.js';
 
 export const v1Routes: FastifyPluginAsync = async (app) => {
   await app.register(identityRoutes, { prefix: '/auth' });
@@ -23,6 +28,8 @@ export const v1Routes: FastifyPluginAsync = async (app) => {
   await app.register(rolesAccessRoutes, { prefix: '/access' });
   await app.register(rolesRoutes);
   await app.register(stylistProfileRoutes, { prefix: '/businesses' });
+  await app.register(calendarBusinessRoutes, { prefix: '/businesses' });
+  await app.register(paymentBusinessRoutes, { prefix: '/businesses' });
   await app.register(styleCategoryRoutes, { prefix: '/style-categories' });
   await app.register(storageRoutes, { prefix: '/storage' });
   await app.register(profileRoutes, { prefix: '/profile' });
@@ -30,11 +37,14 @@ export const v1Routes: FastifyPluginAsync = async (app) => {
   await app.register(bookingRoutes, { prefix: '/bookings' });
   await app.register(paymentRoutes, { prefix: '/payments' });
   await app.register(messagingRoutes, { prefix: '/messaging' });
+  await app.register(clientPreferencesRoutes, { prefix: '/clients' });
+  await app.register(realtimeRoutes, { prefix: '/realtime' });
   await app.register(directoryRoutes, { prefix: '/directory' });
   await app.register(systemRoutes, { prefix: '/system' });
   await app.register(webhookRoutes, { prefix: '/webhooks' });
   await app.register(stripeWebhookRoutes, { prefix: '/webhooks' });
   await app.register(twilioWebhookRoutes, { prefix: '/webhooks' });
+  await app.register(googleCalendarWebhookRoutes, { prefix: '/webhooks' });
 
   app.get('/ping', async (request, reply) => {
     const parsed = paginationParamsSchema.safeParse(request.query);

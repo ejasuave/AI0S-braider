@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { bookingOnDateKey, getWeekDays, shiftWeekAnchor, todayDateKey } from './week-dates';
+import {
+  bookingOnDateKey,
+  getMultiWeekRangeIso,
+  getWeekDays,
+  shiftWeekAnchor,
+  todayDateKey,
+} from './week-dates';
 
 describe('week-dates', () => {
   it('returns seven days starting Monday', () => {
@@ -27,5 +33,13 @@ describe('week-dates', () => {
     const anchor = new Date('2026-07-13T12:00:00');
     const next = shiftWeekAnchor(anchor, 1);
     expect(getWeekDays(next)[0]?.dateKey).toBe('2026-07-20');
+  });
+
+  it('extends fetch range across multiple weeks', () => {
+    const anchor = new Date('2026-07-12T12:00:00'); // Sunday
+    const range = getMultiWeekRangeIso(anchor, 2);
+    const fromMs = new Date(range.from).getTime();
+    const toMs = new Date(range.to).getTime();
+    expect(toMs - fromMs).toBeGreaterThan(13 * 24 * 60 * 60 * 1000);
   });
 });

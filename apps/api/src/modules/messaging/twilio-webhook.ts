@@ -9,7 +9,7 @@ import {
 } from '../../lib/sms/twilio-sms-provider.js';
 import { processWebhookIdempotently } from '../../lib/webhooks/idempotent-handler.js';
 import { normalizePhoneNumber } from '../../lib/phone.js';
-import { notificationsService } from '../notifications/service.js';
+import { clientPreferencesService } from '../client-preferences/service.js';
 import { isStartKeyword, isStopKeyword } from '../notifications/opt-out.js';
 import { getSmsProvider } from '../../lib/sms/sms-provider.js';
 import { receptionistService } from '../receptionist/service.js';
@@ -75,13 +75,13 @@ export const twilioWebhookRoutes: FastifyPluginAsync = async (app) => {
         const normalizedFrom = normalizePhoneNumber(from);
 
         if (isStopKeyword(body)) {
-          const reply = await notificationsService.handleStopKeyword(normalizedFrom);
+          const reply = await clientPreferencesService.handleStopKeyword(normalizedFrom);
           await getSmsProvider().send({ to: normalizedFrom, from: to, body: reply });
           return { type: 'stop' as const };
         }
 
         if (isStartKeyword(body)) {
-          const reply = await notificationsService.handleStartKeyword(normalizedFrom);
+          const reply = await clientPreferencesService.handleStartKeyword(normalizedFrom);
           await getSmsProvider().send({ to: normalizedFrom, from: to, body: reply });
           return { type: 'start' as const };
         }

@@ -28,9 +28,7 @@ function redactValue(value: unknown): unknown {
 }
 
 /** Ch.1.8 — redact known-sensitive fields before logging (tested in logger.test.ts). */
-export function redactSensitiveLogFields(
-  input: Record<string, unknown>,
-): Record<string, unknown> {
+export function redactSensitiveLogFields(input: Record<string, unknown>): Record<string, unknown> {
   return redactObject(input);
 }
 

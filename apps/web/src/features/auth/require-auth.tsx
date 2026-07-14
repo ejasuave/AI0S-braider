@@ -1,8 +1,10 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAuth } from '@/features/auth/auth-context';
+import { refreshAccessToken } from '@/shared/lib/api-client';
+import { getAccessToken } from '@/shared/lib/auth-storage';
 
 export function RequireAuth({
   children,
@@ -13,11 +15,25 @@ export function RequireAuth({
 }) {
   const auth = useAuth();
   const router = useRouter();
+  const refreshAttemptedRef = useRef(false);
 
   useEffect(() => {
     if (auth.isLoading) return;
 
     if (!auth.isAuthenticated) {
+      if (!refreshAttemptedRef.current && getAccessToken()) {
+        refreshAttemptedRef.current = true;
+        void (async () => {
+          const token = await refreshAccessToken();
+          if (token) {
+            await auth.refreshMe();
+            return;
+          }
+          router.replace('/login');
+        })();
+        return;
+      }
+
       router.replace('/login');
       return;
     }
@@ -30,7 +46,15 @@ export function RequireAuth({
     if (role === 'client' && !auth.isClient) {
       router.replace('/stylist');
     }
-  }, [auth.isAuthenticated, auth.isClient, auth.isLoading, auth.isStylist, role, router]);
+  }, [
+    auth.isAuthenticated,
+    auth.isClient,
+    auth.isLoading,
+    auth.isStylist,
+    auth.refreshMe,
+    role,
+    router,
+  ]);
 
   if (auth.isLoading) {
     return (

@@ -7,11 +7,7 @@ import {
 } from '@project-braids/shared-types/api';
 import { sendData } from '../../lib/http.js';
 import { authenticate, type AuthenticatedRequest } from '../identity/middleware.js';
-import {
-  requireAdmin,
-  requireBusinessPermission,
-  requireRole,
-} from './guards.js';
+import { requireAdmin, requireBusinessPermission, requireRole } from './guards.js';
 import { staffService } from './staff.service.js';
 import { impersonationService } from './impersonation.service.js';
 
@@ -82,17 +78,21 @@ export const rolesRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 
-  app.post('/staff/invitations/:invitationId/accept', { preHandler: authenticate }, async (request, reply) => {
-    const auth = (request as AuthenticatedRequest).auth;
-    const { invitationId } = request.params as { invitationId: string };
-    const staff = await staffService.acceptInvitation({
-      invitationId,
-      userId: auth.user.id,
-      email: auth.user.email,
-      phoneNumber: auth.user.phoneNumber,
-    });
-    sendData(reply, { staff });
-  });
+  app.post(
+    '/staff/invitations/:invitationId/accept',
+    { preHandler: authenticate },
+    async (request, reply) => {
+      const auth = (request as AuthenticatedRequest).auth;
+      const { invitationId } = request.params as { invitationId: string };
+      const staff = await staffService.acceptInvitation({
+        invitationId,
+        userId: auth.user.id,
+        email: auth.user.email,
+        phoneNumber: auth.user.phoneNumber,
+      });
+      sendData(reply, { staff });
+    },
+  );
 
   app.post(
     '/admin/impersonate/:targetUserId',
@@ -143,8 +143,12 @@ export const rolesRoutes: FastifyPluginAsync = async (app) => {
 
 /** Guard verification routes (Ch.4.2). */
 export const rolesAccessRoutes: FastifyPluginAsync = async (app) => {
-  app.get('/stylist-only', { preHandler: [requireRole('stylist_owner', 'stylist_staff')] }, async (request, reply) => {
-    const auth = (request as AuthenticatedRequest).auth;
-    sendData(reply, { role: auth.user.role, scope: 'stylist_only' });
-  });
+  app.get(
+    '/stylist-only',
+    { preHandler: [requireRole('stylist_owner', 'stylist_staff')] },
+    async (request, reply) => {
+      const auth = (request as AuthenticatedRequest).auth;
+      sendData(reply, { role: auth.user.role, scope: 'stylist_only' });
+    },
+  );
 };

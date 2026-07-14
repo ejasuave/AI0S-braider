@@ -3,7 +3,10 @@ import type { OpsStatusResponse } from '@project-braids/shared-types/api';
 import { getEnv } from '../../config/env.js';
 import { ApiError } from '../../lib/errors.js';
 
-export function requireOpsToken(request: FastifyRequest, _reply: FastifyReply): void {
+export async function requireOpsToken(
+  request: FastifyRequest,
+  _reply: FastifyReply,
+): Promise<void> {
   const env = getEnv();
   if (!env.OPS_BEARER_TOKEN) {
     return;

@@ -1,12 +1,18 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { fetchStylistConversations } from '@/features/messaging/api';
-import type { BusinessProfile, StylistSmsBookingNumber } from '@project-braids/shared-types/api';
+import type {
+  BusinessProfile,
+  StylistProfile,
+  StylistSmsBookingNumber,
+} from '@project-braids/shared-types/api';
 import { SignOutButton } from '@/features/auth/sign-out-button';
 import { apiFetchData, getApiErrorMessage } from '@/shared/lib/api-client';
 import { formatPhoneHint, isValidE164Phone, normalizePhoneNumber } from '@/shared/lib/phone';
+import { TOUCH_LINK_CLASS } from '@/shared/lib/touch-target';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { Input } from '@/shared/ui/input';
@@ -19,6 +25,11 @@ export default function StylistProfilePage() {
   const profileQuery = useQuery({
     queryKey: ['business', 'me'],
     queryFn: () => apiFetchData<BusinessProfile>('/businesses/me'),
+  });
+
+  const stylistProfileQuery = useQuery({
+    queryKey: ['profile', 'me'],
+    queryFn: () => apiFetchData<StylistProfile>('/profile/me'),
   });
 
   const smsQuery = useQuery({
@@ -42,6 +53,7 @@ export default function StylistProfilePage() {
   const [devError, setDevError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [directoryError, setDirectoryError] = useState<string | null>(null);
 
   useEffect(() => {
     if (profileQuery.data) {
@@ -70,6 +82,7 @@ export default function StylistProfilePage() {
     onSuccess: () => {
       setSaved(true);
       void queryClient.invalidateQueries({ queryKey: ['business', 'me'] });
+      void queryClient.invalidateQueries({ queryKey: ['profile', 'me'] });
       setTimeout(() => setSaved(false), 2000);
     },
   });
@@ -81,6 +94,18 @@ export default function StylistProfilePage() {
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['business', 'me'] });
+    },
+  });
+
+  const directoryMutation = useMutation({
+    mutationFn: (directoryVisible: boolean) =>
+      apiFetchData<StylistProfile>('/profile/me', {
+        method: 'PATCH',
+        json: { directoryVisible },
+      }),
+    onSuccess: () => {
+      setDirectoryError(null);
+      void queryClient.invalidateQueries({ queryKey: ['profile', 'me'] });
     },
   });
 
@@ -162,7 +187,18 @@ export default function StylistProfilePage() {
     }
   }
 
+  async function handleDirectoryToggle(checked: boolean) {
+    setDirectoryError(null);
+    try {
+      await directoryMutation.mutateAsync(checked);
+    } catch (err) {
+      setDirectoryError(getApiErrorMessage(err));
+    }
+  }
+
   const onboardingStatus = profileQuery.data?.onboardingStatus ?? 'in_progress';
+  const directoryVisible = stylistProfileQuery.data?.directoryVisible ?? false;
+  const stylistId = stylistProfileQuery.data?.id;
   const escalatedCount = escalatedQuery.data?.items.length ?? 0;
   const showDevSimulator = process.env.NODE_ENV !== 'production' && smsNumber;
 
@@ -204,6 +240,32 @@ export default function StylistProfilePage() {
               </Button>
             </form>
           )}
+        </Card>
+
+        <Card className="space-y-4">
+          <div>
+            <h2 className="font-medium text-ink">Beta directory listing</h2>
+            <p className="mt-1 text-sm text-ink-muted">
+              Opt in to appear on Find a braider. You need a business name, location area, and at
+              least one active service.
+            </p>
+          </div>
+          <label className="flex min-h-11 cursor-pointer items-center gap-3">
+            <input
+              type="checkbox"
+              className="h-5 w-5 shrink-0 accent-primary"
+              checked={directoryVisible}
+              disabled={directoryMutation.isPending || stylistProfileQuery.isLoading}
+              onChange={(event) => void handleDirectoryToggle(event.target.checked)}
+            />
+            <span className="text-sm text-ink">List my profile in the beta directory</span>
+          </label>
+          {directoryError ? <p className="text-sm text-error">{directoryError}</p> : null}
+          {directoryVisible && stylistId ? (
+            <Link href={`/directory/${stylistId}`} className={TOUCH_LINK_CLASS}>
+              Preview your public listing →
+            </Link>
+          ) : null}
         </Card>
 
         <Card>

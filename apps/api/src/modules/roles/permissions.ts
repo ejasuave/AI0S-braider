@@ -13,7 +13,9 @@ export function parseStaffPermissions(value: unknown): BusinessStaffPermissions 
   return businessStaffPermissionsSchema.parse(value);
 }
 
-export function isStaffMembershipActive(staff: Pick<BusinessStaff, 'acceptedAt' | 'removedAt'>): boolean {
+export function isStaffMembershipActive(
+  staff: Pick<BusinessStaff, 'acceptedAt' | 'removedAt'>,
+): boolean {
   return staff.acceptedAt !== null && staff.removedAt === null;
 }
 

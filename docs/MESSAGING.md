@@ -44,7 +44,7 @@ Receiving an inbound SMS creates or reuses a **lightweight client** via `findOrC
 - **Conversational replies** may proceed without OTP.
 - **Deposit charges** (Ch.9) still require verified client identity before payment.
 
-STOP/START keywords delegate to `notificationsService.handleStopKeyword` / `handleStartKeyword` (Ch.12), which halts AI auto-replies while allowing transactional SMS.
+STOP/START keywords delegate to `clientPreferencesService.handleStopKeyword` / `handleStartKeyword` (Ch.5.4), which halts AI auto-replies and marketing while allowing transactional SMS and reminders per Blueprint — see [COMPLIANCE.md](COMPLIANCE.md).
 
 ## Escalation notifications (Prompt 11.5)
 

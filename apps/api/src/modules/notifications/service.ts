@@ -1,14 +1,16 @@
+import type { DepositDisposition } from '@project-braids/shared-types/api';
 import type { NotificationType } from '@prisma/client';
 import { getEnv } from '../../config/env.js';
 import { getSystemQueue, JOB_NAMES } from '../../lib/queue.js';
 import { messagingService } from '../messaging/service.js';
-import {
-  buildNotificationContent,
-  buildStylistNotificationContent,
-} from '../receptionist/notification-content.js';
 import { prisma } from '../../lib/db.js';
+import { generateNotificationContent } from './content.js';
 import { notificationsRepository } from './repository.js';
 import { calculateReminderScheduledFor, reminderTypesForBooking } from './reminder-window.js';
+import {
+  shouldCheckAppointmentRemindersPreference,
+  shouldCheckMarketingPreference,
+} from './preference-gating.js';
 
 export class NotificationsService {
   async onBookingConfirmed(bookingId: string): Promise<void> {
@@ -31,7 +33,10 @@ export class NotificationsService {
     await this.scheduleRemindersForBooking(bookingId);
   }
 
-  async onBookingCancelled(bookingId: string): Promise<void> {
+  async onBookingCancelled(
+    bookingId: string,
+    depositDisposition: DepositDisposition,
+  ): Promise<void> {
     await notificationsRepository.cancelPendingForBooking(bookingId);
 
     const context = await notificationsRepository.getBookingContext(bookingId);
@@ -41,15 +46,17 @@ export class NotificationsService {
       bookingId,
       recipientId: context.clientId,
       type: 'cancellation',
+      depositDisposition,
     });
     await this.scheduleImmediate({
       bookingId,
       recipientId: context.stylistUserId,
       type: 'cancellation',
+      depositDisposition,
     });
   }
 
-  async onBookingNoShow(bookingId: string): Promise<void> {
+  async onBookingNoShow(bookingId: string, depositDisposition: DepositDisposition): Promise<void> {
     await notificationsRepository.cancelPendingForBooking(bookingId);
 
     const context = await notificationsRepository.getBookingContext(bookingId);
@@ -57,14 +64,15 @@ export class NotificationsService {
 
     await this.scheduleImmediate({
       bookingId,
-      recipientId: context.clientId,
-      type: 'no_show_notice',
-    });
-    await this.scheduleImmediate({
-      bookingId,
       recipientId: context.stylistUserId,
       type: 'no_show_notice',
+      depositDisposition,
     });
+  }
+
+  async onBookingTimeChanged(bookingId: string): Promise<void> {
+    await notificationsRepository.cancelPendingForBooking(bookingId);
+    await this.scheduleRemindersForBooking(bookingId);
   }
 
   async scheduleRemindersForBooking(bookingId: string): Promise<void> {
@@ -107,12 +115,14 @@ export class NotificationsService {
     bookingId: string;
     recipientId: string;
     type: NotificationType;
+    depositDisposition?: DepositDisposition;
   }): Promise<void> {
     const notification = await notificationsRepository.upsertScheduledNotification({
       bookingId: input.bookingId,
       recipientId: input.recipientId,
       type: input.type,
       scheduledFor: new Date(),
+      depositDisposition: input.depositDisposition ?? null,
     });
 
     await this.enqueueDelivery(notification.id);
@@ -138,6 +148,11 @@ export class NotificationsService {
       return { delivered: false, reason: 'not_scheduled' };
     }
 
+    if (!notification.bookingId) {
+      await notificationsRepository.markFailed(notificationId, 'missing_booking');
+      return { delivered: false, reason: 'missing_booking' };
+    }
+
     const context = await notificationsRepository.getBookingContext(notification.bookingId);
     if (!context) {
       await notificationsRepository.markFailed(notificationId, 'booking_not_found');
@@ -157,7 +172,6 @@ export class NotificationsService {
       return { delivered: false, reason: 'booking_not_cancelled' };
     }
 
-    const env = getEnv();
     const isClientRecipient = notification.recipientId === context.clientId;
     const isStylistRecipient = notification.recipientId === context.stylistUserId;
 
@@ -165,6 +179,26 @@ export class NotificationsService {
       await notificationsRepository.markFailed(notificationId, 'unknown_recipient');
       return { delivered: false, reason: 'unknown_recipient' };
     }
+
+    if (isClientRecipient && shouldCheckAppointmentRemindersPreference(notification.type)) {
+      const preferences = await notificationsRepository.getRecipientPreferences(context.clientId);
+      if (preferences && !preferences.appointmentRemindersEnabled) {
+        await notificationsRepository.markSkipped(notificationId, 'appointment_reminders_disabled');
+        return { delivered: false, reason: 'appointment_reminders_disabled' };
+      }
+    }
+
+    if (shouldCheckMarketingPreference(notification.type)) {
+      const preferences = await notificationsRepository.getRecipientPreferences(
+        notification.recipientId,
+      );
+      if (preferences && !preferences.marketingMessagesEnabled) {
+        await notificationsRepository.markSkipped(notificationId, 'marketing_messages_disabled');
+        return { delivered: false, reason: 'marketing_messages_disabled' };
+      }
+    }
+
+    const env = getEnv();
 
     if (
       isClientRecipient &&
@@ -184,6 +218,8 @@ export class NotificationsService {
       }
     }
 
+    const depositDisposition = notification.depositDisposition as DepositDisposition | null;
+
     const contentInput = {
       type: notification.type,
       businessName: context.businessName,
@@ -191,11 +227,13 @@ export class NotificationsService {
       startTime: context.startTime,
       timeZone: env.PLATFORM_TIMEZONE,
       cancellationReason: context.cancellationReason,
+      depositDisposition: depositDisposition ?? undefined,
+      depositAmount: context.depositAmount,
+      depositPaid: context.depositStatus === 'paid',
+      audience: isClientRecipient ? ('client' as const) : ('stylist' as const),
     };
 
-    const body = isClientRecipient
-      ? buildNotificationContent(contentInput)
-      : buildStylistNotificationContent(contentInput);
+    const body = generateNotificationContent(contentInput);
 
     if (isClientRecipient) {
       const conversation = await messagingService.findOrCreateSmsConversation({
@@ -224,25 +262,6 @@ export class NotificationsService {
       await this.deliverNotification(notification.id);
     }
     return { processed: due.length };
-  }
-
-  async handleStopKeyword(phoneNumber: string): Promise<string> {
-    const env = getEnv();
-    await notificationsRepository.setAiOptOut(phoneNumber, true);
-    const { stopConfirmationMessage } = await import('./opt-out.js');
-    return stopConfirmationMessage(env.PLATFORM_DISPLAY_NAME);
-  }
-
-  async handleStartKeyword(phoneNumber: string): Promise<string> {
-    const env = getEnv();
-    await notificationsRepository.setAiOptOut(phoneNumber, false);
-    const { startConfirmationMessage } = await import('./opt-out.js');
-    return startConfirmationMessage(env.PLATFORM_DISPLAY_NAME);
-  }
-
-  async isAiOptedOut(phoneNumber: string): Promise<boolean> {
-    const pref = await notificationsRepository.getSmsPreference(phoneNumber);
-    return pref?.aiOptedOut ?? false;
   }
 }
 

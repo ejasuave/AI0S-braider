@@ -136,10 +136,7 @@ export class MessagingRepository {
     return { rows, total };
   }
 
-  async listConversationsForClient(
-    clientId: string,
-    filters: { limit: number; offset: number },
-  ) {
+  async listConversationsForClient(clientId: string, filters: { limit: number; offset: number }) {
     const where: Prisma.ConversationWhereInput = { clientId };
 
     const [rows, total] = await prisma.$transaction([

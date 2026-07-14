@@ -30,6 +30,10 @@ export class ApiError extends Error {
     return new ApiError('VALIDATION_ERROR', message, 400, details);
   }
 
+  static forbidden(message = 'Forbidden'): ApiError {
+    return new ApiError('FORBIDDEN', message, 403);
+  }
+
   static internal(message = 'Internal server error'): ApiError {
     return new ApiError('INTERNAL_ERROR', message, 500);
   }

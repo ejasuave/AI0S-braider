@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { businessStaffPermissionsSchema } from './roles.js';
 
 export const e164PhoneSchema = z
   .string()
@@ -52,6 +53,15 @@ export const accessProbeResponseSchema = z.object({
 });
 
 export type AccessProbeResponse = z.infer<typeof accessProbeResponseSchema>;
+
+export const authMeResponseSchema = z.object({
+  user: authUserSchema,
+  stylistId: z.string().uuid().nullable(),
+  businessId: z.string().uuid().nullable(),
+  permissions: businessStaffPermissionsSchema.nullable(),
+});
+
+export type AuthMeResponse = z.infer<typeof authMeResponseSchema>;
 
 export const authTokensSchema = z.object({
   accessToken: z.string(),

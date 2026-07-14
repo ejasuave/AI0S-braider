@@ -20,25 +20,25 @@ describe('system ops', () => {
     expect(status.environment).toBe('staging');
   });
 
-  it('requires bearer token when OPS_BEARER_TOKEN is set', () => {
+  it('requires bearer token when OPS_BEARER_TOKEN is set', async () => {
     setEnvForTest({ OPS_BEARER_TOKEN: 'test-ops-token-16chars' });
 
-    expect(() => requireOpsToken({ headers: {} } as FastifyRequest, {} as FastifyReply)).toThrow(
-      ApiError,
-    );
+    await expect(
+      requireOpsToken({ headers: {} } as FastifyRequest, {} as FastifyReply),
+    ).rejects.toThrow(ApiError);
 
-    expect(() =>
+    await expect(
       requireOpsToken(
         { headers: { authorization: 'Bearer test-ops-token-16chars' } } as FastifyRequest,
         {} as FastifyReply,
       ),
-    ).not.toThrow();
+    ).resolves.toBeUndefined();
   });
 
-  it('allows ops status without token when OPS_BEARER_TOKEN unset', () => {
+  it('allows ops status without token when OPS_BEARER_TOKEN unset', async () => {
     setEnvForTest({});
-    expect(() =>
+    await expect(
       requireOpsToken({ headers: {} } as FastifyRequest, {} as FastifyReply),
-    ).not.toThrow();
+    ).resolves.toBeUndefined();
   });
 });

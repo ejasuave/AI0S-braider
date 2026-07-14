@@ -10,10 +10,12 @@ import {
   getStripeProvider,
   isStripeMockMode,
 } from '../../lib/stripe/index.js';
+import { MockStripeProvider } from '../../lib/stripe/mock-stripe-provider.js';
 import { requireClient, requireStylist } from '../identity/guards.js';
 import { rejectImpersonationOnSensitiveRoutes } from '../roles/guards.js';
 import type { AuthenticatedRequest } from '../identity/middleware.js';
 import { paymentService } from './service.js';
+import './events.js';
 
 type RawBodyRequest = FastifyRequest & { rawBody?: Buffer };
 
@@ -31,27 +33,35 @@ async function captureRawBody(
 }
 
 export const paymentRoutes: FastifyPluginAsync = async (app) => {
-  app.post('/connect/onboard', {
-    preHandler: [requireStylist, rejectImpersonationOnSensitiveRoutes],
-  }, async (request, reply) => {
-    const auth = (request as AuthenticatedRequest).auth;
-    const result = await paymentService.startConnectOnboarding(
-      auth.stylistId!,
-      auth.user.email ?? undefined,
-    );
-    sendData(reply, result);
-  });
+  app.post(
+    '/connect/onboard',
+    {
+      preHandler: [requireStylist, rejectImpersonationOnSensitiveRoutes],
+    },
+    async (request, reply) => {
+      const auth = (request as AuthenticatedRequest).auth;
+      if (!auth.businessId) {
+        throw ApiError.forbidden('Business context required');
+      }
+      const result = await paymentService.startConnectOnboarding(
+        auth.businessId,
+        auth.stylistId!,
+        auth.user.email ?? undefined,
+      );
+      sendData(reply, result);
+    },
+  );
 
   app.get('/connect/status', { preHandler: [requireStylist] }, async (request, reply) => {
     const auth = (request as AuthenticatedRequest).auth;
-    const status = await paymentService.getConnectStatus(auth.stylistId!);
+    const status = await paymentService.getConnectStatusForStylist(auth.stylistId!);
     sendData(reply, status);
   });
 
   app.post('/deposits', { preHandler: [requireClient] }, async (request, reply) => {
     const auth = (request as AuthenticatedRequest).auth;
     const body = createDepositPaymentRequestSchema.parse(request.body);
-    const payment = await paymentService.createDepositPayment(auth.user.id, body.bookingId);
+    const payment = await paymentService.createDepositCharge(auth.user.id, body.bookingId);
     sendData(reply, payment, 201);
   });
 
@@ -60,6 +70,13 @@ export const paymentRoutes: FastifyPluginAsync = async (app) => {
     const { bookingId } = request.params as { bookingId: string };
     const payment = await paymentService.getPaymentForBooking(auth.user.id, bookingId);
     sendData(reply, payment);
+  });
+
+  app.post('/deposits/:bookingId/sync', { preHandler: [requireClient] }, async (request, reply) => {
+    const auth = (request as AuthenticatedRequest).auth;
+    const { bookingId } = request.params as { bookingId: string };
+    const result = await paymentService.syncDepositAfterClientCheckout(auth.user.id, bookingId);
+    sendData(reply, result);
   });
 
   if (process.env.NODE_ENV !== 'production') {
@@ -89,14 +106,16 @@ export const stripeWebhookRoutes: FastifyPluginAsync = async (app) => {
       throw new ApiError('UNAUTHORIZED', 'Missing Stripe signature', 401);
     }
 
-    const webhookSecret = env.STRIPE_WEBHOOK_SECRET;
+    const stripe = getStripeProvider();
+    const webhookSecret =
+      stripe instanceof MockStripeProvider ? 'mock_webhook_secret' : env.STRIPE_WEBHOOK_SECRET;
     if (!webhookSecret && !isStripeMockMode()) {
       throw ApiError.internal('Stripe webhook secret is not configured');
     }
 
     let event;
     try {
-      event = getStripeProvider().constructWebhookEvent(
+      event = stripe.constructWebhookEvent(
         rawBody,
         signature,
         webhookSecret ?? 'mock_webhook_secret',
@@ -133,6 +152,18 @@ export const stripeWebhookRoutes: FastifyPluginAsync = async (app) => {
             if (stripeAccountId) {
               await paymentService.syncConnectAccountByStripeId(stripeAccountId, event.data.object);
             }
+            return { handled: true };
+          }
+          case 'charge.dispute.created': {
+            const dispute = event.data.object;
+            const paymentIntentId = String(dispute.payment_intent ?? '');
+            const disputeId = String(dispute.id ?? '');
+            if (paymentIntentId && disputeId) {
+              await paymentService.handleDisputeCreated(paymentIntentId, disputeId);
+            }
+            return { handled: true };
+          }
+          case 'charge.refunded': {
             return { handled: true };
           }
           default:

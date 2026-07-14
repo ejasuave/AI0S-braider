@@ -15,7 +15,12 @@ Mobile-first Next.js app at `apps/web` — tokens from `reference/design/visual-
 | `/`                                    | Landing — stylist / client entry                               |
 | `/login`, `/register/*`, `/verify`     | Auth (email+password stylists; phone OTP all)                  |
 | `/stylist`                             | Dashboard — **escalations first**, today's bookings, shortcuts |
-| `/stylist/bookings`                    | **Week calendar** + day-filtered appointment list              |
+| `/stylist/bookings`                    | Week calendar + approval toggle + pending holds (Ch.17.2)      |
+| `/stylist/reviews`                     | Reviews stub (Ch.10 backend; full UI later)                    |
+| `/stylist/calendar`                    | Google sync, buffer, **conflict resolve** (Ch.17.2)            |
+| `/client/profile`                      | Display name + email (Ch.17.4)                                 |
+| `/client/saved-stylists`               | Saved favourites + remove (Ch.17.4)                            |
+| `/client/bookings`                     | Upcoming / past / cancelled filters (Ch.17.4)                  |
 | `/stylist/inbox`                       | Escalated + all SMS conversations                              |
 | `/stylist/staff`                       | Team — invite staff, view permissions (Ch.4.3)                 |
 | `/stylist/services`                    | Structured pricing taxonomy (Ch.6.4)                           |
@@ -25,6 +30,7 @@ Mobile-first Next.js app at `apps/web` — tokens from `reference/design/visual-
 | `/stylist/profile`                     | Business profile + onboarding (Ch.6.1)                         |
 | `/client`                              | Client home, bookings, inbox link, **sign out**                |
 | `/client/inbox`, `/client/inbox/[id]`  | Client SMS conversation history (Ch.11.1)                      |
+| `/client/notifications`                | Reminder + marketing preferences (Ch.5.4 / Ch.12)              |
 | `/directory`, `/directory/[stylistId]` | **Beta** public stylist search (opt-in)                        |
 | `/book?stylistId=&serviceOfferingId=`  | Public booking link → hold → deposit                           |
 | `/status`                              | API / DB health (dev)                                          |
@@ -41,13 +47,13 @@ Mobile-first Next.js app at `apps/web` — tokens from `reference/design/visual-
 | 4 — User Roles (4.1–4.4)         | Complete | businesses, staff API, guards, impersonation, `/stylist/staff`                                            |
 | 6 — Stylist Features (6.1–6.6)   | Complete | `/businesses/me/*`, policies, hours, Instagram, portfolio                                                 |
 | 7 — Booking Engine               | Complete | State machine, holds, policy cancel, manual bookings, calendar conflicts — aligned to Ch.7 prompt library |
-| 8 — Calendar (8.1, 8.3)          | Complete | `d387b9b`                                                                                                 |
-| 9 — Payments (9.1–9.4)           | Complete | Stripe Connect, deposits, idempotent webhooks                                                             |
+| 8 — Calendar (8.1–8.4)           | Complete | Calendar module, public availability, Google sync, reconcile job                                          |
+| 9 — Payments (9.1–9.6)           | Complete | Connect, deposits, refunds, payouts, disputes, webhook hardening                                          |
 | 11 — Messaging (11.1–11.2, 11.5) | Complete | Conversations schema, Twilio SMS, stylist handoff                                                         |
 | 13 — AI Receptionist (13.1–13.8) | Complete | Claude structured turns, escalation, booking dispatch, tests                                              |
 | 12 — Notifications (12.1–12.4)   | Complete | Schema, reminder worker, confirmation/cancel notices, STOP compliance                                     |
 | Beta directory                   | Complete | Opt-in `directory_visible`, search API, `/directory` web UI (Ch.16 deferred)                              |
-| 17 — Dashboards (17.1–17.3)      | Complete | Week calendar, escalation-first home, inbox badge, AI message styling                                     |
+| 17 — Dashboards (17.1–17.5)      | Complete | Permissions nav, approval mode, SSE realtime, client dashboard, conflict resolve                          |
 | 23 — Deployment (23.1–23.4)      | Complete | CI/CD, staging/prod workflows, ops-status, kill switch, migration safety                                  |
 | 24 — Mobile (24.1)               | Complete | Layout audit, 5-tab nav, calendar/inbox fixes — [MOBILE_AUDIT.md](docs/MOBILE_AUDIT.md)                   |
 | 25 — Future Features             | Complete | Deferred-feature registry — [FUTURE_FEATURES.md](docs/FUTURE_FEATURES.md) (docs only)                     |
@@ -137,15 +143,15 @@ Mobile-first Next.js app at `apps/web` — tokens from `reference/design/visual-
 | 1.7    | Root `docker-compose.yml`, `pnpm infra:up`/`down`, README troubleshooting                                                    |
 | 1.8    | Pino structured logging, request IDs, Sentry (API + web instrumentation), PII redaction + tests, `/health/error-test`        |
 
-### Chapter 17 deliverables (MVP scope)
+### Chapter 17 deliverables (aligned to prompt library)
 
-| Prompt | Deliverable                                                                                                   |
-| ------ | ------------------------------------------------------------------------------------------------------------- |
-| 17.1   | Stylist shell: bottom nav (Home, **Calendar**, Inbox w/ badge), escalation-first home, skeletons, `aria-live` |
-| 17.2   | Week calendar on `/stylist/bookings`; `GET /bookings?from=&to=`; **Today** section on home                    |
-| 17.3   | Inbox dedupe, AI purple accent on assistant messages, reply + resolve (from Ch.11)                            |
-| 17.4   | Deferred V2 — client dashboard polish                                                                         |
-| 17.5   | Deferred V2 — WebSocket/SSE real-time (60s poll on inbox count for now)                                       |
+| Prompt | Deliverable                                                                                                        |
+| ------ | ------------------------------------------------------------------------------------------------------------------ |
+| 17.1   | Permission-aware bottom nav + More links; session refresh before login redirect; `/stylist/reviews` stub           |
+| 17.2   | Week calendar status dots; approval toggle + `POST /bookings/:id/approve`; calendar conflict resolve UI            |
+| 17.3   | Escalation reason labels; inbox SSE on open thread; inline style-recognition placeholder (Ch.14 deferred)          |
+| 17.4   | Client bookings segment filters; `/client/profile`; `/client/saved-stylists`; `client_profiles`, `saved_stylists`  |
+| 17.5   | SSE `GET /realtime/stylist/events`; `useStylistRealtime` + reconciliation refetch; [REALTIME.md](docs/REALTIME.md) |
 
 ### Beta directory (founder override — pre-Ch.17)
 
@@ -158,14 +164,15 @@ Mobile-first Next.js app at `apps/web` — tokens from `reference/design/visual-
 
 Full Ch.16 (search index, availability ranking, scrape protection) remains Phase 2.
 
-### Chapter 12 deliverables (MVP scope)
+### Chapter 12 deliverables (aligned to prompt library)
 
-| Prompt | Deliverable                                                                           |
-| ------ | ------------------------------------------------------------------------------------- |
-| 12.1   | `notifications` + `sms_preferences` schema, BullMQ deliver/sweep jobs                 |
-| 12.2   | 48h/2h reminder scheduling with cancellation-before-send guard                        |
-| 12.3   | Confirmation/cancellation/no-show hooks on booking lifecycle                          |
-| 12.4   | STOP/START keyword handling — halts AI, allows transactional SMS (Blueprint override) |
+| Prompt | Deliverable                                                                                                                                           |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 12.1   | `notifications` schema (`skip_reason`, nullable `booking_id`), `generateNotificationContent`, deliver worker with preference + status checks          |
+| 12.2   | Event-driven 48h/2h reminder scheduling; short lead-time skip; cancel on booking cancellation                                                         |
+| 12.3   | Dual confirmation/cancel notices; stylist-only no-show; transactional bypass of marketing preference                                                  |
+| 12.4   | Ch.5 `notification_preferences`, `opt_out_audit_log`, STOP e2e chain, `docs/COMPLIANCE.md`                                                            |
+| 5.4    | `client-preferences` module — `handleStopKeyword`/`handleStartKeyword`, `GET/PATCH /clients/me/notification-preferences`, web `/client/notifications` |
 
 ### Chapter 13 deliverables (aligned to prompt library)
 
@@ -190,25 +197,29 @@ Full Ch.16 (search index, availability ranking, scrape protection) remains Phase
 | 11.4   | Deferred V2 — web chat widget (schema ready)                                            |
 | 11.5   | `isEscalated`, escalation stylist SMS notify, stylist reply, resolve handoff            |
 
-### Chapter 9 deliverables (MVP scope)
+### Chapter 9 deliverables
 
-| Prompt | Deliverable                                                        |
-| ------ | ------------------------------------------------------------------ |
-| 9.1    | `POST /api/v1/payments/connect/onboard`, `GET /connect/status`     |
-| 9.2    | `POST /api/v1/payments/deposits` — PaymentIntent for held bookings |
-| 9.3    | Deferred V2 — refund/forfeiture on cancellation                    |
-| 9.4    | `POST /api/v1/webhooks/stripe` — signature + idempotency ledger    |
-| 9.5    | Deferred V2 — payout scheduling                                    |
-| 9.6    | Deferred V2 — chargeback evidence                                  |
+| Prompt | Deliverable                                                                                                       |
+| ------ | ----------------------------------------------------------------------------------------------------------------- |
+| 9.1    | `payment_accounts`, `POST/GET /businesses/me/stripe/*`, `isPaymentReady` gate on holds                            |
+| 9.2    | `createDepositCharge`, `POST /bookings/:bookingId/deposit`, capture webhook → `confirmBooking`                    |
+| 9.3    | `processRefund` (full/partial/forfeit), domain events from cancel/no-show, partial-refund endpoint                |
+| 9.4    | Webhook hardening tests, out-of-order protection, `src/scripts/reconcile-payments.ts`                             |
+| 9.5    | `GET /businesses/me/payouts` (Stripe-sourced), `GET /businesses/me/income-report`, `docs/BUSINESS_MODEL_NOTES.md` |
+| 9.6    | `policy_snapshot` on bookings, `dispute_evidence_packages`, `charge.dispute.created` handler                      |
 
-### Chapter 8 deliverables (MVP scope)
+Frontend: `/stylist/payments` — Connect, income summary, payout history.
 
-| Prompt | Deliverable                                                        |
-| ------ | ------------------------------------------------------------------ |
-| 8.1    | `GET /api/v1/bookings/availability` computation engine             |
-| 8.2    | Deferred V2 — Google Calendar sync                                 |
-| 8.3    | Duration + buffer-aware slot generation from profile working hours |
-| 8.4    | Deferred V2 — Calendar reconciliation job                          |
+### Chapter 8 deliverables
+
+| Prompt | Deliverable                                                                      |
+| ------ | -------------------------------------------------------------------------------- |
+| 8.1    | `GET /api/v1/businesses/:businessId/availability` — public slot engine           |
+| 8.2    | Google Calendar connect, push/delete, inbound webhook, `external_calendar_links` |
+| 8.3    | `buffer_minutes` (default 15), padded slot generation                            |
+| 8.4    | `calendar.reconcile` job every 30 minutes                                        |
+
+Frontend: `/stylist/calendar`, public slots on `/book` before sign-in.
 
 ## Pending chapters (MVP critical path)
 
@@ -216,13 +227,26 @@ Full Ch.16 (search index, availability ranking, scrape protection) remains Phase
 | ------- | ------------ | -------- |
 | —       | MVP handbook | Complete |
 
-**Next:** Beta ship checklist ([back-matter.md](reference/prompt-library/back-matter.md)) or pick a Ch.25 item when its trigger condition is met.
+**Next:** Staging deploy + external wiring (Stripe/Twilio/Google webhooks) per [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) § Production readiness, then pilot onboarding.
+
+### Pre-pilot local gates (2026-07-12)
+
+| Gate                        | Status                                                          |
+| --------------------------- | --------------------------------------------------------------- |
+| `pnpm test`                 | 190/190 API tests + web suites pass                             |
+| `pnpm lint`                 | Pass (3 pre-existing warnings, 0 errors)                        |
+| `pnpm typecheck`            | Pass                                                            |
+| `pnpm format:check`         | Pass                                                            |
+| `pnpm build`                | Pass                                                            |
+| `pnpm ops:check-migrations` | Pass — Ch.9 drop reviewed + allowlisted                         |
+| Kill-switch drill (local)   | `killSwitchActive` flips with `AI_RECEPTIONIST_ENABLED`         |
+| Google Calendar sync        | Live mode verified end to end (connect + ops-status hang fixed) |
 
 ## Architectural decisions
 
 | Date       | Decision                                        | Rationale                                                 |
 | ---------- | ----------------------------------------------- | --------------------------------------------------------- |
-| 2026-07-10 | Availability logic in `booking` module          | ARCHITECTURE.md — profile owns hours, booking owns slots  |
+| 2026-07-10 | Availability in `calendar` module (Ch.8)        | Public endpoint + Google sync; booking delegates reads    |
 | 2026-07-10 | `Europe/London` default timezone                | UK-only MVP per Blueprint                                 |
 | 2026-07-10 | Client holds validate against generated slots   | Ties Ch.8 to Ch.7 hold creation                           |
 | 2026-07-10 | Manual stylist bookings skip availability check | Walk-in / off-platform blocks per Playbook                |
@@ -233,12 +257,12 @@ Full Ch.16 (search index, availability ranking, scrape protection) remains Phase
 
 ## Technical debt
 
-| Item                        | Chapter | Notes      |
-| --------------------------- | ------- | ---------- |
-| Google Calendar sync        | 8.2 V2  | Not in MVP |
-| Calendar reconciliation     | 8.4 V2  | Not in MVP |
-| Refund/forfeiture on cancel | 9.3 V2  | Not in MVP |
-| Payout scheduling           | 9.5 V2  | Not in MVP |
+| Item              | Chapter | Notes                                          |
+| ----------------- | ------- | ---------------------------------------------- |
+| Payout scheduling | 9.5 V2  | Stripe-managed payouts only; custom UI not MVP |
+
+Resolved since first draft: Google Calendar sync (live `RealGoogleCalendarApiClient`, Ch.8.2),
+calendar reconciliation job (Ch.8.4), refund/forfeiture on cancel (Ch.9.3).
 
 ## Blockers
 

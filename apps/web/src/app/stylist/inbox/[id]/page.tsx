@@ -4,7 +4,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
 import type { ConversationDetail } from '@project-braids/shared-types/api';
+import {
+  formatEscalationReason,
+  isStyleRecognitionEscalation,
+} from '@/features/messaging/escalation-labels';
 import { apiFetchData, getApiErrorMessage } from '@/shared/lib/api-client';
+import { useStylistRealtime } from '@/shared/lib/use-sse';
 import { formatDateTime } from '@/shared/lib/format';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
@@ -49,6 +54,18 @@ export default function StylistConversationPage() {
     queryFn: () => apiFetchData<ConversationDetail>(`/messaging/conversations/${params.id}`),
   });
 
+  useStylistRealtime({
+    onEvent: (type, data) => {
+      if (type === 'conversation_message' || type === 'conversation_escalated') {
+        if (data.conversationId === params.id) {
+          void queryClient.invalidateQueries({
+            queryKey: ['messaging', 'conversation', params.id],
+          });
+        }
+      }
+    },
+  });
+
   const replyMutation = useMutation({
     mutationFn: (content: string) =>
       apiFetchData<ConversationDetail>(`/messaging/conversations/${params.id}/messages`, {
@@ -74,6 +91,10 @@ export default function StylistConversationPage() {
 
   const conversation = conversationQuery.data;
   const isEscalated = conversation?.status === 'escalated';
+  const escalationReason = conversation?.openEscalation?.reason;
+  const reasonLabel = escalationReason ? formatEscalationReason(escalationReason) : null;
+  const showStyleRecognition =
+    escalationReason != null && isStyleRecognitionEscalation(escalationReason);
 
   async function handleReply(event: React.FormEvent) {
     event.preventDefault();
@@ -114,7 +135,7 @@ export default function StylistConversationPage() {
             </div>
             {conversation.openEscalation ? (
               <div className="space-y-1 text-sm text-warning">
-                <p>Escalation: {conversation.openEscalation.reason}</p>
+                <p>Escalation: {reasonLabel ?? conversation.openEscalation.reason}</p>
                 {conversation.openEscalation.modelConfidence != null ? (
                   <p className="text-ink-muted">
                     AI confidence: {conversation.openEscalation.modelConfidence.toFixed(2)}
@@ -126,6 +147,17 @@ export default function StylistConversationPage() {
               </div>
             ) : null}
           </Card>
+
+          {showStyleRecognition ? (
+            <Card className="space-y-2 border-warning/40 bg-warning/5">
+              <p className="text-sm font-medium text-ink">Style recognition (Chapter 14)</p>
+              <p className="text-sm text-ink-muted">
+                The client sent a reference photo the AI could not match confidently. When Chapter
+                14 ships, you will confirm or correct the style here inline — for now, reply in the
+                thread with the correct service name.
+              </p>
+            </Card>
+          ) : null}
 
           <div className="space-y-3">
             {conversation.messages.map((message) => (

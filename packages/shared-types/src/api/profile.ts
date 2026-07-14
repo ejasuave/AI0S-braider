@@ -116,6 +116,7 @@ export const publicBookingOfferingSchema = z.object({
 });
 
 export const publicBookingPageSchema = z.object({
+  businessId: z.string().uuid().nullable(),
   stylistId: z.string().uuid(),
   businessName: z.string(),
   locationArea: z.string().nullable(),

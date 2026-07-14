@@ -6,6 +6,7 @@ import { createMockStripeProvider } from '../../lib/stripe/mock-stripe-provider.
 import { signAccessToken } from '../identity/tokens.js';
 import { DEFAULT_DEPOSIT_POLICY } from '@project-braids/shared-types/api';
 import { buildMockStripeWebhookSignature } from './routes.js';
+import { ensurePrismaConnection } from '../../test/ensure-prisma-connection.js';
 
 const stylistUserId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const clientUserId = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
@@ -13,6 +14,7 @@ const offeringId = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
 
 let databaseAvailable = false;
 let stylistProfileId = '';
+let businessId = '';
 const mockStripe = createMockStripeProvider();
 
 async function bearerFor(userId: string, role: string): Promise<string> {
@@ -40,6 +42,16 @@ describe('payment routes', () => {
 
   afterEach(async () => {
     if (!databaseAvailable) return;
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    await ensurePrismaConnection();
+    await prisma.notification.deleteMany({
+      where: {
+        OR: [
+          { booking: { stylistId: stylistProfileId || undefined } },
+          { recipientId: { in: [stylistUserId, clientUserId] } },
+        ],
+      },
+    });
     const bookingIds = (
       await prisma.booking.findMany({
         where: { stylistId: stylistProfileId || undefined },
@@ -52,13 +64,13 @@ describe('payment routes', () => {
     await prisma.booking.deleteMany({
       where: { stylistId: stylistProfileId || undefined },
     });
-    await prisma.stylistStripeAccount.deleteMany({
-      where: { stylistId: stylistProfileId || undefined },
-    });
+    await prisma.paymentAccount.deleteMany({ where: { businessId: businessId || undefined } });
+    await prisma.business.deleteMany({ where: { ownerUserId: stylistUserId } });
     await prisma.serviceOffering.deleteMany({ where: { id: offeringId } });
     await prisma.stylistProfile.deleteMany({ where: { userId: stylistUserId } });
     await prisma.user.deleteMany({ where: { id: { in: [stylistUserId, clientUserId] } } });
     stylistProfileId = '';
+    businessId = '';
   });
 
   async function seedPaymentFixtures(): Promise<string> {
@@ -95,6 +107,7 @@ describe('payment routes', () => {
       },
     });
     stylistProfileId = profile.id;
+    businessId = business.id;
 
     await prisma.serviceOffering.create({
       data: {
@@ -112,13 +125,13 @@ describe('payment routes', () => {
 
     const onboarding = await mockStripe.createConnectAccount({ stylistId: stylistProfileId });
     mockStripe.markConnectAccountReady(onboarding.stripeAccountId);
-    await prisma.stylistStripeAccount.create({
+    await prisma.paymentAccount.create({
       data: {
-        stylistId: stylistProfileId,
-        stripeAccountId: onboarding.stripeAccountId,
+        businessId: business.id,
+        stripeConnectAccountId: onboarding.stripeAccountId,
+        onboardingStatus: 'complete',
         chargesEnabled: true,
         payoutsEnabled: true,
-        onboardingComplete: true,
       },
     });
 
@@ -218,10 +231,6 @@ describe('payment routes', () => {
     const app = await buildApp();
     const clientAuth = await bearerFor(clientUserId, 'client');
 
-    await prisma.stylistStripeAccount.deleteMany({
-      where: { stylistId: stylistProfileId },
-    });
-
     const response = await app.inject({
       method: 'POST',
       url: `/api/v1/payments/deposits/${bookingId}/simulate-success`,
@@ -231,6 +240,38 @@ describe('payment routes', () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json().data.status).toBe('captured');
+
+    const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
+    expect(booking?.status).toBe('confirmed');
+    expect(booking?.depositStatus).toBe('paid');
+  });
+
+  it('syncs deposit after client checkout without webhook', async () => {
+    if (!databaseAvailable) return;
+
+    const bookingId = await seedPaymentFixtures();
+    const app = await buildApp();
+    const clientAuth = await bearerFor(clientUserId, 'client');
+
+    const depositResponse = await app.inject({
+      method: 'POST',
+      url: '/api/v1/payments/deposits',
+      headers: { authorization: clientAuth },
+      payload: { bookingId },
+    });
+    const paymentIntentId = depositResponse.json().data.stripePaymentIntentId;
+    mockStripe.buildPaymentIntentSucceededEvent(paymentIntentId);
+
+    const syncResponse = await app.inject({
+      method: 'POST',
+      url: `/api/v1/payments/deposits/${bookingId}/sync`,
+      headers: { authorization: clientAuth },
+      payload: {},
+    });
+
+    expect(syncResponse.statusCode).toBe(200);
+    expect(syncResponse.json().data.bookingConfirmed).toBe(true);
+    expect(syncResponse.json().data.payment.status).toBe('captured');
 
     const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
     expect(booking?.status).toBe('confirmed');

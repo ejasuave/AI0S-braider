@@ -1,12 +1,23 @@
 import { z } from 'zod';
 
-export const availabilityQuerySchema = z.object({
-  stylistId: z.string().uuid(),
-  serviceOfferingId: z.string().uuid(),
-  from: z.string().datetime().optional(),
-  to: z.string().datetime().optional(),
-  limit: z.coerce.number().int().positive().max(50).default(20),
-});
+export const availabilityQuerySchema = z
+  .object({
+    stylistId: z.string().uuid(),
+    serviceOfferingId: z.string().uuid().optional(),
+    durationMinutes: z.coerce.number().int().positive().optional(),
+    from: z.string().datetime().optional(),
+    to: z.string().datetime().optional(),
+    limit: z.coerce.number().int().positive().max(50).default(20),
+  })
+  .superRefine((value, ctx) => {
+    if (!value.serviceOfferingId && !value.durationMinutes) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'durationMinutes is required when serviceOfferingId is omitted',
+        path: ['durationMinutes'],
+      });
+    }
+  });
 
 export type AvailabilityQuery = z.infer<typeof availabilityQuerySchema>;
 
@@ -21,7 +32,7 @@ export type AvailabilitySlot = z.infer<typeof availabilitySlotSchema>;
 
 export const availabilityResponseSchema = z.object({
   stylistId: z.string().uuid(),
-  serviceOfferingId: z.string().uuid(),
+  serviceOfferingId: z.string().uuid().nullable(),
   timezone: z.string(),
   slots: z.array(availabilitySlotSchema),
 });

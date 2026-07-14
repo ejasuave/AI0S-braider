@@ -9,20 +9,43 @@ import type {
   CreateBookingHoldRequest,
   CreateManualBookingRequest,
 } from '@project-braids/shared-types/api';
-import type { BookingSource } from '@prisma/client';
+import type { BookingSource, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/db.js';
 import { ApiError } from '../../lib/errors.js';
 import { getEnv } from '../../config/env.js';
 import { getSystemQueue, JOB_NAMES } from '../../lib/queue.js';
 import { profileService } from '../profile/service.js';
 import { getBusinessPolicyByStylistId } from '../stylist-profile/policy.js';
-import { notificationsService } from '../notifications/service.js';
 import { expireStaleHolds, findConflictingBookingIds } from './conflict.js';
 import { calculateBookingEndTime, calculateDepositAmount, toBooking } from './mappers.js';
 import { evaluateCancellationDeposit, evaluateNoShowDeposit } from './policy.js';
 import { transitionBookingStatus } from './state-machine.js';
-import { generateAvailabilitySlots, slotMatchesAvailability } from './availability.js';
-import { pushToExternalCalendar } from './external-calendar.js';
+import { slotMatchesAvailability } from '../calendar/availability.js';
+import { calendarService } from '../calendar/service.js';
+import { pushToExternalCalendar, removeExternalCalendarEvent } from './external-calendar.js';
+import {
+  emitBookingCancelled,
+  emitBookingConfirmed,
+  emitBookingCreated,
+  emitBookingDepositDisposition,
+  emitBookingNoShow,
+} from '../../lib/domain-events.js';
+import { isPaymentReady } from '../payments/readiness.js';
+import { createLogger } from '../../lib/logger.js';
+
+const log = createLogger().child({ module: 'booking' });
+
+function pushCalendarSafely(bookingId: string): void {
+  void pushToExternalCalendar(bookingId).catch((error: unknown) => {
+    log.warn({ err: error, bookingId }, 'Google Calendar push failed');
+  });
+}
+
+function removeCalendarSafely(bookingId: string): void {
+  void removeExternalCalendarEvent(bookingId).catch((error: unknown) => {
+    log.warn({ err: error, bookingId }, 'Google Calendar delete failed');
+  });
+}
 
 type CreateBookingInput = {
   stylistId: string;
@@ -42,6 +65,10 @@ export class BookingService {
   }
 
   async listBookings(stylistId: string, query: BookingListQuery): Promise<Booking[]> {
+    const profile = await prisma.stylistProfile.findUnique({
+      where: { id: stylistId },
+      select: { requireStylistApproval: true },
+    });
     const bookings = await prisma.booking.findMany({
       where: {
         stylistId,
@@ -57,26 +84,96 @@ export class BookingService {
       },
       orderBy: { startTime: 'asc' },
     });
-    return bookings.map(toBooking);
+    return bookings.map((booking) =>
+      toBooking(booking, { requireStylistApproval: profile?.requireStylistApproval }),
+    );
   }
 
   async listClientBookings(clientId: string, query: BookingListQuery): Promise<Booking[]> {
+    const now = new Date();
+    const where: Prisma.BookingWhereInput = {
+      clientId,
+    };
+
+    if (query.status) {
+      where.status = query.status;
+    }
+
+    if (query.segment === 'upcoming') {
+      where.status = { in: ['held', 'confirmed'] };
+      where.OR = [{ startTime: { gte: now } }, { status: 'held' }];
+    } else if (query.segment === 'past') {
+      where.OR = [
+        { status: { in: ['completed', 'no_show'] } },
+        { status: 'confirmed', startTime: { lt: now } },
+      ];
+    } else if (query.segment === 'cancelled') {
+      where.status = 'cancelled';
+    }
+
+    if (query.from || query.to) {
+      where.startTime = {
+        ...(query.from ? { gte: new Date(query.from) } : {}),
+        ...(query.to ? { lte: new Date(query.to) } : {}),
+      };
+    }
+
     const bookings = await prisma.booking.findMany({
-      where: {
-        clientId,
-        ...(query.status ? { status: query.status } : {}),
-        ...(query.from || query.to
-          ? {
-              startTime: {
-                ...(query.from ? { gte: new Date(query.from) } : {}),
-                ...(query.to ? { lte: new Date(query.to) } : {}),
-              },
-            }
-          : {}),
-      },
-      orderBy: { startTime: 'asc' },
+      where,
+      orderBy: { startTime: 'desc' },
     });
-    return bookings.map(toBooking);
+    return bookings.map((booking) => toBooking(booking));
+  }
+
+  async requiresStylistApproval(stylistId: string): Promise<boolean> {
+    const profile = await prisma.stylistProfile.findUnique({
+      where: { id: stylistId },
+      select: { requireStylistApproval: true },
+    });
+    return profile?.requireStylistApproval ?? false;
+  }
+
+  async approveBooking(stylistId: string, bookingId: string): Promise<Booking> {
+    const booking = await prisma.booking.findFirst({
+      where: { id: bookingId, stylistId },
+    });
+    if (!booking) {
+      throw ApiError.notFound('Booking not found');
+    }
+    if (booking.status !== 'held') {
+      throw new ApiError('CONFLICT', 'Only held bookings can be approved', 409);
+    }
+    if (booking.source !== 'ai_agent') {
+      throw new ApiError('CONFLICT', 'Only AI-created holds require stylist approval', 409);
+    }
+    if (booking.stylistApprovedAt) {
+      return toBooking(booking, { requireStylistApproval: true });
+    }
+
+    const updated = await prisma.booking.update({
+      where: { id: booking.id },
+      data: { stylistApprovedAt: new Date() },
+    });
+
+    if (updated.clientId) {
+      const { paymentService } = await import('../payments/service.js');
+      const { messagingService } = await import('../messaging/service.js');
+      const { getEnv } = await import('../../config/env.js');
+      const env = getEnv();
+      const payment = await paymentService.createDepositCharge(updated.clientId, updated.id);
+      const depositUrl = `${env.WEB_APP_URL}/client/bookings/${updated.id}`;
+      const conversation = await messagingService.findOrCreateSmsConversation({
+        stylistId: updated.stylistId,
+        clientId: updated.clientId,
+      });
+      await messagingService.sendOutboundMessage({
+        conversationId: conversation.id,
+        sender: 'system',
+        content: `Your booking is approved. Pay your £${payment.amount} deposit here: ${depositUrl}`,
+      });
+    }
+
+    return toBooking(updated, { requireStylistApproval: true });
   }
 
   async getBooking(stylistId: string, bookingId: string): Promise<Booking> {
@@ -147,60 +244,12 @@ export class BookingService {
   }
 
   async getAvailability(query: AvailabilityQuery): Promise<AvailabilityResponse> {
-    const env = getEnv();
-    const from = query.from ? new Date(query.from) : new Date();
-    const maxRangeMs = env.AVAILABILITY_MAX_DAYS * 24 * 60 * 60 * 1000;
-    const to = query.to ? new Date(query.to) : new Date(from.getTime() + maxRangeMs);
-
-    if (to <= from) {
-      throw ApiError.validation('`to` must be after `from`');
-    }
-
-    const offering = await profileService.getActiveServiceOffering(
-      query.stylistId,
-      query.serviceOfferingId,
-    );
-    const availabilityContext = await profileService.getAvailabilityContext(query.stylistId);
-    const blockingBookings = await this.getBlockingBookings(query.stylistId, from, to);
-
-    const slots = generateAvailabilitySlots({
-      from,
-      to,
-      timeZone: env.PLATFORM_TIMEZONE,
-      workingHours: availabilityContext.workingHours,
-      durationMinutes: offering.estimatedDurationMinutes,
-      bufferMinutes: availabilityContext.bufferMinutes,
-      slotIntervalMinutes: env.AVAILABILITY_SLOT_INTERVAL_MINUTES,
-      blockingBookings,
-      limit: query.limit,
-    });
-
-    return {
-      stylistId: query.stylistId,
-      serviceOfferingId: query.serviceOfferingId,
-      timezone: env.PLATFORM_TIMEZONE,
-      slots,
-    };
-  }
-
-  private async getBlockingBookings(stylistId: string, from: Date, to: Date) {
-    await prisma.$transaction(async (tx) => {
-      await expireStaleHolds(tx, stylistId);
-    });
-
-    return prisma.booking.findMany({
-      where: {
-        stylistId,
-        status: { in: ['held', 'confirmed'] },
-        OR: [{ holdExpiresAt: null }, { holdExpiresAt: { gt: new Date() } }],
-        startTime: { lt: to },
-        endTime: { gt: from },
-      },
-      select: { startTime: true, endTime: true },
-    });
+    return calendarService.getAvailability(query);
   }
 
   private async createBookingRecord(input: CreateBookingInput): Promise<Booking> {
+    await expireStaleHolds(prisma, input.stylistId);
+
     const scheduling = await profileService.getSchedulingSettings(input.stylistId);
     const startTime = input.startTime;
     const endTime = calculateBookingEndTime(
@@ -232,6 +281,29 @@ export class BookingService {
         : 0;
     const holdExpiresAt = input.status === 'held' ? new Date(Date.now() + this.holdTtlMs()) : null;
 
+    if (depositAmount > 0 && input.status === 'held') {
+      const profile = await prisma.stylistProfile.findUnique({
+        where: { id: input.stylistId },
+        select: { businessId: true },
+      });
+      if (!profile?.businessId || !(await isPaymentReady(profile.businessId))) {
+        throw new ApiError(
+          'CONFLICT',
+          'This stylist cannot accept deposit payments yet — Stripe onboarding incomplete',
+          422,
+        );
+      }
+    }
+
+    const policy = await getBusinessPolicyByStylistId(input.stylistId);
+    const policySnapshot = {
+      depositType: policy.depositType,
+      depositValue: policy.depositValue,
+      cancellationWindowHours: policy.cancellationWindowHours,
+      noShowFeeType: policy.noShowFeeType,
+      capturedAt: new Date().toISOString(),
+    };
+
     const booking = await prisma.$transaction(async (tx) => {
       await expireStaleHolds(tx, input.stylistId);
 
@@ -258,6 +330,7 @@ export class BookingService {
           depositStatus: input.status === 'confirmed' ? 'pending' : 'pending',
           holdExpiresAt,
           source: input.source,
+          policySnapshot,
         },
       });
     });
@@ -274,11 +347,21 @@ export class BookingService {
     }
 
     if (booking.status === 'confirmed') {
-      void pushToExternalCalendar(booking.id).catch(() => {});
-      void notificationsService.onBookingConfirmed(booking.id).catch(() => {});
+      pushCalendarSafely(booking.id);
+      void emitBookingConfirmed({ bookingId: booking.id }).catch(() => {});
     }
 
-    return toBooking(booking);
+    void emitBookingCreated({
+      bookingId: booking.id,
+      stylistId: booking.stylistId,
+      status: booking.status,
+    }).catch(() => {});
+
+    const profile = await prisma.stylistProfile.findUnique({
+      where: { id: input.stylistId },
+      select: { requireStylistApproval: true },
+    });
+    return toBooking(booking, { requireStylistApproval: profile?.requireStylistApproval });
   }
 
   /** Ch.7.3 — documented integration point for Chapter 9 payment webhooks. */
@@ -319,8 +402,8 @@ export class BookingService {
       return row;
     });
 
-    void pushToExternalCalendar(updated.id).catch(() => {});
-    void notificationsService.onBookingConfirmed(updated.id).catch(() => {});
+    pushCalendarSafely(updated.id);
+    void emitBookingConfirmed({ bookingId: updated.id }).catch(() => {});
 
     return { outcome: 'confirmed', booking: toBooking(updated) };
   }
@@ -370,8 +453,7 @@ export class BookingService {
 
     const cancelledBy = actor.clientId ? 'client' : 'stylist';
     const reason =
-      input.reason ??
-      (cancelledBy === 'client' ? 'cancelled_by_client' : 'cancelled_by_stylist');
+      input.reason ?? (cancelledBy === 'client' ? 'cancelled_by_client' : 'cancelled_by_stylist');
 
     const policy = await getBusinessPolicyByStylistId(booking.stylistId);
     const depositDisposition = evaluateCancellationDeposit(policy, booking, new Date());
@@ -384,7 +466,12 @@ export class BookingService {
       });
     });
 
-    void notificationsService.onBookingCancelled(updated.id).catch(() => {});
+    void emitBookingCancelled({ bookingId: updated.id, depositDisposition }).catch(() => {});
+    removeCalendarSafely(updated.id);
+    void emitBookingDepositDisposition({
+      bookingId: updated.id,
+      depositDisposition,
+    }).catch(() => {});
 
     return {
       booking: toBooking(updated),
@@ -422,7 +509,11 @@ export class BookingService {
       return transitionBookingStatus(tx, booking.id, 'confirmed', 'no_show');
     });
 
-    void notificationsService.onBookingNoShow(updated.id).catch(() => {});
+    void emitBookingNoShow({ bookingId: updated.id, depositDisposition }).catch(() => {});
+    void emitBookingDepositDisposition({
+      bookingId: updated.id,
+      depositDisposition,
+    }).catch(() => {});
 
     return {
       booking: toBooking(updated),

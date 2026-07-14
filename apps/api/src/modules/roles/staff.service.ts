@@ -44,7 +44,12 @@ export class StaffService {
     return toBusinessStaffDto(invitation);
   }
 
-  async acceptInvitation(input: { invitationId: string; userId: string; email: string | null; phoneNumber: string }) {
+  async acceptInvitation(input: {
+    invitationId: string;
+    userId: string;
+    email: string | null;
+    phoneNumber: string;
+  }) {
     const invitation = await prisma.businessStaff.findUnique({
       where: { id: input.invitationId },
     });
@@ -57,8 +62,7 @@ export class StaffService {
       invitation.inviteeEmail &&
       input.email &&
       invitation.inviteeEmail.toLowerCase() === input.email.toLowerCase();
-    const phoneMatches =
-      invitation.inviteePhone && invitation.inviteePhone === input.phoneNumber;
+    const phoneMatches = invitation.inviteePhone && invitation.inviteePhone === input.phoneNumber;
 
     if (!emailMatches && !phoneMatches) {
       throw new ApiError('FORBIDDEN', 'Invitation does not belong to this account', 403);

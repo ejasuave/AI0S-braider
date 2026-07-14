@@ -1,6 +1,6 @@
 import { prisma } from '../db.js';
 
-export type WebhookSource = 'stripe' | 'twilio' | 'example';
+export type WebhookSource = 'stripe' | 'twilio' | 'google_calendar' | 'example';
 
 export async function isWebhookProcessed(eventId: string): Promise<boolean> {
   const existing = await prisma.processedWebhookEvent.findUnique({

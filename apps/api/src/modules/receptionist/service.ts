@@ -7,15 +7,11 @@ import { getEnv } from '../../config/env.js';
 import { getClaudeProvider } from '../../lib/claude/index.js';
 import { messagingRepository } from '../messaging/repository.js';
 import { messagingService } from '../messaging/service.js';
-import { notificationsService } from '../notifications/service.js';
+import { clientPreferencesService } from '../client-preferences/service.js';
 import { profileService } from '../profile/service.js';
 import { buildConversationTurnContext, buildCorrectionPrompt } from './context.js';
 import { dispatchReceptionistTurn } from './dispatch.js';
-import {
-  detectPromptInjection,
-  isAmbiguousSlotSelection,
-  shouldEscalate,
-} from './escalation.js';
+import { detectPromptInjection, isAmbiguousSlotSelection, shouldEscalate } from './escalation.js';
 import { buildSystemPrompt, buildUserPrompt } from './prompt.js';
 import { advanceBookingFlow } from './flow.js';
 
@@ -74,28 +70,19 @@ export class ReceptionistService {
     }
 
     const clientPhone = await messagingRepository.getClientPhoneNumber(context.clientId);
-    if (clientPhone && (await notificationsService.isAiOptedOut(clientPhone))) {
-      await escalateWithModelContext(
-        conversationId,
-        ESCALATION_REASONS.smsOptOut,
-      );
+    if (clientPhone && (await clientPreferencesService.isAiOptedOut(clientPhone))) {
+      await escalateWithModelContext(conversationId, ESCALATION_REASONS.smsOptOut);
       return { status: 'escalated', reason: ESCALATION_REASONS.smsOptOut };
     }
 
     if (!env.AI_RECEPTIONIST_ENABLED) {
-      await escalateWithModelContext(
-        conversationId,
-        ESCALATION_REASONS.killSwitch,
-      );
+      await escalateWithModelContext(conversationId, ESCALATION_REASONS.killSwitch);
       return { status: 'escalated', reason: ESCALATION_REASONS.killSwitch };
     }
 
     const latestClient = await messagingRepository.getLatestClientMessage(conversationId);
     if (latestClient && detectPromptInjection(latestClient.content)) {
-      await escalateWithModelContext(
-        conversationId,
-        ESCALATION_REASONS.promptInjection,
-      );
+      await escalateWithModelContext(conversationId, ESCALATION_REASONS.promptInjection);
       return { status: 'escalated', reason: ESCALATION_REASONS.promptInjection };
     }
 
@@ -133,7 +120,10 @@ export class ReceptionistService {
       pricingConfidence = pricing.confidence;
       if (!pricing.offering) {
         customStyleUnresolvable = true;
-      } else if (pricing.offering.isCustomStyle && pricing.confidence < env.AI_CONFIDENCE_THRESHOLD) {
+      } else if (
+        pricing.offering.isCustomStyle &&
+        pricing.confidence < env.AI_CONFIDENCE_THRESHOLD
+      ) {
         customStyleUnresolvable = true;
       }
     }

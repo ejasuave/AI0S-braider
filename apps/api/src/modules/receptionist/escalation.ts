@@ -1,8 +1,5 @@
 import type { ReceptionistIntent, ReceptionistTurnOutput } from '@project-braids/shared-types/api';
-import {
-  ALWAYS_ESCALATE_INTENTS,
-  ESCALATION_REASONS,
-} from '@project-braids/shared-types/api';
+import { ALWAYS_ESCALATE_INTENTS, ESCALATION_REASONS } from '@project-braids/shared-types/api';
 import { getEnv } from '../../config/env.js';
 
 export type EscalationDecision = {
@@ -49,8 +46,7 @@ export function shouldEscalate(
     return {
       escalate: true,
       reason:
-        output.escalation_reason ??
-        `${ESCALATION_REASONS.intentRequiresHuman}:${output.intent}`,
+        output.escalation_reason ?? `${ESCALATION_REASONS.intentRequiresHuman}:${output.intent}`,
     };
   }
 
