@@ -6,11 +6,9 @@ import { useState, useEffect } from 'react';
 import { fetchStylistConversations } from '@/features/messaging/api';
 import type {
   BusinessProfile,
-  ServiceVenueMode,
   StylistProfile,
   StylistSmsBookingNumber,
 } from '@project-braids/shared-types/api';
-import { serviceVenueModeLabel } from '@/shared/lib/venue';
 import { SignOutButton } from '@/features/auth/sign-out-button';
 import { apiFetchData, getApiErrorMessage } from '@/shared/lib/api-client';
 import { formatPhoneHint, isValidE164Phone, normalizePhoneNumber } from '@/shared/lib/phone';
@@ -47,8 +45,9 @@ export default function StylistProfilePage() {
   const [businessName, setBusinessName] = useState('');
   const [locationLabel, setLocationLabel] = useState('');
   const [bio, setBio] = useState('');
-  const [serviceVenueMode, setServiceVenueMode] =
-    useState<ServiceVenueMode>('stylist_location');
+  const [offersStylistLocation, setOffersStylistLocation] = useState(true);
+  const [offersComeToClient, setOffersComeToClient] = useState(false);
+  const [offersRemote, setOffersRemote] = useState(false);
   const [workplaceAddress, setWorkplaceAddress] = useState('');
   const [homeVisitSurcharge, setHomeVisitSurcharge] = useState('');
   const [smsNumber, setSmsNumber] = useState('');
@@ -66,7 +65,9 @@ export default function StylistProfilePage() {
       setBusinessName(profileQuery.data.businessName);
       setLocationLabel(profileQuery.data.locationLabel ?? '');
       setBio(profileQuery.data.bio ?? '');
-      setServiceVenueMode(profileQuery.data.serviceVenueMode);
+      setOffersStylistLocation(profileQuery.data.offersStylistLocation);
+      setOffersComeToClient(profileQuery.data.offersComeToClient);
+      setOffersRemote(profileQuery.data.offersRemote);
       setWorkplaceAddress(profileQuery.data.workplaceAddress ?? '');
       setHomeVisitSurcharge(profileQuery.data.homeVisitSurcharge ?? '');
     }
@@ -86,10 +87,16 @@ export default function StylistProfilePage() {
           businessName,
           locationLabel: locationLabel || null,
           bio: bio || null,
-          serviceVenueMode,
+          offersStylistLocation,
+          offersComeToClient,
+          offersRemote,
           workplaceAddress: workplaceAddress.trim() || null,
           homeVisitSurcharge:
-            homeVisitSurcharge.trim() === '' ? (serviceVenueMode === 'come_to_client' ? 0 : null) : Number(homeVisitSurcharge),
+            homeVisitSurcharge.trim() === ''
+              ? offersComeToClient
+                ? 0
+                : null
+              : Number(homeVisitSurcharge),
         },
       }),
     onSuccess: () => {
@@ -241,30 +248,36 @@ export default function StylistProfilePage() {
                 hint="Neighborhood clients see before booking (e.g. Peckham)"
               />
               <fieldset className="space-y-2">
-                <legend className="text-sm font-medium text-ink">Where do you work?</legend>
+                <legend className="text-sm font-medium text-ink">Where can clients book?</legend>
                 <p className="text-xs text-ink-muted">
-                  Default for new bookings. Clients see the address after confirmation.
+                  Tick every option you offer. Clients choose one when they book.
                 </p>
-                {(
-                  [
-                    ['stylist_location', 'Clients come to my workplace'],
-                    ['come_to_client', 'I come to the client (home visit)'],
-                    ['remote', 'Remote / online'],
-                  ] as const
-                ).map(([value, label]) => (
-                  <label key={value} className="flex min-h-11 items-center gap-2 text-sm text-ink">
-                    <input
-                      type="radio"
-                      name="serviceVenueMode"
-                      value={value}
-                      checked={serviceVenueMode === value}
-                      onChange={() => setServiceVenueMode(value)}
-                    />
-                    {label}
-                  </label>
-                ))}
+                <label className="flex min-h-11 items-center gap-2 text-sm text-ink">
+                  <input
+                    type="checkbox"
+                    checked={offersStylistLocation}
+                    onChange={(e) => setOffersStylistLocation(e.target.checked)}
+                  />
+                  Clients come to my workplace
+                </label>
+                <label className="flex min-h-11 items-center gap-2 text-sm text-ink">
+                  <input
+                    type="checkbox"
+                    checked={offersComeToClient}
+                    onChange={(e) => setOffersComeToClient(e.target.checked)}
+                  />
+                  I come to the client (home visit)
+                </label>
+                <label className="flex min-h-11 items-center gap-2 text-sm text-ink">
+                  <input
+                    type="checkbox"
+                    checked={offersRemote}
+                    onChange={(e) => setOffersRemote(e.target.checked)}
+                  />
+                  Remote / online
+                </label>
               </fieldset>
-              {serviceVenueMode === 'stylist_location' ? (
+              {offersStylistLocation ? (
                 <Textarea
                   label="Workplace address"
                   value={workplaceAddress}
@@ -273,7 +286,7 @@ export default function StylistProfilePage() {
                   required
                 />
               ) : null}
-              {serviceVenueMode === 'come_to_client' ? (
+              {offersComeToClient ? (
                 <Input
                   label="Home visit surcharge (£)"
                   type="number"
@@ -281,7 +294,7 @@ export default function StylistProfilePage() {
                   step="0.01"
                   value={homeVisitSurcharge}
                   onChange={(e) => setHomeVisitSurcharge(e.target.value)}
-                  hint={`Added on top of the service price. Current mode: ${serviceVenueModeLabel(serviceVenueMode)}`}
+                  hint="Added only when the client chooses a home visit"
                 />
               ) : null}
               <Textarea

@@ -58,7 +58,9 @@ export const createBookingHoldRequestSchema = z.object({
   startTime: z.string().datetime(),
   source: z.enum(BOOKING_SOURCES).default('client_direct'),
   clientDisplayName: z.string().trim().min(1).max(80).optional(),
-  /** Required when the stylist's default venue mode is come_to_client. */
+  /** Client-selected venue from the stylist's offered options. */
+  serviceVenueMode: z.enum(SERVICE_VENUE_MODES).optional(),
+  /** Required when the client chooses come_to_client. */
   clientVisitAddress: z.string().trim().min(5).max(500).optional(),
 });
 

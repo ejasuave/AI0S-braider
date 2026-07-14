@@ -3,24 +3,25 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import type {
   Booking,
   BusinessAvailabilityResponse,
   PublicBookingPage,
+  ServiceVenueMode,
 } from '@project-braids/shared-types/api';
 import { useAuth } from '@/features/auth/auth-context';
 import { SignOutButton } from '@/features/auth/sign-out-button';
 import { apiFetchData, getApiErrorMessage } from '@/shared/lib/api-client';
 import { serviceBookingPath, stylistBookingPath } from '@/shared/lib/booking-links';
 import { formatDateTime, formatMoney } from '@/shared/lib/format';
+import { serviceVenueModeLabel } from '@/shared/lib/venue';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { Input } from '@/shared/ui/input';
 import { Textarea } from '@/shared/ui/textarea';
 import { PageHeader, PageShell } from '@/shared/ui/page-shell';
 import { StatusBadge } from '@/shared/ui/status-badge';
-import { serviceVenueModeLabel } from '@/shared/lib/venue';
 
 function useBookingPage(stylistId: string) {
   return useQuery({
@@ -66,8 +67,8 @@ function ServicePicker({
           <>
             <p className="text-sm text-ink-muted">
               Select a style to see available times and hold your slot.
-              {page?.serviceVenueMode
-                ? ` ${serviceVenueModeLabel(page.serviceVenueMode)}.`
+              {(page?.venueOptions?.length ?? 0) > 0
+                ? ` Options: ${page!.venueOptions.map(serviceVenueModeLabel).join(', ')}.`
                 : ''}
             </p>
             <div className="space-y-3">
@@ -104,13 +105,24 @@ function ServiceBooking({
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [clientDisplayName, setClientDisplayName] = useState('');
   const [clientVisitAddress, setClientVisitAddress] = useState('');
+  const [chosenVenueMode, setChosenVenueMode] = useState<ServiceVenueMode | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const pageQuery = useBookingPage(stylistId);
   const offering = pageQuery.data?.offerings.find((o) => o.id === serviceOfferingId);
   const businessId = pageQuery.data?.businessId ?? '';
-  const venueMode = pageQuery.data?.serviceVenueMode ?? 'stylist_location';
+  const venueOptions = pageQuery.data?.venueOptions ?? [];
   const homeVisitSurcharge = pageQuery.data?.homeVisitSurcharge;
+
+  useEffect(() => {
+    if (venueOptions.length === 1) {
+      setChosenVenueMode(venueOptions[0]!);
+    } else if (chosenVenueMode && !venueOptions.includes(chosenVenueMode)) {
+      setChosenVenueMode(null);
+    }
+  }, [venueOptions, chosenVenueMode]);
+
+  const venueMode = chosenVenueMode;
 
   const availabilityQuery = useQuery({
     queryKey: ['availability', businessId, serviceOfferingId],
@@ -132,6 +144,7 @@ function ServiceBooking({
           startTime,
           source: 'client_direct',
           clientDisplayName: clientDisplayName.trim() || undefined,
+          serviceVenueMode: venueMode ?? undefined,
           clientVisitAddress:
             venueMode === 'come_to_client' ? clientVisitAddress.trim() : undefined,
         },
@@ -155,6 +168,11 @@ function ServiceBooking({
       return;
     }
 
+    if (!venueMode) {
+      setError('Choose where you want the appointment.');
+      return;
+    }
+
     if (venueMode === 'come_to_client' && clientVisitAddress.trim().length < 5) {
       setError('Enter the address for your home visit.');
       return;
@@ -167,6 +185,13 @@ function ServiceBooking({
       setError(getApiErrorMessage(err));
     }
   }
+
+  const serviceTotal =
+    offering && venueMode === 'come_to_client' && homeVisitSurcharge
+      ? Number(offering.basePrice) + Number(homeVisitSurcharge)
+      : offering
+        ? Number(offering.basePrice)
+        : null;
 
   return (
     <PageShell>
@@ -185,10 +210,9 @@ function ServiceBooking({
             <p className="text-sm text-ink-muted">
               {formatMoney(offering.basePrice)} · {offering.estimatedDurationMinutes} minutes
             </p>
-            <p className="text-sm text-ink-muted">{serviceVenueModeLabel(venueMode)}</p>
-            {venueMode === 'come_to_client' && homeVisitSurcharge && Number(homeVisitSurcharge) > 0 ? (
+            {serviceTotal != null && venueMode === 'come_to_client' && Number(homeVisitSurcharge) > 0 ? (
               <p className="text-sm text-ink">
-                Home visit adds {formatMoney(homeVisitSurcharge)} (included in total at checkout).
+                Estimated total with home visit: {formatMoney(serviceTotal.toFixed(2))}
               </p>
             ) : null}
             <StatusBadge label="AI receptionist available via SMS" tone="ai" />
@@ -263,14 +287,42 @@ function ServiceBooking({
                 placeholder="How the stylist should address you"
                 required
               />
+              <fieldset className="space-y-2">
+                <legend className="text-sm font-medium text-ink">Where should this be?</legend>
+                {venueOptions.map((mode) => (
+                  <label key={mode} className="flex min-h-11 items-center gap-2 text-sm text-ink">
+                    <input
+                      type="radio"
+                      name="serviceVenueMode"
+                      value={mode}
+                      checked={venueMode === mode}
+                      onChange={() => setChosenVenueMode(mode)}
+                    />
+                    {serviceVenueModeLabel(mode)}
+                  </label>
+                ))}
+              </fieldset>
               {venueMode === 'come_to_client' ? (
-                <Textarea
-                  label="Visit address"
-                  value={clientVisitAddress}
-                  onChange={(e) => setClientVisitAddress(e.target.value)}
-                  placeholder="Full address for your home visit"
-                  required
-                />
+                <>
+                  {homeVisitSurcharge && Number(homeVisitSurcharge) > 0 ? (
+                    <p className="rounded-md border border-warning/30 bg-warning/5 px-3 py-2 text-sm text-ink">
+                      Home visit surcharge: {formatMoney(homeVisitSurcharge)} will be added to the
+                      service price.
+                    </p>
+                  ) : null}
+                  <Textarea
+                    label="Visit address"
+                    value={clientVisitAddress}
+                    onChange={(e) => setClientVisitAddress(e.target.value)}
+                    placeholder="Full address for your home visit"
+                    required
+                  />
+                </>
+              ) : null}
+              {venueMode === 'stylist_location' ? (
+                <p className="text-xs text-ink-muted">
+                  The stylist&apos;s workplace address is shared after your booking is confirmed.
+                </p>
               ) : null}
             </Card>
 

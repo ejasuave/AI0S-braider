@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import { ONBOARDING_STATUSES } from './profile.js';
-import { SERVICE_VENUE_MODES } from './booking.js';
 
 const timeStringSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Expected HH:MM');
 
@@ -13,7 +12,9 @@ export const businessProfileSchema = z.object({
   locationLng: z.number().nullable(),
   locationLabel: z.string().nullable(),
   serviceAreaRadiusKm: z.number().nullable(),
-  serviceVenueMode: z.enum(SERVICE_VENUE_MODES),
+  offersStylistLocation: z.boolean(),
+  offersComeToClient: z.boolean(),
+  offersRemote: z.boolean(),
   workplaceAddress: z.string().nullable(),
   homeVisitSurcharge: z.string().nullable(),
   onboardingStatus: z.enum(ONBOARDING_STATUSES),
@@ -31,16 +32,42 @@ export const updateBusinessProfileRequestSchema = z
     locationLng: z.number().min(-180).max(180).nullable().optional(),
     locationLabel: z.string().trim().max(120).nullable().optional(),
     serviceAreaRadiusKm: z.number().positive().max(200).nullable().optional(),
-    serviceVenueMode: z.enum(SERVICE_VENUE_MODES).optional(),
+    offersStylistLocation: z.boolean().optional(),
+    offersComeToClient: z.boolean().optional(),
+    offersRemote: z.boolean().optional(),
     workplaceAddress: z.string().trim().min(5).max(500).nullable().optional(),
     homeVisitSurcharge: z.number().min(0).max(10_000).nullable().optional(),
   })
   .refine((value) => Object.keys(value).length > 0, 'At least one field is required')
   .superRefine((value, ctx) => {
-    if (value.serviceVenueMode === 'stylist_location' && value.workplaceAddress === null) {
+    const offersTouched =
+      value.offersStylistLocation !== undefined ||
+      value.offersComeToClient !== undefined ||
+      value.offersRemote !== undefined;
+    if (offersTouched) {
+      const stylist = value.offersStylistLocation === true;
+      const home = value.offersComeToClient === true;
+      const remote = value.offersRemote === true;
+      // Only validate full trio when all three are present in the payload
+      if (
+        value.offersStylistLocation !== undefined &&
+        value.offersComeToClient !== undefined &&
+        value.offersRemote !== undefined &&
+        !stylist &&
+        !home &&
+        !remote
+      ) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Select at least one venue option',
+          path: ['offersStylistLocation'],
+        });
+      }
+    }
+    if (value.offersStylistLocation === true && value.workplaceAddress === null) {
       ctx.addIssue({
         code: 'custom',
-        message: 'workplaceAddress is required for stylist location mode',
+        message: 'workplaceAddress is required when offering stylist location',
         path: ['workplaceAddress'],
       });
     }

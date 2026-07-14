@@ -123,11 +123,13 @@ model Business {
   locationLng         Decimal?         @map("location_lng") @db.Decimal(10, 7)
   locationLabel       String?          @map("location_label")
   serviceAreaRadiusKm Decimal?         @map("service_area_radius_km") @db.Decimal(6, 2)
-  /// Business default for where appointments happen.
-  serviceVenueMode    ServiceVenueMode @default(stylist_location) @map("service_venue_mode")
+  /// Venue options the stylist offers (client chooses one per booking).
+  offersStylistLocation Boolean          @default(true) @map("offers_stylist_location")
+  offersComeToClient    Boolean          @default(false) @map("offers_come_to_client")
+  offersRemote          Boolean          @default(false) @map("offers_remote")
   /// Full workplace / studio address — shown to clients only after confirmation.
   workplaceAddress    String?          @map("workplace_address")
-  /// Extra amount (GBP) added when venue mode is come_to_client.
+  /// Extra amount (GBP) added when the client chooses come_to_client.
   homeVisitSurcharge  Decimal?         @map("home_visit_surcharge") @db.Decimal(10, 2)
   onboardingStatus    OnboardingStatus @default(in_progress) @map("onboarding_status")
   createdAt           DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)

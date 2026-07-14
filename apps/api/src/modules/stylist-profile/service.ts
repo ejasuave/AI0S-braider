@@ -89,13 +89,21 @@ export class StylistProfileService {
       throw ApiError.notFound('Business not found');
     }
 
-    const nextMode = input.serviceVenueMode ?? existing.serviceVenueMode;
+    const offersStylistLocation =
+      input.offersStylistLocation ?? existing.offersStylistLocation;
+    const offersComeToClient = input.offersComeToClient ?? existing.offersComeToClient;
+    const offersRemote = input.offersRemote ?? existing.offersRemote;
+
+    if (!offersStylistLocation && !offersComeToClient && !offersRemote) {
+      throw ApiError.validation('Select at least one venue option');
+    }
+
     const nextWorkplace =
       input.workplaceAddress !== undefined ? input.workplaceAddress : existing.workplaceAddress;
 
-    if (nextMode === 'stylist_location' && (!nextWorkplace || nextWorkplace.trim().length < 5)) {
+    if (offersStylistLocation && (!nextWorkplace || nextWorkplace.trim().length < 5)) {
       throw ApiError.validation(
-        'Add your workplace address when clients come to your location',
+        'Add your workplace address when clients can come to your location',
       );
     }
 
@@ -110,9 +118,13 @@ export class StylistProfileService {
         ...(input.serviceAreaRadiusKm !== undefined
           ? { serviceAreaRadiusKm: input.serviceAreaRadiusKm }
           : {}),
-        ...(input.serviceVenueMode !== undefined
-          ? { serviceVenueMode: input.serviceVenueMode }
+        ...(input.offersStylistLocation !== undefined
+          ? { offersStylistLocation: input.offersStylistLocation }
           : {}),
+        ...(input.offersComeToClient !== undefined
+          ? { offersComeToClient: input.offersComeToClient }
+          : {}),
+        ...(input.offersRemote !== undefined ? { offersRemote: input.offersRemote } : {}),
         ...(input.workplaceAddress !== undefined
           ? { workplaceAddress: input.workplaceAddress }
           : {}),

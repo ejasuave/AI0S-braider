@@ -75,8 +75,8 @@ async function loadClientPhones(
   return new Map(users.map((u) => [u.id, u.phoneNumber]));
 }
 
-async function resolveVenueForStylist(stylistId: string): Promise<{
-  serviceVenueMode: 'remote' | 'stylist_location' | 'come_to_client';
+async function resolveVenueOffersForStylist(stylistId: string): Promise<{
+  offeredModes: Array<'remote' | 'stylist_location' | 'come_to_client'>;
   workplaceAddress: string | null;
   homeVisitSurcharge: number | null;
 }> {
@@ -85,7 +85,9 @@ async function resolveVenueForStylist(stylistId: string): Promise<{
     select: {
       business: {
         select: {
-          serviceVenueMode: true,
+          offersStylistLocation: true,
+          offersComeToClient: true,
+          offersRemote: true,
           workplaceAddress: true,
           homeVisitSurcharge: true,
         },
@@ -94,16 +96,29 @@ async function resolveVenueForStylist(stylistId: string): Promise<{
   });
   if (!profile?.business) {
     return {
-      serviceVenueMode: 'stylist_location',
+      offeredModes: ['stylist_location'],
       workplaceAddress: null,
       homeVisitSurcharge: null,
     };
   }
+  const offeredModes: Array<'remote' | 'stylist_location' | 'come_to_client'> = [];
+  if (profile.business.offersStylistLocation) offeredModes.push('stylist_location');
+  if (profile.business.offersComeToClient) offeredModes.push('come_to_client');
+  if (profile.business.offersRemote) offeredModes.push('remote');
+  if (offeredModes.length === 0) offeredModes.push('stylist_location');
   return {
-    serviceVenueMode: profile.business.serviceVenueMode,
+    offeredModes,
     workplaceAddress: profile.business.workplaceAddress,
     homeVisitSurcharge: profile.business.homeVisitSurcharge?.toNumber() ?? null,
   };
+}
+
+function pickDefaultVenueMode(
+  offered: Array<'remote' | 'stylist_location' | 'come_to_client'>,
+): 'remote' | 'stylist_location' | 'come_to_client' {
+  if (offered.includes('stylist_location')) return 'stylist_location';
+  if (offered.includes('remote')) return 'remote';
+  return offered[0] ?? 'stylist_location';
 }
 
 export class BookingService {
@@ -262,9 +277,20 @@ export class BookingService {
       input.stylistId,
       input.serviceOfferingId,
     );
-    const venue = await resolveVenueForStylist(input.stylistId);
+    const venue = await resolveVenueOffersForStylist(input.stylistId);
 
-    if (venue.serviceVenueMode === 'come_to_client') {
+    const chosenMode =
+      input.serviceVenueMode ??
+      (venue.offeredModes.length === 1 ? venue.offeredModes[0] : undefined);
+
+    if (!chosenMode) {
+      throw ApiError.validation('Choose where this appointment should take place');
+    }
+    if (!venue.offeredModes.includes(chosenMode)) {
+      throw ApiError.validation('That venue option is not offered by this stylist');
+    }
+
+    if (chosenMode === 'come_to_client') {
       if (!input.clientVisitAddress?.trim()) {
         throw ApiError.validation('Your visit address is required for a home visit');
       }
@@ -285,14 +311,13 @@ export class BookingService {
       clientDisplayName = profile?.displayName ?? null;
     }
 
-    const surcharge =
-      venue.serviceVenueMode === 'come_to_client' ? (venue.homeVisitSurcharge ?? 0) : 0;
+    const surcharge = chosenMode === 'come_to_client' ? (venue.homeVisitSurcharge ?? 0) : 0;
     const agreedPrice = offering.basePrice.toNumber() + surcharge;
 
     const venueAddress =
-      venue.serviceVenueMode === 'come_to_client'
+      chosenMode === 'come_to_client'
         ? input.clientVisitAddress!.trim()
-        : venue.serviceVenueMode === 'stylist_location'
+        : chosenMode === 'stylist_location'
           ? venue.workplaceAddress
           : null;
 
@@ -305,7 +330,7 @@ export class BookingService {
       agreedPrice,
       source: input.source as BookingSource,
       status: 'held',
-      serviceVenueMode: venue.serviceVenueMode,
+      serviceVenueMode: chosenMode,
       venueAddress,
       homeVisitSurcharge: surcharge,
       clientDisplayName,
@@ -319,9 +344,8 @@ export class BookingService {
     let durationMinutes = input.durationMinutes ?? 60;
     let agreedPrice = 0;
     const serviceOfferingId: string | null = input.serviceOfferingId ?? null;
-    const venue = await resolveVenueForStylist(stylistId);
-    const surcharge =
-      venue.serviceVenueMode === 'come_to_client' ? (venue.homeVisitSurcharge ?? 0) : 0;
+    const venue = await resolveVenueOffersForStylist(stylistId);
+    const chosenMode = pickDefaultVenueMode(venue.offeredModes);
 
     if (input.serviceOfferingId) {
       const offering = await profileService.getActiveServiceOffering(
@@ -329,7 +353,7 @@ export class BookingService {
         input.serviceOfferingId,
       );
       durationMinutes = offering.estimatedDurationMinutes;
-      agreedPrice = offering.basePrice.toNumber() + surcharge;
+      agreedPrice = offering.basePrice.toNumber();
     }
 
     return this.createBookingRecord({
@@ -342,10 +366,9 @@ export class BookingService {
       source: 'dashboard_manual',
       status: 'confirmed',
       skipAvailabilityCheck: true,
-      serviceVenueMode: venue.serviceVenueMode,
-      venueAddress:
-        venue.serviceVenueMode === 'stylist_location' ? venue.workplaceAddress : null,
-      homeVisitSurcharge: surcharge,
+      serviceVenueMode: chosenMode,
+      venueAddress: chosenMode === 'stylist_location' ? venue.workplaceAddress : null,
+      homeVisitSurcharge: 0,
       clientDisplayName: null,
     });
   }

@@ -121,7 +121,8 @@ export const publicBookingPageSchema = z.object({
   stylistId: z.string().uuid(),
   businessName: z.string(),
   locationArea: z.string().nullable(),
-  serviceVenueMode: z.enum(SERVICE_VENUE_MODES),
+  /** Venue options this stylist offers — client picks one when booking. */
+  venueOptions: z.array(z.enum(SERVICE_VENUE_MODES)).min(1),
   homeVisitSurcharge: z.string().nullable(),
   offerings: z.array(publicBookingOfferingSchema),
 });
