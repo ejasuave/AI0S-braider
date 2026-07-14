@@ -1,4 +1,5 @@
-# See https://fly.io/docs/app-guides/continuous-deployment-with-github-actions/
+# Deploys the staging API to Fly.io on pushes to main.
+# Uses fly.api.staging.toml — do NOT deploy via the root fly.toml (wrong/legacy app).
 
 name: Fly Deploy
 on:
@@ -7,12 +8,13 @@ on:
       - main
 jobs:
   deploy:
-    name: Deploy app
+    name: Deploy staging API
     runs-on: ubuntu-latest
-    concurrency: deploy-group    # optional: ensure only one action runs at a time
+    concurrency: deploy-group
     steps:
       - uses: actions/checkout@v4
       - uses: superfly/flyctl-actions/setup-flyctl@master
-      - run: flyctl deploy --remote-only
+      - name: Deploy project-braids-api-staging
+        run: flyctl deploy --remote-only --config fly.api.staging.toml -a project-braids-api-staging
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
