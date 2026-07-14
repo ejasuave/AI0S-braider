@@ -395,6 +395,9 @@ model StylistProfile {
   requireStylistApproval   Boolean          @default(false) @map("require_stylist_approval")
   onboardingStatus         OnboardingStatus @default(in_progress) @map("onboarding_status")
   directoryVisible    Boolean          @default(false) @map("directory_visible")
+  /// Public headshot/profile photo clients see on directory and booking pages.
+  photoUrl            String?          @map("photo_url")
+  photoStorageKey     String?          @map("photo_storage_key")
   createdAt           DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -411,20 +414,24 @@ model StylistProfile {
 }
 
 model PortfolioItem {
-  id           String          @id @default(uuid()) @db.Uuid
-  businessId   String          @map("business_id") @db.Uuid
-  stylistId    String          @map("stylist_id") @db.Uuid
-  imageUrl     String          @map("image_url")
-  storageKey   String?         @map("storage_key")
-  source       PortfolioSource @default(manual)
-  displayOrder Int             @default(0) @map("display_order")
-  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  id                String          @id @default(uuid()) @db.Uuid
+  businessId        String          @map("business_id") @db.Uuid
+  stylistId         String          @map("stylist_id") @db.Uuid
+  /// Service this image showcases. Null = legacy/Instagram uncategorized work.
+  serviceOfferingId String?         @map("service_offering_id") @db.Uuid
+  imageUrl          String          @map("image_url")
+  storageKey        String?         @map("storage_key")
+  source            PortfolioSource @default(manual)
+  displayOrder      Int             @default(0) @map("display_order")
+  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  business Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  stylist  StylistProfile @relation(fields: [stylistId], references: [id], onDelete: Cascade)
+  business        Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  stylist         StylistProfile   @relation(fields: [stylistId], references: [id], onDelete: Cascade)
+  serviceOffering ServiceOffering? @relation(fields: [serviceOfferingId], references: [id], onDelete: SetNull)
 
   @@index([businessId, displayOrder])
   @@index([stylistId, displayOrder])
+  @@index([serviceOfferingId, displayOrder])
   @@map("portfolio_items")
 }
 
@@ -444,9 +451,10 @@ model ServiceOffering {
   createdAt                DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  business      Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  stylist       StylistProfile @relation(fields: [stylistId], references: [id], onDelete: Cascade)
-  styleCategory StyleCategory? @relation(fields: [styleCategoryId], references: [id], onDelete: SetNull)
+  business       Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  stylist        StylistProfile  @relation(fields: [stylistId], references: [id], onDelete: Cascade)
+  styleCategory  StyleCategory?  @relation(fields: [styleCategoryId], references: [id], onDelete: SetNull)
+  portfolioItems PortfolioItem[]
 
   @@index([businessId, active])
   @@index([stylistId, active])

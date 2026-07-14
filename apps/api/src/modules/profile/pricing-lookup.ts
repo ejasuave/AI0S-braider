@@ -23,6 +23,7 @@ function toApiOffering(offering: DbServiceOffering): ServiceOffering {
     hairIncluded: offering.hairIncluded,
     isCustomStyle: offering.isCustomStyle,
     active: offering.active,
+    portfolio: [],
     createdAt: offering.createdAt.toISOString(),
     updatedAt: offering.updatedAt.toISOString(),
   };

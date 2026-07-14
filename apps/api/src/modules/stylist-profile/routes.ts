@@ -5,7 +5,9 @@ import {
   instagramConnectRequestSchema,
   instagramImportRequestSchema,
   portfolioUploadUrlRequestSchema,
+  profilePhotoUploadUrlRequestSchema,
   registerPortfolioItemRequestSchema,
+  registerProfilePhotoRequestSchema,
   reorderPortfolioRequestSchema,
   replaceWorkingHoursRequestSchema,
   updateBusinessPolicyRequestSchema,
@@ -78,6 +80,7 @@ export const stylistProfileRoutes: FastifyPluginAsync = async (app) => {
       const result = await stylistProfileService.createPortfolioUploadUrl(
         businessId,
         body.contentType,
+        body.serviceOfferingId,
       );
       sendData(reply, result);
     },
@@ -99,7 +102,11 @@ export const stylistProfileRoutes: FastifyPluginAsync = async (app) => {
     { preHandler: [requireBusinessPermission('can_manage_profile')] },
     async (request, reply) => {
       const { businessId } = await resolveMe(request);
-      const items = await stylistProfileService.listPortfolioItems(businessId);
+      const query = request.query as { serviceOfferingId?: string };
+      const items = await stylistProfileService.listPortfolioItems(
+        businessId,
+        query.serviceOfferingId,
+      );
       sendData(reply, items);
     },
   );
@@ -122,6 +129,41 @@ export const stylistProfileRoutes: FastifyPluginAsync = async (app) => {
       const { businessId } = await resolveMe(request);
       const { itemId } = request.params as { itemId: string };
       await stylistProfileService.deletePortfolioItem(businessId, itemId);
+      sendData(reply, { status: 'deleted' });
+    },
+  );
+
+  app.post(
+    '/me/photo/upload-url',
+    { preHandler: [requireBusinessPermission('can_manage_profile')] },
+    async (request, reply) => {
+      const { stylistId } = await resolveMe(request);
+      const body = profilePhotoUploadUrlRequestSchema.parse(request.body ?? {});
+      const result = await stylistProfileService.createProfilePhotoUploadUrl(
+        stylistId,
+        body.contentType,
+      );
+      sendData(reply, result);
+    },
+  );
+
+  app.post(
+    '/me/photo',
+    { preHandler: [requireBusinessPermission('can_manage_profile')] },
+    async (request, reply) => {
+      const { stylistId } = await resolveMe(request);
+      const body = registerProfilePhotoRequestSchema.parse(request.body);
+      const result = await stylistProfileService.setProfilePhoto(stylistId, body);
+      sendData(reply, result);
+    },
+  );
+
+  app.delete(
+    '/me/photo',
+    { preHandler: [requireBusinessPermission('can_manage_profile')] },
+    async (request, reply) => {
+      const { stylistId } = await resolveMe(request);
+      await stylistProfileService.deleteProfilePhoto(stylistId);
       sendData(reply, { status: 'deleted' });
     },
   );

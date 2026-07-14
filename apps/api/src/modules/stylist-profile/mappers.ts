@@ -71,22 +71,25 @@ export function toBusinessPolicy(row: {
   };
 }
 
-export function toServiceOffering(offering: {
-  id: string;
-  businessId: string;
-  stylistId: string;
-  styleCategoryId: string | null;
-  styleName: string;
-  sizeTier: string | null;
-  lengthTier: string | null;
-  basePrice: Prisma.Decimal;
-  estimatedDurationMinutes: number;
-  hairIncluded: boolean;
-  isCustomStyle: boolean;
-  active: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-}): ServiceOffering {
+export function toServiceOffering(
+  offering: {
+    id: string;
+    businessId: string;
+    stylistId: string;
+    styleCategoryId: string | null;
+    styleName: string;
+    sizeTier: string | null;
+    lengthTier: string | null;
+    basePrice: Prisma.Decimal;
+    estimatedDurationMinutes: number;
+    hairIncluded: boolean;
+    isCustomStyle: boolean;
+    active: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  },
+  portfolio: PortfolioItem[] = [],
+): ServiceOffering {
   return {
     id: offering.id,
     stylistId: offering.stylistId,
@@ -98,6 +101,7 @@ export function toServiceOffering(offering: {
     hairIncluded: offering.hairIncluded,
     isCustomStyle: offering.isCustomStyle,
     active: offering.active,
+    portfolio,
     createdAt: toIso(offering.createdAt),
     updatedAt: toIso(offering.updatedAt),
   };
@@ -106,6 +110,7 @@ export function toServiceOffering(offering: {
 export function toPortfolioItem(item: {
   id: string;
   stylistId: string;
+  serviceOfferingId: string | null;
   imageUrl: string;
   source: 'manual' | 'instagram';
   displayOrder: number;
@@ -114,6 +119,7 @@ export function toPortfolioItem(item: {
   return {
     id: item.id,
     stylistId: item.stylistId,
+    serviceOfferingId: item.serviceOfferingId,
     imageUrl: item.imageUrl,
     source: item.source,
     displayOrder: item.displayOrder,
@@ -140,7 +146,13 @@ export function toStyleCategory(category: {
   };
 }
 
+/** Business-wide portfolio cap (manual + Instagram) — prevents unbounded storage. */
 export const PORTFOLIO_ITEM_LIMIT = 50;
+
+/** Per-service gallery cap (product requirement). */
+export const PORTFOLIO_IMAGES_PER_SERVICE = 10;
+
+export const MAX_PORTFOLIO_IMAGE_BYTES = 5 * 1024 * 1024;
 
 export const WEEKDAY_INDEX_TO_NAME = [
   'sunday',

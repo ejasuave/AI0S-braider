@@ -62,6 +62,13 @@ export class ProfileService {
     stylistId: string;
     businessName: string;
     locationArea: string | null;
+    photoUrl: string | null;
+    portfolio: Array<{
+      id: string;
+      imageUrl: string;
+      displayOrder: number;
+      serviceOfferingId: string | null;
+    }>;
     venueOptions: Array<'remote' | 'stylist_location' | 'come_to_client'>;
     homeVisitSurcharge: string | null;
     offerings: Array<{
@@ -69,21 +76,52 @@ export class ProfileService {
       styleName: string;
       basePrice: string;
       estimatedDurationMinutes: number;
+      portfolio: Array<{
+        id: string;
+        imageUrl: string;
+        displayOrder: number;
+        serviceOfferingId: string | null;
+      }>;
     }>;
   }> {
     const profile = await getStylistProfileById(stylistId);
-    const offerings = await listActiveServiceOfferings(stylistId);
-    const business = profile.businessId
-      ? await prisma.business.findUnique({
-          where: { id: profile.businessId },
-          select: {
-            offersStylistLocation: true,
-            offersComeToClient: true,
-            offersRemote: true,
-            homeVisitSurcharge: true,
+    const [business, offerings] = await Promise.all([
+      profile.businessId
+        ? prisma.business.findUnique({
+            where: { id: profile.businessId },
+            select: {
+              offersStylistLocation: true,
+              offersComeToClient: true,
+              offersRemote: true,
+              homeVisitSurcharge: true,
+            },
+          })
+        : Promise.resolve(null),
+      prisma.serviceOffering.findMany({
+        where: { stylistId, active: true },
+        include: {
+          portfolioItems: {
+            orderBy: { displayOrder: 'asc' },
+            select: {
+              id: true,
+              imageUrl: true,
+              displayOrder: true,
+              serviceOfferingId: true,
+            },
           },
-        })
-      : null;
+        },
+        orderBy: [{ styleName: 'asc' }, { sizeTier: 'asc' }, { lengthTier: 'asc' }],
+      }),
+    ]);
+
+    const portfolio = offerings.flatMap((offering) =>
+      offering.portfolioItems.map((item) => ({
+        id: item.id,
+        imageUrl: item.imageUrl,
+        displayOrder: item.displayOrder,
+        serviceOfferingId: item.serviceOfferingId,
+      })),
+    );
 
     const venueOptions: Array<'remote' | 'stylist_location' | 'come_to_client'> = [];
     if (business?.offersStylistLocation) venueOptions.push('stylist_location');
@@ -96,6 +134,8 @@ export class ProfileService {
       stylistId: profile.id,
       businessName: profile.businessName,
       locationArea: profile.locationArea,
+      photoUrl: profile.photoUrl,
+      portfolio,
       venueOptions,
       homeVisitSurcharge: business?.homeVisitSurcharge
         ? business.homeVisitSurcharge.toFixed(2)
@@ -105,6 +145,12 @@ export class ProfileService {
         styleName: offering.styleName,
         basePrice: offering.basePrice.toFixed(2),
         estimatedDurationMinutes: offering.estimatedDurationMinutes,
+        portfolio: offering.portfolioItems.map((item) => ({
+          id: item.id,
+          imageUrl: item.imageUrl,
+          displayOrder: item.displayOrder,
+          serviceOfferingId: item.serviceOfferingId,
+        })),
       })),
     };
   }
@@ -229,6 +275,11 @@ export class ProfileService {
             where: { active: true },
             orderBy: { basePrice: 'asc' },
           },
+          portfolioItems: {
+            orderBy: { displayOrder: 'asc' },
+            take: 1,
+            select: { imageUrl: true },
+          },
         },
         orderBy: { businessName: 'asc' },
         take: query.limit,
@@ -243,6 +294,8 @@ export class ProfileService {
         businessName: row.businessName,
         locationArea: row.locationArea ?? '',
         bio: row.bio,
+        photoUrl: row.photoUrl,
+        coverImageUrl: row.portfolioItems[0]?.imageUrl ?? null,
         styleNames: [...new Set(row.serviceOfferings.map((offering) => offering.styleName))],
         startingPrice: row.serviceOfferings[0]?.basePrice.toFixed(2) ?? null,
       })),
@@ -266,21 +319,53 @@ export class ProfileService {
       throw ApiError.notFound('Stylist not found in directory');
     }
 
-    const offerings = await listActiveServiceOfferings(stylistId);
+    const offerings = await prisma.serviceOffering.findMany({
+      where: { stylistId, active: true },
+      include: {
+        portfolioItems: {
+          orderBy: { displayOrder: 'asc' },
+          select: {
+            id: true,
+            imageUrl: true,
+            displayOrder: true,
+            serviceOfferingId: true,
+          },
+        },
+      },
+      orderBy: [{ styleName: 'asc' }, { sizeTier: 'asc' }, { lengthTier: 'asc' }],
+    });
+
     if (offerings.length === 0) {
       throw ApiError.notFound('Stylist not found in directory');
     }
+
+    const portfolio = offerings.flatMap((offering) =>
+      offering.portfolioItems.map((item) => ({
+        id: item.id,
+        imageUrl: item.imageUrl,
+        displayOrder: item.displayOrder,
+        serviceOfferingId: item.serviceOfferingId,
+      })),
+    );
 
     return {
       stylistId: profile.id,
       businessName: profile.businessName,
       locationArea: profile.locationArea ?? '',
       bio: profile.bio,
+      photoUrl: profile.photoUrl,
+      portfolio,
       offerings: offerings.map((offering) => ({
         id: offering.id,
         styleName: offering.styleName,
         basePrice: offering.basePrice.toFixed(2),
         estimatedDurationMinutes: offering.estimatedDurationMinutes,
+        portfolio: offering.portfolioItems.map((item) => ({
+          id: item.id,
+          imageUrl: item.imageUrl,
+          displayOrder: item.displayOrder,
+          serviceOfferingId: item.serviceOfferingId,
+        })),
       })),
     };
   }
@@ -294,7 +379,7 @@ export class ProfileService {
 
   async listServiceOfferings(stylistId: string): Promise<ServiceOffering[]> {
     const offerings = await listActiveServiceOfferings(stylistId);
-    return offerings.map(toServiceOffering);
+    return offerings.map((offering) => toServiceOffering(offering));
   }
 
   async createServiceOffering(
@@ -424,8 +509,21 @@ export class ProfileService {
       throw ApiError.validation('Business must be linked before adding portfolio items');
     }
 
+    if (input.serviceOfferingId) {
+      const offering = await prisma.serviceOffering.findFirst({
+        where: { id: input.serviceOfferingId, stylistId },
+        select: { id: true },
+      });
+      if (!offering) {
+        throw ApiError.notFound('Service offering not found');
+      }
+    }
+
     const maxOrder = await prisma.portfolioItem.aggregate({
-      where: { stylistId },
+      where: {
+        stylistId,
+        ...(input.serviceOfferingId ? { serviceOfferingId: input.serviceOfferingId } : {}),
+      },
       _max: { displayOrder: true },
     });
 
@@ -433,6 +531,7 @@ export class ProfileService {
       data: {
         businessId: profile.businessId,
         stylistId,
+        serviceOfferingId: input.serviceOfferingId ?? null,
         imageUrl: input.imageUrl,
         source: 'manual',
         displayOrder: input.displayOrder ?? (maxOrder._max.displayOrder ?? -1) + 1,

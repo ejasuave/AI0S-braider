@@ -21,4 +21,8 @@ export type {
   PresignedUploadInput,
   PresignedUploadResult,
 } from './storage-provider.js';
-export { verifyUploadToken, createPortfolioStorageKey } from './local-storage-provider.js';
+export {
+  verifyUploadToken,
+  createPortfolioStorageKey,
+  createProfilePhotoStorageKey,
+} from './local-storage-provider.js';

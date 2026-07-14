@@ -178,10 +178,31 @@ export const updateScheduleExceptionRequestSchema = z
   })
   .refine((value) => Object.keys(value).length > 0, 'At least one field is required');
 
+/** Max images a stylist can attach to a single service offering. */
+export const PORTFOLIO_IMAGES_PER_SERVICE = 10;
+
+/** Max bytes per portfolio / profile photo upload. */
+export const MAX_PORTFOLIO_IMAGE_BYTES = 5 * 1024 * 1024;
+
+const portfolioImageContentTypeSchema = z.preprocess(
+  (value) => (value === 'image/jpg' ? 'image/jpeg' : value),
+  z.enum(['image/jpeg', 'image/png', 'image/webp']),
+);
+
 export const portfolioUploadUrlRequestSchema = z.object({
-  contentType: z.enum(['image/jpeg', 'image/png', 'image/webp']),
+  contentType: portfolioImageContentTypeSchema,
+  /** Required for new manual uploads — images are scoped to a service. */
+  serviceOfferingId: z.string().uuid(),
   filename: z.string().trim().min(1).max(200).optional(),
 });
+
+/** Profile headshot upload — not tied to a service offering. */
+export const profilePhotoUploadUrlRequestSchema = z.object({
+  contentType: portfolioImageContentTypeSchema,
+  filename: z.string().trim().min(1).max(200).optional(),
+});
+
+export type ProfilePhotoUploadUrlRequest = z.infer<typeof profilePhotoUploadUrlRequestSchema>;
 
 export const portfolioUploadUrlResponseSchema = z.object({
   uploadUrl: z.string().url(),
@@ -193,9 +214,21 @@ export const portfolioUploadUrlResponseSchema = z.object({
 export const registerPortfolioItemRequestSchema = z.object({
   imageUrl: z.string().url(),
   storageKey: z.string().min(1),
+  serviceOfferingId: z.string().uuid(),
 });
 
+export type RegisterPortfolioItemRequest = z.infer<typeof registerPortfolioItemRequestSchema>;
+
+export const registerProfilePhotoRequestSchema = z.object({
+  imageUrl: z.string().url(),
+  storageKey: z.string().min(1),
+});
+
+export type RegisterProfilePhotoRequest = z.infer<typeof registerProfilePhotoRequestSchema>;
+
 export const reorderPortfolioRequestSchema = z.object({
+  /** Reorder within a single service's gallery. */
+  serviceOfferingId: z.string().uuid(),
   orderedIds: z.array(z.string().uuid()).min(1),
 });
 
@@ -264,5 +297,4 @@ export const completeOnboardingRequestSchema = z.object({}).optional();
 
 export type CreateBusinessServiceRequest = z.infer<typeof createBusinessServiceRequestSchema>;
 export type UpdateBusinessServiceRequest = z.infer<typeof updateBusinessServiceRequestSchema>;
-export type RegisterPortfolioItemRequest = z.infer<typeof registerPortfolioItemRequestSchema>;
 export type ReorderPortfolioRequest = z.infer<typeof reorderPortfolioRequestSchema>;

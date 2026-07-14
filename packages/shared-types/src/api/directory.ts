@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { publicBookingOfferingSchema } from './profile.js';
+import { publicBookingOfferingSchema, publicPortfolioImageSchema } from './profile.js';
 
 export const directorySearchQuerySchema = z.object({
   q: z.string().trim().max(120).optional(),
@@ -16,6 +16,9 @@ export const directoryListingSchema = z.object({
   businessName: z.string(),
   locationArea: z.string(),
   bio: z.string().nullable(),
+  photoUrl: z.string().url().nullable(),
+  /** First portfolio image — used as a card preview when present. */
+  coverImageUrl: z.string().url().nullable(),
   styleNames: z.array(z.string()),
   startingPrice: z.string().nullable(),
 });
@@ -27,6 +30,8 @@ export const directoryStylistDetailSchema = z.object({
   businessName: z.string(),
   locationArea: z.string(),
   bio: z.string().nullable(),
+  photoUrl: z.string().url().nullable(),
+  portfolio: z.array(publicPortfolioImageSchema),
   offerings: z.array(publicBookingOfferingSchema),
 });
 

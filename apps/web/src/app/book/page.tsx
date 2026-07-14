@@ -21,6 +21,7 @@ import { Card } from '@/shared/ui/card';
 import { Input } from '@/shared/ui/input';
 import { Textarea } from '@/shared/ui/textarea';
 import { PageHeader, PageShell } from '@/shared/ui/page-shell';
+import { PortfolioGallery, StylistAvatar } from '@/shared/ui/portfolio-gallery';
 import { StatusBadge } from '@/shared/ui/status-badge';
 
 function useBookingPage(stylistId: string) {
@@ -65,6 +66,15 @@ function ServicePicker({
           </Card>
         ) : (
           <>
+            <Card className="flex items-center gap-3">
+              <StylistAvatar photoUrl={page.photoUrl} name={page.businessName} size="md" />
+              <div className="min-w-0">
+                <p className="font-medium text-ink">{page.businessName}</p>
+                {page.locationArea ? (
+                  <p className="text-sm text-ink-muted">{page.locationArea}</p>
+                ) : null}
+              </div>
+            </Card>
             <p className="text-sm text-ink-muted">
               Select a style to see available times and hold your slot.
               {(page?.venueOptions?.length ?? 0) > 0
@@ -80,6 +90,9 @@ function ServicePicker({
                       {formatMoney(offering.basePrice)} · {offering.estimatedDurationMinutes} min
                     </p>
                   </div>
+                  {(offering.portfolio?.length ?? 0) > 0 ? (
+                    <PortfolioGallery items={offering.portfolio ?? []} />
+                  ) : null}
                   <Link href={serviceBookingPath(stylistId, offering.id)}>
                     <Button fullWidth>Book this style</Button>
                   </Link>

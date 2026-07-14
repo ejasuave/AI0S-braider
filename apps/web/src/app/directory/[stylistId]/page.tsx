@@ -9,6 +9,7 @@ import { formatMoney } from '@/shared/lib/format';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { PageHeader, PageShell } from '@/shared/ui/page-shell';
+import { PortfolioGallery, StylistAvatar } from '@/shared/ui/portfolio-gallery';
 
 export default function DirectoryStylistPage() {
   const params = useParams<{ stylistId: string }>();
@@ -32,11 +33,14 @@ export default function DirectoryStylistPage() {
       ) : stylist ? (
         <div className="mt-6 space-y-4">
           <Card className="space-y-3">
-            <div>
-              <h1 className="font-display text-2xl font-semibold text-ink">
-                {stylist.businessName}
-              </h1>
-              <p className="text-sm text-ink-muted">{stylist.locationArea}</p>
+            <div className="flex items-start gap-3">
+              <StylistAvatar photoUrl={stylist.photoUrl} name={stylist.businessName} size="lg" />
+              <div className="min-w-0">
+                <h1 className="font-display text-2xl font-semibold text-ink">
+                  {stylist.businessName}
+                </h1>
+                <p className="text-sm text-ink-muted">{stylist.locationArea}</p>
+              </div>
             </div>
             {stylist.bio ? <p className="text-sm text-ink">{stylist.bio}</p> : null}
             <p className="text-xs text-ink-muted">
@@ -55,6 +59,9 @@ export default function DirectoryStylistPage() {
                     {formatMoney(offering.basePrice)} · {offering.estimatedDurationMinutes} min
                   </p>
                 </div>
+                {(offering.portfolio?.length ?? 0) > 0 ? (
+                  <PortfolioGallery items={offering.portfolio ?? []} />
+                ) : null}
                 <Link
                   href={`/book?stylistId=${stylist.stylistId}&serviceOfferingId=${offering.id}`}
                 >

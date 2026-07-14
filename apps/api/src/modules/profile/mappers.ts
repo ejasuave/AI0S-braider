@@ -38,6 +38,7 @@ export function toStylistProfile(profile: {
   bufferMinutes: number;
   onboardingStatus: OnboardingStatus;
   directoryVisible: boolean;
+  photoUrl: string | null;
   createdAt: Date;
   updatedAt: Date;
 }): StylistProfile {
@@ -54,25 +55,29 @@ export function toStylistProfile(profile: {
     bufferMinutes: profile.bufferMinutes,
     onboardingStatus: profile.onboardingStatus,
     directoryVisible: profile.directoryVisible,
+    photoUrl: profile.photoUrl,
     createdAt: toIso(profile.createdAt),
     updatedAt: toIso(profile.updatedAt),
   };
 }
 
-export function toServiceOffering(offering: {
-  id: string;
-  stylistId: string;
-  styleName: string;
-  sizeTier: string | null;
-  lengthTier: string | null;
-  basePrice: Prisma.Decimal;
-  estimatedDurationMinutes: number;
-  hairIncluded: boolean;
-  isCustomStyle: boolean;
-  active: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-}): ServiceOffering {
+export function toServiceOffering(
+  offering: {
+    id: string;
+    stylistId: string;
+    styleName: string;
+    sizeTier: string | null;
+    lengthTier: string | null;
+    basePrice: Prisma.Decimal;
+    estimatedDurationMinutes: number;
+    hairIncluded: boolean;
+    isCustomStyle: boolean;
+    active: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  },
+  portfolio: PortfolioItem[] = [],
+): ServiceOffering {
   return {
     id: offering.id,
     stylistId: offering.stylistId,
@@ -84,6 +89,7 @@ export function toServiceOffering(offering: {
     hairIncluded: offering.hairIncluded,
     isCustomStyle: offering.isCustomStyle,
     active: offering.active,
+    portfolio,
     createdAt: toIso(offering.createdAt),
     updatedAt: toIso(offering.updatedAt),
   };
@@ -92,6 +98,7 @@ export function toServiceOffering(offering: {
 export function toPortfolioItem(item: {
   id: string;
   stylistId: string;
+  serviceOfferingId: string | null;
   imageUrl: string;
   source: PortfolioSource;
   displayOrder: number;
@@ -100,6 +107,7 @@ export function toPortfolioItem(item: {
   return {
     id: item.id,
     stylistId: item.stylistId,
+    serviceOfferingId: item.serviceOfferingId,
     imageUrl: item.imageUrl,
     source: item.source,
     displayOrder: item.displayOrder,

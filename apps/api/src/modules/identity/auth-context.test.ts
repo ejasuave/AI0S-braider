@@ -47,6 +47,7 @@ describe('resolveStylistId', () => {
       bufferMinutes: 0,
       onboardingStatus: 'in_progress',
       directoryVisible: false,
+      photoUrl: null,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });

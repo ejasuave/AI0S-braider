@@ -86,6 +86,7 @@ export const stylistProfileSchema = z.object({
   bufferMinutes: z.number().int().nonnegative(),
   onboardingStatus: z.enum(ONBOARDING_STATUSES),
   directoryVisible: z.boolean(),
+  photoUrl: z.string().url().nullable(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
@@ -109,11 +110,22 @@ export const updateStylistProfileRequestSchema = z
 
 export type UpdateStylistProfileRequest = z.infer<typeof updateStylistProfileRequestSchema>;
 
+export const publicPortfolioImageSchema = z.object({
+  id: z.string().uuid(),
+  imageUrl: z.string().url(),
+  displayOrder: z.number().int(),
+  serviceOfferingId: z.string().uuid().nullable().optional(),
+});
+
+export type PublicPortfolioImage = z.infer<typeof publicPortfolioImageSchema>;
+
 export const publicBookingOfferingSchema = z.object({
   id: z.string().uuid(),
   styleName: z.string(),
   basePrice: z.string(),
   estimatedDurationMinutes: z.number().int().positive(),
+  /** Work photos for this service only. */
+  portfolio: z.array(publicPortfolioImageSchema).default([]),
 });
 
 export const publicBookingPageSchema = z.object({
@@ -121,6 +133,9 @@ export const publicBookingPageSchema = z.object({
   stylistId: z.string().uuid(),
   businessName: z.string(),
   locationArea: z.string().nullable(),
+  photoUrl: z.string().url().nullable(),
+  /** Flat list of all portfolio images (compat + cover). Prefer offerings[].portfolio. */
+  portfolio: z.array(publicPortfolioImageSchema),
   /** Venue options this stylist offers — client picks one when booking. */
   venueOptions: z.array(z.enum(SERVICE_VENUE_MODES)).min(1),
   homeVisitSurcharge: z.string().nullable(),
@@ -128,6 +143,18 @@ export const publicBookingPageSchema = z.object({
 });
 
 export type PublicBookingPage = z.infer<typeof publicBookingPageSchema>;
+
+export const portfolioItemSchema = z.object({
+  id: z.string().uuid(),
+  stylistId: z.string().uuid(),
+  serviceOfferingId: z.string().uuid().nullable(),
+  imageUrl: z.string().url(),
+  source: z.enum(PORTFOLIO_SOURCES),
+  displayOrder: z.number().int(),
+  createdAt: z.string().datetime(),
+});
+
+export type PortfolioItem = z.infer<typeof portfolioItemSchema>;
 
 export const serviceOfferingSchema = z.object({
   id: z.string().uuid(),
@@ -140,6 +167,7 @@ export const serviceOfferingSchema = z.object({
   hairIncluded: z.boolean(),
   isCustomStyle: z.boolean(),
   active: z.boolean(),
+  portfolio: z.array(portfolioItemSchema).default([]),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
@@ -171,19 +199,9 @@ export const updateServiceOfferingRequestSchema = createServiceOfferingRequestSc
 
 export type UpdateServiceOfferingRequest = z.infer<typeof updateServiceOfferingRequestSchema>;
 
-export const portfolioItemSchema = z.object({
-  id: z.string().uuid(),
-  stylistId: z.string().uuid(),
-  imageUrl: z.string().url(),
-  source: z.enum(PORTFOLIO_SOURCES),
-  displayOrder: z.number().int(),
-  createdAt: z.string().datetime(),
-});
-
-export type PortfolioItem = z.infer<typeof portfolioItemSchema>;
-
 export const createPortfolioItemRequestSchema = z.object({
   imageUrl: z.string().url().optional(),
+  serviceOfferingId: z.string().uuid().optional(),
   displayOrder: z.number().int().min(0).optional(),
 });
 

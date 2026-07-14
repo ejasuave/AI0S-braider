@@ -6,11 +6,13 @@ import { useState } from 'react';
 import type { DirectorySearchResponse } from '@project-braids/shared-types/api';
 import { apiFetchData, getApiErrorMessage } from '@/shared/lib/api-client';
 import { formatMoney } from '@/shared/lib/format';
+import { resolveMediaUrl } from '@/shared/lib/media-url';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { Input } from '@/shared/ui/input';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { PageHeader, PageShell } from '@/shared/ui/page-shell';
+import { StylistAvatar } from '@/shared/ui/portfolio-gallery';
 
 export default function DirectoryPage() {
   const [q, setQ] = useState('');
@@ -100,13 +102,27 @@ export default function DirectoryPage() {
                 className="block active:opacity-95"
               >
                 <Card className="transition-shadow active:shadow-raised">
-                  <div className="space-y-2">
+                  <div className="space-y-3">
+                    {listing.coverImageUrl ? (
+                      <img
+                        src={resolveMediaUrl(listing.coverImageUrl) ?? undefined}
+                        alt=""
+                        className="aspect-[16/10] w-full rounded-md object-cover"
+                      />
+                    ) : null}
                     <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <h2 className="font-display text-lg font-semibold text-ink">
-                          {listing.businessName}
-                        </h2>
-                        <p className="text-sm text-ink-muted">{listing.locationArea}</p>
+                      <div className="flex min-w-0 flex-1 items-start gap-3">
+                        <StylistAvatar
+                          photoUrl={listing.photoUrl}
+                          name={listing.businessName}
+                          size="sm"
+                        />
+                        <div className="min-w-0">
+                          <h2 className="font-display text-lg font-semibold text-ink">
+                            {listing.businessName}
+                          </h2>
+                          <p className="text-sm text-ink-muted">{listing.locationArea}</p>
+                        </div>
                       </div>
                       {listing.startingPrice ? (
                         <p className="shrink-0 text-sm font-medium text-ink">

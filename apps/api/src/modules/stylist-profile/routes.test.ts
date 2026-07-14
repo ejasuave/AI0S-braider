@@ -216,9 +216,31 @@ describe('stylist-profile routes', () => {
     const profile = await prisma.stylistProfile.findFirst({ where: { businessId } });
     stylistProfileId = profile!.id;
 
+    const categories = await app.inject({
+      method: 'GET',
+      url: '/api/v1/style-categories',
+      headers: auth,
+    });
+    const categoryId = categories.json().data[0]?.id as string | undefined;
+    const serviceRes = await app.inject({
+      method: 'POST',
+      url: '/api/v1/businesses/me/services',
+      headers: auth,
+      payload: categoryId
+        ? { styleCategoryId: categoryId, basePrice: 80, estimatedDurationMinutes: 120 }
+        : {
+            customStyleName: 'Box Braids',
+            basePrice: 80,
+            estimatedDurationMinutes: 120,
+          },
+    });
+    expect(serviceRes.statusCode).toBe(201);
+    const serviceId = serviceRes.json().data.id as string;
+
     const rows = Array.from({ length: PORTFOLIO_ITEM_LIMIT }, (_, index) => ({
       businessId,
       stylistId: stylistProfileId,
+      serviceOfferingId: serviceId,
       imageUrl: `https://cdn.example.com/p/${index}.jpg`,
       source: 'manual' as const,
       displayOrder: index,
@@ -229,11 +251,11 @@ describe('stylist-profile routes', () => {
       method: 'POST',
       url: '/api/v1/businesses/me/portfolio/upload-url',
       headers: auth,
-      payload: { contentType: 'image/jpeg' },
+      payload: { contentType: 'image/jpeg', serviceOfferingId: serviceId },
     });
 
     expect(response.statusCode).toBe(400);
-    expect(response.json().error.message).toContain('50');
+    expect(response.json().error.message).toMatch(/50|maximum of 10/i);
     await app.close();
   });
 

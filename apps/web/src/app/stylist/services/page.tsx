@@ -13,6 +13,7 @@ import { Input } from '@/shared/ui/input';
 import { PageHeader, PageShell, SectionTitle } from '@/shared/ui/page-shell';
 import { StatusBadge } from '@/shared/ui/status-badge';
 import { EmptyState } from '@/shared/ui/empty-state';
+import { ServicePortfolioManager } from '@/features/stylist/service-portfolio-manager';
 
 export default function StylistServicesPage() {
   const auth = useAuth();
@@ -126,7 +127,7 @@ export default function StylistServicesPage() {
     <PageShell>
       <PageHeader
         title="Services"
-        subtitle="Structured pricing — the AI quotes from this list, not free text."
+        subtitle="Price each style and add work photos clients see under that service."
       />
 
       <div className="mt-6 space-y-4">
@@ -283,6 +284,11 @@ export default function StylistServicesPage() {
                     {service.active ? 'Deactivate' : 'Activate'}
                   </Button>
                 </div>
+                <ServicePortfolioManager
+                  serviceId={service.id}
+                  serviceName={service.styleName}
+                  items={service.portfolio ?? []}
+                />
               </Card>
             ))}
           </div>

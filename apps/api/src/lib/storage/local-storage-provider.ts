@@ -103,3 +103,8 @@ export function createPortfolioStorageKey(businessId: string, extension: string)
   const suffix = randomBytes(8).toString('hex');
   return `portfolio/${businessId}/${suffix}.${extension}`;
 }
+
+export function createProfilePhotoStorageKey(stylistId: string, extension: string): string {
+  const suffix = randomBytes(8).toString('hex');
+  return `profile-photos/${stylistId}/${suffix}.${extension}`;
+}

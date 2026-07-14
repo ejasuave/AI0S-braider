@@ -5,6 +5,7 @@ import type {
   CreateBusinessServiceRequest,
   PortfolioItem,
   RegisterPortfolioItemRequest,
+  RegisterProfilePhotoRequest,
   ReorderPortfolioRequest,
   ServiceOffering,
   StyleCategory,
@@ -15,7 +16,11 @@ import type {
 } from '@project-braids/shared-types/api';
 import { prisma } from '../../lib/db.js';
 import { ApiError } from '../../lib/errors.js';
-import { createPortfolioStorageKey, getStorageProvider } from '../../lib/storage/index.js';
+import {
+  createPortfolioStorageKey,
+  createProfilePhotoStorageKey,
+  getStorageProvider,
+} from '../../lib/storage/index.js';
 import { businessService } from '../roles/business.service.js';
 import { ensureStylistProfileForUser } from '../profile/mappers.js';
 import {
@@ -27,6 +32,7 @@ import {
 import { ensureDefaultBusinessPolicy, getBusinessPolicy, policyToLegacyDeposit } from './policy.js';
 import { instagramService } from './instagram.service.js';
 import {
+  PORTFOLIO_IMAGES_PER_SERVICE,
   PORTFOLIO_ITEM_LIMIT,
   toBusinessPolicy,
   toBusinessProfile,
@@ -186,6 +192,7 @@ export class StylistProfileService {
   async createPortfolioUploadUrl(
     businessId: string,
     contentType: string,
+    serviceOfferingId: string,
   ): Promise<{
     uploadUrl: string;
     imageUrl: string;
@@ -197,10 +204,8 @@ export class StylistProfileService {
       throw ApiError.validation('Unsupported image type. Use JPEG, PNG, or WebP.');
     }
 
-    const count = await prisma.portfolioItem.count({ where: { businessId } });
-    if (count >= PORTFOLIO_ITEM_LIMIT) {
-      throw ApiError.validation(`Portfolio limit of ${PORTFOLIO_ITEM_LIMIT} images reached`);
-    }
+    await this.assertServiceOwnedByBusiness(businessId, serviceOfferingId);
+    await this.assertCanAddPortfolioImage(businessId, serviceOfferingId);
 
     const extension =
       contentType === 'image/png' ? 'png' : contentType === 'image/webp' ? 'webp' : 'jpg';
@@ -223,13 +228,11 @@ export class StylistProfileService {
     stylistId: string,
     input: RegisterPortfolioItemRequest,
   ): Promise<PortfolioItem> {
-    const count = await prisma.portfolioItem.count({ where: { businessId } });
-    if (count >= PORTFOLIO_ITEM_LIMIT) {
-      throw ApiError.validation(`Portfolio limit of ${PORTFOLIO_ITEM_LIMIT} images reached`);
-    }
+    await this.assertServiceOwnedByBusiness(businessId, input.serviceOfferingId);
+    await this.assertCanAddPortfolioImage(businessId, input.serviceOfferingId);
 
     const maxOrder = await prisma.portfolioItem.aggregate({
-      where: { businessId },
+      where: { businessId, serviceOfferingId: input.serviceOfferingId },
       _max: { displayOrder: true },
     });
 
@@ -237,6 +240,7 @@ export class StylistProfileService {
       data: {
         businessId,
         stylistId,
+        serviceOfferingId: input.serviceOfferingId,
         imageUrl: input.imageUrl,
         storageKey: input.storageKey,
         source: 'manual',
@@ -247,10 +251,16 @@ export class StylistProfileService {
     return toPortfolioItem(item);
   }
 
-  async listPortfolioItems(businessId: string): Promise<PortfolioItem[]> {
+  async listPortfolioItems(
+    businessId: string,
+    serviceOfferingId?: string,
+  ): Promise<PortfolioItem[]> {
     const items = await prisma.portfolioItem.findMany({
-      where: { businessId },
-      orderBy: { displayOrder: 'asc' },
+      where: {
+        businessId,
+        ...(serviceOfferingId ? { serviceOfferingId } : {}),
+      },
+      orderBy: [{ serviceOfferingId: 'asc' }, { displayOrder: 'asc' }],
     });
     return items.map(toPortfolioItem);
   }
@@ -259,14 +269,18 @@ export class StylistProfileService {
     businessId: string,
     input: ReorderPortfolioRequest,
   ): Promise<PortfolioItem[]> {
-    const items = await prisma.portfolioItem.findMany({ where: { businessId } });
+    await this.assertServiceOwnedByBusiness(businessId, input.serviceOfferingId);
+
+    const items = await prisma.portfolioItem.findMany({
+      where: { businessId, serviceOfferingId: input.serviceOfferingId },
+    });
     const itemIds = new Set(items.map((item) => item.id));
     if (input.orderedIds.length !== items.length) {
-      throw ApiError.validation('orderedIds must include every portfolio item');
+      throw ApiError.validation('orderedIds must include every image for this service');
     }
     for (const id of input.orderedIds) {
       if (!itemIds.has(id)) {
-        throw ApiError.validation('orderedIds contains unknown portfolio item');
+        throw ApiError.validation('orderedIds contains an image that does not belong to this service');
       }
     }
 
@@ -279,7 +293,39 @@ export class StylistProfileService {
       ),
     );
 
-    return this.listPortfolioItems(businessId);
+    return this.listPortfolioItems(businessId, input.serviceOfferingId);
+  }
+
+  private async assertServiceOwnedByBusiness(
+    businessId: string,
+    serviceOfferingId: string,
+  ): Promise<void> {
+    const offering = await prisma.serviceOffering.findFirst({
+      where: { id: serviceOfferingId, businessId },
+      select: { id: true },
+    });
+    if (!offering) {
+      throw ApiError.notFound('Service offering not found');
+    }
+  }
+
+  private async assertCanAddPortfolioImage(
+    businessId: string,
+    serviceOfferingId: string,
+  ): Promise<void> {
+    const [businessCount, serviceCount] = await Promise.all([
+      prisma.portfolioItem.count({ where: { businessId } }),
+      prisma.portfolioItem.count({ where: { businessId, serviceOfferingId } }),
+    ]);
+
+    if (businessCount >= PORTFOLIO_ITEM_LIMIT) {
+      throw ApiError.validation(`Portfolio limit of ${PORTFOLIO_ITEM_LIMIT} images reached`);
+    }
+    if (serviceCount >= PORTFOLIO_IMAGES_PER_SERVICE) {
+      throw ApiError.validation(
+        `This service already has the maximum of ${PORTFOLIO_IMAGES_PER_SERVICE} images`,
+      );
+    }
   }
 
   async deletePortfolioItem(businessId: string, itemId: string): Promise<void> {
@@ -297,6 +343,83 @@ export class StylistProfileService {
     await prisma.portfolioItem.delete({ where: { id: itemId } });
   }
 
+  async createProfilePhotoUploadUrl(
+    stylistId: string,
+    contentType: string,
+  ): Promise<{
+    uploadUrl: string;
+    imageUrl: string;
+    storageKey: string;
+    expiresInSeconds: number;
+    uploadToken: string;
+  }> {
+    if (!ALLOWED_IMAGE_TYPES.has(contentType)) {
+      throw ApiError.validation('Unsupported image type. Use JPEG, PNG, or WebP.');
+    }
+
+    const extension =
+      contentType === 'image/png' ? 'png' : contentType === 'image/webp' ? 'webp' : 'jpg';
+    const key = createProfilePhotoStorageKey(stylistId, extension);
+    const storage = getStorageProvider();
+    const presigned = await storage.createPresignedUploadUrl({ key, contentType });
+    const apiBase = process.env.API_PUBLIC_URL ?? 'http://localhost:3001';
+
+    return {
+      uploadUrl: presigned.uploadUrl,
+      imageUrl: `${apiBase}${presigned.publicUrl}`,
+      storageKey: presigned.storageKey,
+      expiresInSeconds: presigned.expiresInSeconds,
+      uploadToken: presigned.uploadToken,
+    };
+  }
+
+  async setProfilePhoto(
+    stylistId: string,
+    input: RegisterProfilePhotoRequest,
+  ): Promise<{ photoUrl: string }> {
+    const existing = await prisma.stylistProfile.findUnique({
+      where: { id: stylistId },
+      select: { photoStorageKey: true },
+    });
+    if (!existing) {
+      throw ApiError.notFound('Stylist profile not found');
+    }
+
+    if (existing.photoStorageKey && existing.photoStorageKey !== input.storageKey) {
+      await getStorageProvider().delete(existing.photoStorageKey).catch(() => {});
+    }
+
+    const updated = await prisma.stylistProfile.update({
+      where: { id: stylistId },
+      data: {
+        photoUrl: input.imageUrl,
+        photoStorageKey: input.storageKey,
+      },
+      select: { photoUrl: true },
+    });
+
+    return { photoUrl: updated.photoUrl! };
+  }
+
+  async deleteProfilePhoto(stylistId: string): Promise<void> {
+    const existing = await prisma.stylistProfile.findUnique({
+      where: { id: stylistId },
+      select: { photoStorageKey: true },
+    });
+    if (!existing) {
+      throw ApiError.notFound('Stylist profile not found');
+    }
+
+    if (existing.photoStorageKey) {
+      await getStorageProvider().delete(existing.photoStorageKey).catch(() => {});
+    }
+
+    await prisma.stylistProfile.update({
+      where: { id: stylistId },
+      data: { photoUrl: null, photoStorageKey: null },
+    });
+  }
+
   async listStyleCategories(): Promise<StyleCategory[]> {
     const categories = await prisma.styleCategory.findMany({
       where: { isCustom: false },
@@ -308,9 +431,19 @@ export class StylistProfileService {
   async listServices(businessId: string, activeOnly = true): Promise<ServiceOffering[]> {
     const offerings = await prisma.serviceOffering.findMany({
       where: { businessId, ...(activeOnly ? { active: true } : {}) },
+      include: {
+        portfolioItems: {
+          orderBy: { displayOrder: 'asc' },
+        },
+      },
       orderBy: [{ styleName: 'asc' }, { sizeTier: 'asc' }, { lengthTier: 'asc' }],
     });
-    return offerings.map(toServiceOffering);
+    return offerings.map((offering) =>
+      toServiceOffering(
+        offering,
+        offering.portfolioItems.map((item) => toPortfolioItem(item)),
+      ),
+    );
   }
 
   async getServiceById(businessId: string, offeringId: string) {

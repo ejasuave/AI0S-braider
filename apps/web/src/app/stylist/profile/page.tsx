@@ -18,6 +18,9 @@ import { Card } from '@/shared/ui/card';
 import { Input } from '@/shared/ui/input';
 import { Textarea } from '@/shared/ui/textarea';
 import { PageHeader, PageShell } from '@/shared/ui/page-shell';
+import { StylistAvatar } from '@/shared/ui/portfolio-gallery';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
 export default function StylistProfilePage() {
   const queryClient = useQueryClient();
@@ -59,6 +62,8 @@ export default function StylistProfilePage() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [directoryError, setDirectoryError] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
 
   useEffect(() => {
     if (profileQuery.data) {
@@ -216,9 +221,91 @@ export default function StylistProfilePage() {
     }
   }
 
+  async function handlePhotoChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setPhotoError(null);
+
+    const rawType = file.type === 'image/jpg' ? 'image/jpeg' : file.type;
+    const contentType =
+      rawType === 'image/jpeg' || rawType === 'image/png' || rawType === 'image/webp'
+        ? rawType
+        : null;
+    if (!contentType) {
+      setPhotoError(
+        'Use a JPEG, PNG, or WebP photo. iPhone HEIC photos need to be converted to JPEG first.',
+      );
+      event.target.value = '';
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setPhotoError('Image must be 5 MB or smaller.');
+      event.target.value = '';
+      return;
+    }
+
+    setPhotoUploading(true);
+    try {
+      const uploadMeta = await apiFetchData<{
+        uploadUrl: string;
+        imageUrl: string;
+        storageKey: string;
+        uploadToken: string;
+      }>('/businesses/me/photo/upload-url', {
+        method: 'POST',
+        json: { contentType },
+      });
+
+      const putResponse = await fetch(uploadMeta.uploadUrl, {
+        method: 'PUT',
+        headers: {
+          'content-type': contentType,
+          'x-upload-token': uploadMeta.uploadToken,
+        },
+        body: file,
+      });
+      if (!putResponse.ok) {
+        throw new Error('Direct upload failed');
+      }
+
+      await apiFetchData('/businesses/me/photo', {
+        method: 'POST',
+        json: {
+          imageUrl: uploadMeta.imageUrl.startsWith('http')
+            ? uploadMeta.imageUrl
+            : `${API_BASE}${uploadMeta.imageUrl}`,
+          storageKey: uploadMeta.storageKey,
+        },
+      });
+
+      void queryClient.invalidateQueries({ queryKey: ['profile', 'me'] });
+    } catch (err) {
+      setPhotoError(getApiErrorMessage(err));
+    } finally {
+      setPhotoUploading(false);
+      event.target.value = '';
+    }
+  }
+
+  async function handleRemovePhoto() {
+    setPhotoError(null);
+    setPhotoUploading(true);
+    try {
+      await apiFetchData('/businesses/me/photo', { method: 'DELETE' });
+      void queryClient.invalidateQueries({ queryKey: ['profile', 'me'] });
+    } catch (err) {
+      setPhotoError(getApiErrorMessage(err));
+    } finally {
+      setPhotoUploading(false);
+    }
+  }
+
   const onboardingStatus = profileQuery.data?.onboardingStatus ?? 'in_progress';
   const directoryVisible = stylistProfileQuery.data?.directoryVisible ?? false;
   const stylistId = stylistProfileQuery.data?.id;
+  const photoUrl = stylistProfileQuery.data?.photoUrl ?? null;
+  const displayName = businessName || stylistProfileQuery.data?.businessName || 'You';
   const escalatedCount = escalatedQuery.data?.items.length ?? 0;
   const showDevSimulator = process.env.NODE_ENV !== 'production' && smsNumber;
 
@@ -230,6 +317,43 @@ export default function StylistProfilePage() {
       />
 
       <div className="mt-6 space-y-4">
+        <Card className="space-y-3">
+          <div className="flex items-center gap-3">
+            <StylistAvatar photoUrl={photoUrl} name={displayName} size="lg" />
+            <div className="min-w-0">
+              <h2 className="font-medium text-ink">Profile photo</h2>
+              <p className="text-sm text-ink-muted">
+                Clients see this on your directory listing and booking page.
+              </p>
+            </div>
+          </div>
+          <label className="block">
+            <span className="text-sm font-medium text-ink">
+              {photoUrl ? 'Replace photo' : 'Upload photo'}
+            </span>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="mt-2 block w-full text-sm"
+              onChange={(e) => void handlePhotoChange(e)}
+              disabled={photoUploading}
+            />
+          </label>
+          {photoUrl ? (
+            <Button
+              type="button"
+              variant="secondary"
+              fullWidth
+              onClick={() => void handleRemovePhoto()}
+              disabled={photoUploading}
+            >
+              Remove photo
+            </Button>
+          ) : null}
+          {photoError ? <p className="text-sm text-error">{photoError}</p> : null}
+          {photoUploading ? <p className="text-sm text-ink-muted">Updating photo…</p> : null}
+        </Card>
+
         <Card>
           {profileQuery.isLoading ? (
             <p className="text-sm text-ink-muted">Loading profile…</p>
