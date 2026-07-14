@@ -52,6 +52,8 @@ export default function LoginPage() {
         setError(
           'Database is not running. From the project root run `pnpm infra:up`, then restart `pnpm dev`.',
         );
+      } else if (err instanceof DOMException && err.name === 'TimeoutError') {
+        setError('Sign-in timed out. Check your connection and try again.');
       } else if (err instanceof TypeError && /fetch|network/i.test(err.message)) {
         setError(
           'Cannot reach the API server. From the project root, run `pnpm dev` and ensure port 3001 is listening.',
@@ -59,6 +61,7 @@ export default function LoginPage() {
       } else {
         setError(getApiErrorMessage(err, 'Could not sign in. Is the API running on port 3001?'));
       }
+    } finally {
       setLoading(false);
     }
   }

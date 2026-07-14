@@ -4,6 +4,8 @@ import { getWebEnv } from '@/env';
 import { clearAccessToken, getAccessToken, setAccessToken } from './auth-storage';
 
 const API_V1_PREFIX = '/api/v1';
+/** Prevent indefinite hangs when the API is restarting or unreachable. */
+const DEFAULT_FETCH_TIMEOUT_MS = 20_000;
 
 export class ApiClientError extends Error {
   readonly status: number;
@@ -77,6 +79,7 @@ export async function refreshAccessToken(): Promise<string | null> {
   const response = await fetch(`${baseUrl}${API_V1_PREFIX}/auth/refresh`, {
     method: 'POST',
     credentials: 'include',
+    signal: AbortSignal.timeout(DEFAULT_FETCH_TIMEOUT_MS),
     headers: {
       'X-Client-Type': 'web',
       'Content-Type': 'application/json',
@@ -101,6 +104,7 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
   const normalizedPath = path.startsWith('/api/') ? path : `${API_V1_PREFIX}${path}`;
   const { auth = true, json, ...init } = options;
   const hasJsonBody = json !== undefined;
+  const signal = init.signal ?? AbortSignal.timeout(DEFAULT_FETCH_TIMEOUT_MS);
 
   const buildHeaders = (token: string | null): HeadersInit => ({
     'X-Client-Type': 'web',
@@ -113,6 +117,7 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
 
   let response = await fetch(`${baseUrl}${normalizedPath}`, {
     ...init,
+    signal,
     credentials: 'include',
     headers: buildHeaders(token),
     body: hasJsonBody ? JSON.stringify(json) : init.body,
@@ -123,6 +128,7 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
     if (token) {
       response = await fetch(`${baseUrl}${normalizedPath}`, {
         ...init,
+        signal,
         credentials: 'include',
         headers: buildHeaders(token),
         body: hasJsonBody ? JSON.stringify(json) : init.body,

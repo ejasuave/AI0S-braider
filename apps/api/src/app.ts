@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import cookie from '@fastify/cookie';
 import sensible from '@fastify/sensible';
 import fastifyStatic from '@fastify/static';
+import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { getEnv } from './config/env.js';
 import { createLogger } from './lib/logger.js';
@@ -65,8 +66,10 @@ export async function buildApp() {
   });
 
   if (env.NODE_ENV !== 'test') {
+    const uploadsRoot = path.resolve(process.cwd(), 'uploads');
+    await mkdir(uploadsRoot, { recursive: true });
     await app.register(fastifyStatic, {
-      root: path.resolve(process.cwd(), 'uploads'),
+      root: uploadsRoot,
       prefix: '/uploads/',
       decorateReply: false,
     });

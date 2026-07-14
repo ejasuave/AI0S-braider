@@ -136,9 +136,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         method: 'POST',
         json: input,
       });
-      const me = await hydrateSession(queryClient, session);
+      setAccessToken(session.tokens.accessToken);
+      queryClient.setQueryData<AuthMe>(AUTH_ME_KEY, {
+        user: session.user,
+        stylistId: null,
+        businessId: null,
+        permissions: null,
+      });
       setHasToken(true);
-      return me.user;
+      // Enrich stylistId/permissions in the background — don't block sign-in on /auth/me.
+      void queryClient
+        .fetchQuery({
+          queryKey: AUTH_ME_KEY,
+          queryFn: fetchMe,
+          staleTime: 0,
+        })
+        .catch(() => {
+          /* session user is enough to route; dashboard may refetch */
+        });
+      return session.user;
     },
     [queryClient],
   );

@@ -19,6 +19,8 @@ export function getRedisConnectionOptions(): RedisOptions {
     enableReadyCheck: false,
     lazyConnect: true,
     enableOfflineQueue: false,
+    connectTimeout: 5_000,
+    commandTimeout: 5_000,
     retryStrategy: () => null,
   };
 }
