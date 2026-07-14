@@ -48,12 +48,11 @@ export async function buildApp() {
     }
 
     if (isDatabaseUnavailableError(error)) {
-      sendApiError(
-        reply,
-        ApiError.serviceUnavailable(
-          'Database is unavailable. From the project root run `pnpm infra:up`, then restart `pnpm dev`.',
-        ),
-      );
+      const message =
+        env.NODE_ENV === 'development' || env.NODE_ENV === 'test'
+          ? 'Database is unavailable. From the project root run `pnpm infra:up`, then restart `pnpm dev`.'
+          : 'Database is temporarily unavailable. Please try again shortly.';
+      sendApiError(reply, ApiError.serviceUnavailable(message));
       return;
     }
 

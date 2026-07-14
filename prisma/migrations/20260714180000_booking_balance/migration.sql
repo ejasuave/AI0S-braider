@@ -11,5 +11,7 @@ ALTER TABLE "payments"
   ADD COLUMN "kind" "payment_kind" NOT NULL DEFAULT 'deposit';
 
 -- Allow one deposit and one balance payment per booking
+-- Prisma models this as a UNIQUE INDEX named payments_booking_id_key (not a CONSTRAINT).
+DROP INDEX IF EXISTS "payments_booking_id_key";
 ALTER TABLE "payments" DROP CONSTRAINT IF EXISTS "payments_booking_id_key";
-CREATE UNIQUE INDEX "payments_booking_id_kind_key" ON "payments" ("booking_id", "kind");
+CREATE UNIQUE INDEX IF NOT EXISTS "payments_booking_id_kind_key" ON "payments" ("booking_id", "kind");
