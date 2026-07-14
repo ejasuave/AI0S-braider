@@ -93,7 +93,11 @@ export default function StylistDashboardPage() {
             nextUpcoming ? (
               <div className="space-y-2">
                 <p className="text-sm text-ink-muted">No appointments today.</p>
-                <BookingCard booking={nextUpcoming} href={`/stylist/bookings/${nextUpcoming.id}`} />
+                <BookingCard
+                  booking={nextUpcoming}
+                  href={`/stylist/bookings/${nextUpcoming.id}`}
+                  showClient
+                />
                 <p className="text-xs text-ink-muted">
                   Next up {formatDateTime(nextUpcoming.startTime)} — open Calendar for the full
                   week.
@@ -109,6 +113,7 @@ export default function StylistDashboardPage() {
                   key={booking.id}
                   booking={booking}
                   href={`/stylist/bookings/${booking.id}`}
+                  showClient
                 />
               ))}
             </div>

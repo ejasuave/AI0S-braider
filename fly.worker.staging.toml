@@ -1,0 +1,17 @@
+# Staging worker — deploy from repo root:
+#   fly deploy --config fly.worker.staging.toml -a project-braids-worker-staging
+
+app = "project-braids-worker-staging"
+primary_region = "lhr"
+
+[build]
+  dockerfile = "infrastructure/docker/Dockerfile.worker"
+
+[env]
+  NODE_ENV = "staging"
+  PLATFORM_TIMEZONE = "Europe/London"
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1

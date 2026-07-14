@@ -85,6 +85,28 @@ describe('generateNotificationContent', () => {
     expect(body).toContain('Knotless braids');
   });
 
+  it('includes venue line on confirmation', () => {
+    const body = generateNotificationContent({
+      ...baseContext,
+      type: 'confirmation',
+      audience: 'client',
+      venueLine: 'Location: 12 High Street.',
+    });
+    expect(body).toContain('Location: 12 High Street.');
+  });
+
+  it('includes client name for stylist confirmation', () => {
+    const body = generateNotificationContent({
+      ...baseContext,
+      type: 'confirmation',
+      audience: 'stylist',
+      clientDisplayName: 'Amina',
+      venueLine: 'Home visit at 1 Test Road.',
+    });
+    expect(body).toContain('Amina');
+    expect(body).toContain('Home visit at 1 Test Road.');
+  });
+
   it('includes refund language on cancellation', () => {
     const body = generateNotificationContent({
       ...baseContext,

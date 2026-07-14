@@ -7,6 +7,12 @@ Owns `booking` domain logic per `docs/ARCHITECTURE.md` (Chapter 7).
 - **Jobs:** `booking.expire-hold`, `booking.sweep-expired-holds` (every minute)
 - **Docs:** [`docs/BOOKING_STATE_MACHINE.md`](../../../docs/BOOKING_STATE_MACHINE.md), [`docs/PAYMENTS_INTEGRATION.md`](../../../docs/PAYMENTS_INTEGRATION.md)
 
+## Service venue (business default)
+
+Stylists set a venue mode on `PATCH /businesses/me`: `remote` | `stylist_location` | `come_to_client`, plus optional `workplaceAddress` and `homeVisitSurcharge`.
+
+Holds snapshot the mode onto `bookings`. Clients must supply `clientVisitAddress` (and ideally `clientDisplayName`) for home visits. Workplace street address is shown to clients only after confirmation.
+
 ## Chapter 7 deliverables
 
 | Prompt | Deliverable                                                                                     |

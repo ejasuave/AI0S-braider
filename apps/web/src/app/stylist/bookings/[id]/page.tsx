@@ -11,6 +11,7 @@ import {
   formatDateTime,
   formatMoney,
 } from '@/shared/lib/format';
+import { serviceVenueModeLabel } from '@/shared/lib/venue';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { PageHeader, PageShell } from '@/shared/ui/page-shell';
@@ -71,13 +72,51 @@ export default function StylistBookingDetailPage() {
             </div>
             <dl className="space-y-2 text-sm">
               <div>
+                <dt className="text-ink-muted">Client</dt>
+                <dd className="font-medium text-ink">
+                  {booking.clientDisplayName?.trim() ||
+                    booking.clientPhoneNumber ||
+                    'Not provided'}
+                </dd>
+              </div>
+              {booking.clientPhoneNumber ? (
+                <div>
+                  <dt className="text-ink-muted">Phone</dt>
+                  <dd className="font-medium text-ink">{booking.clientPhoneNumber}</dd>
+                </div>
+              ) : null}
+              <div>
                 <dt className="text-ink-muted">When</dt>
                 <dd className="font-medium text-ink">{formatDateTime(booking.startTime)}</dd>
               </div>
               <div>
+                <dt className="text-ink-muted">Venue</dt>
+                <dd className="font-medium text-ink">
+                  {serviceVenueModeLabel(booking.serviceVenueMode)}
+                </dd>
+              </div>
+              {booking.venueAddress ? (
+                <div>
+                  <dt className="text-ink-muted">
+                    {booking.serviceVenueMode === 'come_to_client'
+                      ? 'Client address'
+                      : 'Workplace address'}
+                  </dt>
+                  <dd className="font-medium text-ink whitespace-pre-wrap">{booking.venueAddress}</dd>
+                </div>
+              ) : null}
+              <div>
                 <dt className="text-ink-muted">Price</dt>
                 <dd className="font-medium text-ink">{formatMoney(booking.agreedPrice)}</dd>
               </div>
+              {Number(booking.homeVisitSurcharge) > 0 ? (
+                <div>
+                  <dt className="text-ink-muted">Home visit surcharge</dt>
+                  <dd className="font-medium text-ink">
+                    {formatMoney(booking.homeVisitSurcharge)}
+                  </dd>
+                </div>
+              ) : null}
               <div>
                 <dt className="text-ink-muted">Deposit</dt>
                 <dd className="font-medium text-ink">{formatMoney(booking.depositAmount)}</dd>

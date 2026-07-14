@@ -14,6 +14,33 @@ export const webEnvSchema = z.object({
 
 export type WebEnv = z.infer<typeof webEnvSchema>;
 
+function isStagingWebSurface(env: WebEnv): boolean {
+  const display = env.NEXT_PUBLIC_PLATFORM_DISPLAY_NAME;
+  const apiUrl = env.NEXT_PUBLIC_API_URL;
+  const sentryEnv = env.SENTRY_ENVIRONMENT?.toLowerCase();
+  return (
+    display.includes('(Staging)') ||
+    apiUrl.includes('staging') ||
+    sentryEnv === 'staging'
+  );
+}
+
+/**
+ * Staging must stay on Stripe test keys so pilots cannot take real card payments
+ * by accidentally wiring `pk_live_` into Vercel.
+ * Clear the live key (disable Stripe.js) rather than crashing the whole app shell.
+ */
 export function parseWebEnv(input: Record<string, string | undefined>): WebEnv {
-  return webEnvSchema.parse(input);
+  const env = webEnvSchema.parse(input);
+  const publishable = env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+  if (isStagingWebSurface(env) && publishable?.startsWith('pk_live_')) {
+    if (typeof console !== 'undefined') {
+      console.error(
+        '[env] Staging web must use Stripe test mode (NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_…). ' +
+          'Ignoring pk_live_. See docs/STAGING_SETUP.md §6.',
+      );
+    }
+    return { ...env, NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: undefined };
+  }
+  return env;
 }

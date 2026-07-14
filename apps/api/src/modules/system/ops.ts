@@ -23,6 +23,13 @@ export async function requireOpsToken(
   }
 }
 
+function resolveStripeMode(secretKey: string | undefined): OpsStatusResponse['stripeMode'] {
+  if (!secretKey) return 'mock';
+  if (secretKey.startsWith('sk_test_')) return 'test';
+  if (secretKey.startsWith('sk_live_')) return 'live';
+  return 'mock';
+}
+
 export function buildOpsStatus(): OpsStatusResponse {
   const env = getEnv();
   const aiEnabled = env.AI_RECEPTIONIST_ENABLED;
@@ -34,6 +41,7 @@ export function buildOpsStatus(): OpsStatusResponse {
     gitSha: env.GIT_SHA ?? null,
     aiReceptionistEnabled: aiEnabled,
     killSwitchActive: !aiEnabled,
+    stripeMode: resolveStripeMode(env.STRIPE_SECRET_KEY),
     timestamp: new Date().toISOString(),
   };
 }

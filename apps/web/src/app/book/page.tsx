@@ -16,8 +16,11 @@ import { serviceBookingPath, stylistBookingPath } from '@/shared/lib/booking-lin
 import { formatDateTime, formatMoney } from '@/shared/lib/format';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
+import { Input } from '@/shared/ui/input';
+import { Textarea } from '@/shared/ui/textarea';
 import { PageHeader, PageShell } from '@/shared/ui/page-shell';
 import { StatusBadge } from '@/shared/ui/status-badge';
+import { serviceVenueModeLabel } from '@/shared/lib/venue';
 
 function useBookingPage(stylistId: string) {
   return useQuery({
@@ -63,6 +66,9 @@ function ServicePicker({
           <>
             <p className="text-sm text-ink-muted">
               Select a style to see available times and hold your slot.
+              {page?.serviceVenueMode
+                ? ` ${serviceVenueModeLabel(page.serviceVenueMode)}.`
+                : ''}
             </p>
             <div className="space-y-3">
               {page.offerings.map((offering) => (
@@ -96,11 +102,15 @@ function ServiceBooking({
   const router = useRouter();
   const auth = useAuth();
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [clientDisplayName, setClientDisplayName] = useState('');
+  const [clientVisitAddress, setClientVisitAddress] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const pageQuery = useBookingPage(stylistId);
   const offering = pageQuery.data?.offerings.find((o) => o.id === serviceOfferingId);
   const businessId = pageQuery.data?.businessId ?? '';
+  const venueMode = pageQuery.data?.serviceVenueMode ?? 'stylist_location';
+  const homeVisitSurcharge = pageQuery.data?.homeVisitSurcharge;
 
   const availabilityQuery = useQuery({
     queryKey: ['availability', businessId, serviceOfferingId],
@@ -121,6 +131,9 @@ function ServiceBooking({
           serviceOfferingId,
           startTime,
           source: 'client_direct',
+          clientDisplayName: clientDisplayName.trim() || undefined,
+          clientVisitAddress:
+            venueMode === 'come_to_client' ? clientVisitAddress.trim() : undefined,
         },
       }),
   });
@@ -134,6 +147,16 @@ function ServiceBooking({
 
     if (!auth.isClient) {
       router.push(`/login/client?next=${authNext}`);
+      return;
+    }
+
+    if (!clientDisplayName.trim()) {
+      setError('Enter your name so your stylist knows who is arriving.');
+      return;
+    }
+
+    if (venueMode === 'come_to_client' && clientVisitAddress.trim().length < 5) {
+      setError('Enter the address for your home visit.');
       return;
     }
 
@@ -162,6 +185,12 @@ function ServiceBooking({
             <p className="text-sm text-ink-muted">
               {formatMoney(offering.basePrice)} · {offering.estimatedDurationMinutes} minutes
             </p>
+            <p className="text-sm text-ink-muted">{serviceVenueModeLabel(venueMode)}</p>
+            {venueMode === 'come_to_client' && homeVisitSurcharge && Number(homeVisitSurcharge) > 0 ? (
+              <p className="text-sm text-ink">
+                Home visit adds {formatMoney(homeVisitSurcharge)} (included in total at checkout).
+              </p>
+            ) : null}
             <StatusBadge label="AI receptionist available via SMS" tone="ai" />
           </Card>
         ) : (
@@ -226,6 +255,25 @@ function ServiceBooking({
 
         {auth.isClient && offering ? (
           <>
+            <Card className="space-y-3">
+              <Input
+                label="Your name"
+                value={clientDisplayName}
+                onChange={(e) => setClientDisplayName(e.target.value)}
+                placeholder="How the stylist should address you"
+                required
+              />
+              {venueMode === 'come_to_client' ? (
+                <Textarea
+                  label="Visit address"
+                  value={clientVisitAddress}
+                  onChange={(e) => setClientVisitAddress(e.target.value)}
+                  placeholder="Full address for your home visit"
+                  required
+                />
+              ) : null}
+            </Card>
+
             {error ? <p className="text-sm text-error">{error}</p> : null}
 
             <Button

@@ -57,7 +57,54 @@ type CreateBookingInput = {
   source: BookingSource;
   status: 'held' | 'confirmed';
   skipAvailabilityCheck?: boolean;
+  serviceVenueMode: 'remote' | 'stylist_location' | 'come_to_client';
+  venueAddress?: string | null;
+  homeVisitSurcharge?: number;
+  clientDisplayName?: string | null;
 };
+
+async function loadClientPhones(
+  clientIds: Array<string | null>,
+): Promise<Map<string, string>> {
+  const ids = [...new Set(clientIds.filter((id): id is string => Boolean(id)))];
+  if (ids.length === 0) return new Map();
+  const users = await prisma.user.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, phoneNumber: true },
+  });
+  return new Map(users.map((u) => [u.id, u.phoneNumber]));
+}
+
+async function resolveVenueForStylist(stylistId: string): Promise<{
+  serviceVenueMode: 'remote' | 'stylist_location' | 'come_to_client';
+  workplaceAddress: string | null;
+  homeVisitSurcharge: number | null;
+}> {
+  const profile = await prisma.stylistProfile.findUnique({
+    where: { id: stylistId },
+    select: {
+      business: {
+        select: {
+          serviceVenueMode: true,
+          workplaceAddress: true,
+          homeVisitSurcharge: true,
+        },
+      },
+    },
+  });
+  if (!profile?.business) {
+    return {
+      serviceVenueMode: 'stylist_location',
+      workplaceAddress: null,
+      homeVisitSurcharge: null,
+    };
+  }
+  return {
+    serviceVenueMode: profile.business.serviceVenueMode,
+    workplaceAddress: profile.business.workplaceAddress,
+    homeVisitSurcharge: profile.business.homeVisitSurcharge?.toNumber() ?? null,
+  };
+}
 
 export class BookingService {
   private holdTtlMs(): number {
@@ -84,8 +131,13 @@ export class BookingService {
       },
       orderBy: { startTime: 'asc' },
     });
+    const phones = await loadClientPhones(bookings.map((b) => b.clientId));
     return bookings.map((booking) =>
-      toBooking(booking, { requireStylistApproval: profile?.requireStylistApproval }),
+      toBooking(booking, {
+        requireStylistApproval: profile?.requireStylistApproval,
+        audience: 'stylist',
+        clientPhoneNumber: booking.clientId ? (phones.get(booking.clientId) ?? null) : null,
+      }),
     );
   }
 
@@ -122,7 +174,7 @@ export class BookingService {
       where,
       orderBy: { startTime: 'desc' },
     });
-    return bookings.map((booking) => toBooking(booking));
+    return bookings.map((booking) => toBooking(booking, { audience: 'client' }));
   }
 
   async requiresStylistApproval(stylistId: string): Promise<boolean> {
@@ -183,7 +235,16 @@ export class BookingService {
     if (!booking) {
       throw ApiError.notFound('Booking not found');
     }
-    return toBooking(booking);
+    const profile = await prisma.stylistProfile.findUnique({
+      where: { id: stylistId },
+      select: { requireStylistApproval: true },
+    });
+    const phones = await loadClientPhones([booking.clientId]);
+    return toBooking(booking, {
+      requireStylistApproval: profile?.requireStylistApproval,
+      audience: 'stylist',
+      clientPhoneNumber: booking.clientId ? (phones.get(booking.clientId) ?? null) : null,
+    });
   }
 
   async getBookingForClient(clientId: string, bookingId: string): Promise<Booking> {
@@ -193,7 +254,7 @@ export class BookingService {
     if (!booking) {
       throw ApiError.notFound('Booking not found');
     }
-    return toBooking(booking);
+    return toBooking(booking, { audience: 'client' });
   }
 
   async createHold(clientId: string, input: CreateBookingHoldRequest): Promise<Booking> {
@@ -201,15 +262,53 @@ export class BookingService {
       input.stylistId,
       input.serviceOfferingId,
     );
+    const venue = await resolveVenueForStylist(input.stylistId);
+
+    if (venue.serviceVenueMode === 'come_to_client') {
+      if (!input.clientVisitAddress?.trim()) {
+        throw ApiError.validation('Your visit address is required for a home visit');
+      }
+    }
+
+    let clientDisplayName = input.clientDisplayName?.trim() || null;
+    if (clientDisplayName) {
+      await prisma.clientProfile.upsert({
+        where: { userId: clientId },
+        create: { userId: clientId, displayName: clientDisplayName },
+        update: { displayName: clientDisplayName },
+      });
+    } else {
+      const profile = await prisma.clientProfile.findUnique({
+        where: { userId: clientId },
+        select: { displayName: true },
+      });
+      clientDisplayName = profile?.displayName ?? null;
+    }
+
+    const surcharge =
+      venue.serviceVenueMode === 'come_to_client' ? (venue.homeVisitSurcharge ?? 0) : 0;
+    const agreedPrice = offering.basePrice.toNumber() + surcharge;
+
+    const venueAddress =
+      venue.serviceVenueMode === 'come_to_client'
+        ? input.clientVisitAddress!.trim()
+        : venue.serviceVenueMode === 'stylist_location'
+          ? venue.workplaceAddress
+          : null;
+
     return this.createBookingRecord({
       stylistId: input.stylistId,
       clientId,
       serviceOfferingId: input.serviceOfferingId,
       startTime: new Date(input.startTime),
       durationMinutes: offering.estimatedDurationMinutes,
-      agreedPrice: offering.basePrice.toNumber(),
+      agreedPrice,
       source: input.source as BookingSource,
       status: 'held',
+      serviceVenueMode: venue.serviceVenueMode,
+      venueAddress,
+      homeVisitSurcharge: surcharge,
+      clientDisplayName,
     });
   }
 
@@ -220,6 +319,9 @@ export class BookingService {
     let durationMinutes = input.durationMinutes ?? 60;
     let agreedPrice = 0;
     const serviceOfferingId: string | null = input.serviceOfferingId ?? null;
+    const venue = await resolveVenueForStylist(stylistId);
+    const surcharge =
+      venue.serviceVenueMode === 'come_to_client' ? (venue.homeVisitSurcharge ?? 0) : 0;
 
     if (input.serviceOfferingId) {
       const offering = await profileService.getActiveServiceOffering(
@@ -227,7 +329,7 @@ export class BookingService {
         input.serviceOfferingId,
       );
       durationMinutes = offering.estimatedDurationMinutes;
-      agreedPrice = offering.basePrice.toNumber();
+      agreedPrice = offering.basePrice.toNumber() + surcharge;
     }
 
     return this.createBookingRecord({
@@ -240,6 +342,11 @@ export class BookingService {
       source: 'dashboard_manual',
       status: 'confirmed',
       skipAvailabilityCheck: true,
+      serviceVenueMode: venue.serviceVenueMode,
+      venueAddress:
+        venue.serviceVenueMode === 'stylist_location' ? venue.workplaceAddress : null,
+      homeVisitSurcharge: surcharge,
+      clientDisplayName: null,
     });
   }
 
@@ -331,6 +438,10 @@ export class BookingService {
           holdExpiresAt,
           source: input.source,
           policySnapshot,
+          serviceVenueMode: input.serviceVenueMode,
+          venueAddress: input.venueAddress ?? null,
+          homeVisitSurcharge: input.homeVisitSurcharge ?? 0,
+          clientDisplayName: input.clientDisplayName ?? null,
         },
       });
     });
@@ -361,7 +472,12 @@ export class BookingService {
       where: { id: input.stylistId },
       select: { requireStylistApproval: true },
     });
-    return toBooking(booking, { requireStylistApproval: profile?.requireStylistApproval });
+    const phones = await loadClientPhones([booking.clientId]);
+    return toBooking(booking, {
+      requireStylistApproval: profile?.requireStylistApproval,
+      audience: 'stylist',
+      clientPhoneNumber: booking.clientId ? (phones.get(booking.clientId) ?? null) : null,
+    });
   }
 
   /** Ch.7.3 — documented integration point for Chapter 9 payment webhooks. */

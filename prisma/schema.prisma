@@ -106,6 +106,14 @@ model StylistMembership {
 
 // --- Roles & permissions (Chapter 4) ---
 
+enum ServiceVenueMode {
+  remote
+  stylist_location
+  come_to_client
+
+  @@map("service_venue_mode")
+}
+
 model Business {
   id                  String           @id @default(uuid()) @db.Uuid
   ownerUserId         String           @unique @map("owner_user_id") @db.Uuid
@@ -115,6 +123,12 @@ model Business {
   locationLng         Decimal?         @map("location_lng") @db.Decimal(10, 7)
   locationLabel       String?          @map("location_label")
   serviceAreaRadiusKm Decimal?         @map("service_area_radius_km") @db.Decimal(6, 2)
+  /// Business default for where appointments happen.
+  serviceVenueMode    ServiceVenueMode @default(stylist_location) @map("service_venue_mode")
+  /// Full workplace / studio address — shown to clients only after confirmation.
+  workplaceAddress    String?          @map("workplace_address")
+  /// Extra amount (GBP) added when venue mode is come_to_client.
+  homeVisitSurcharge  Decimal?         @map("home_visit_surcharge") @db.Decimal(10, 2)
   onboardingStatus    OnboardingStatus @default(in_progress) @map("onboarding_status")
   createdAt           DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
 
@@ -496,6 +510,13 @@ model Booking {
   depositStatus          BookingDepositStatus @default(pending) @map("deposit_status")
   holdExpiresAt          DateTime?            @map("hold_expires_at") @db.Timestamptz(6)
   source                 BookingSource
+  /// Snapshot of business venue mode at booking time.
+  serviceVenueMode       ServiceVenueMode     @default(stylist_location) @map("service_venue_mode")
+  /// Snapshot: workplace address or client visit address (mode-dependent).
+  venueAddress           String?              @map("venue_address")
+  homeVisitSurcharge     Decimal              @default(0) @map("home_visit_surcharge") @db.Decimal(10, 2)
+  /// Snapshot of client display name at booking time.
+  clientDisplayName      String?              @map("client_display_name")
   createdAt              DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
   cancelledAt            DateTime?            @map("cancelled_at") @db.Timestamptz(6)
   cancellationReason     String?              @map("cancellation_reason")

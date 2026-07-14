@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { ONBOARDING_STATUSES } from './profile.js';
+import { SERVICE_VENUE_MODES } from './booking.js';
 
 const timeStringSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Expected HH:MM');
 
@@ -12,6 +13,9 @@ export const businessProfileSchema = z.object({
   locationLng: z.number().nullable(),
   locationLabel: z.string().nullable(),
   serviceAreaRadiusKm: z.number().nullable(),
+  serviceVenueMode: z.enum(SERVICE_VENUE_MODES),
+  workplaceAddress: z.string().nullable(),
+  homeVisitSurcharge: z.string().nullable(),
   onboardingStatus: z.enum(ONBOARDING_STATUSES),
   stylistId: z.string().uuid().nullable(),
   createdAt: z.string().datetime(),
@@ -27,8 +31,20 @@ export const updateBusinessProfileRequestSchema = z
     locationLng: z.number().min(-180).max(180).nullable().optional(),
     locationLabel: z.string().trim().max(120).nullable().optional(),
     serviceAreaRadiusKm: z.number().positive().max(200).nullable().optional(),
+    serviceVenueMode: z.enum(SERVICE_VENUE_MODES).optional(),
+    workplaceAddress: z.string().trim().min(5).max(500).nullable().optional(),
+    homeVisitSurcharge: z.number().min(0).max(10_000).nullable().optional(),
   })
-  .refine((value) => Object.keys(value).length > 0, 'At least one field is required');
+  .refine((value) => Object.keys(value).length > 0, 'At least one field is required')
+  .superRefine((value, ctx) => {
+    if (value.serviceVenueMode === 'stylist_location' && value.workplaceAddress === null) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'workplaceAddress is required for stylist location mode',
+        path: ['workplaceAddress'],
+      });
+    }
+  });
 
 export type UpdateBusinessProfileRequest = z.infer<typeof updateBusinessProfileRequestSchema>;
 

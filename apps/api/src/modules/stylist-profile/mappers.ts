@@ -24,6 +24,9 @@ export function toBusinessProfile(row: {
   locationLng: Prisma.Decimal | null;
   locationLabel: string | null;
   serviceAreaRadiusKm: Prisma.Decimal | null;
+  serviceVenueMode: 'remote' | 'stylist_location' | 'come_to_client';
+  workplaceAddress: string | null;
+  homeVisitSurcharge: Prisma.Decimal | null;
   onboardingStatus: 'in_progress' | 'complete';
   createdAt: Date;
   profile?: { id: string } | null;
@@ -37,6 +40,9 @@ export function toBusinessProfile(row: {
     locationLng: decimalToNumber(row.locationLng),
     locationLabel: row.locationLabel,
     serviceAreaRadiusKm: decimalToNumber(row.serviceAreaRadiusKm),
+    serviceVenueMode: row.serviceVenueMode,
+    workplaceAddress: row.workplaceAddress,
+    homeVisitSurcharge: row.homeVisitSurcharge ? row.homeVisitSurcharge.toFixed(2) : null,
     onboardingStatus: row.onboardingStatus,
     stylistId: row.profile?.id ?? null,
     createdAt: toIso(row.createdAt),

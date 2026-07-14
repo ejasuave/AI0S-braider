@@ -84,11 +84,29 @@ export function isWebClient(request: FastifyRequest): boolean {
 export function setRefreshCookie(reply: FastifyReply, refreshToken: string): void {
   const env = getEnv();
   const maxAge = env.JWT_REFRESH_EXPIRY_DAYS * 24 * 60 * 60;
+  // Cross-origin web (e.g. Vercel) → API (Fly) needs SameSite=None; Secure.
+  // Localhost same-site can keep Lax.
+  const webHost = (() => {
+    try {
+      return new URL(env.WEB_APP_URL).hostname;
+    } catch {
+      return 'localhost';
+    }
+  })();
+  const apiHost = (() => {
+    try {
+      return new URL(env.API_PUBLIC_URL).hostname;
+    } catch {
+      return 'localhost';
+    }
+  })();
+  const crossSite = webHost !== apiHost && webHost !== 'localhost' && apiHost !== 'localhost';
+  const secure = env.NODE_ENV !== 'development' && env.NODE_ENV !== 'test';
 
   void reply.setCookie(env.COOKIE_REFRESH_NAME, refreshToken, {
     httpOnly: true,
-    secure: env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    secure: secure || crossSite,
+    sameSite: crossSite ? 'none' : 'lax',
     path: '/api/v1/auth',
     maxAge,
   });

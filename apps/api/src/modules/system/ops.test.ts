@@ -20,6 +20,21 @@ describe('system ops', () => {
     expect(status.environment).toBe('staging');
   });
 
+  it('reports stripeMode test for sk_test_ keys', () => {
+    setEnvForTest({ STRIPE_SECRET_KEY: 'sk_test_example' });
+    expect(buildOpsStatus().stripeMode).toBe('test');
+  });
+
+  it('reports stripeMode live for sk_live_ keys', () => {
+    setEnvForTest({ STRIPE_SECRET_KEY: 'sk_live_example' });
+    expect(buildOpsStatus().stripeMode).toBe('live');
+  });
+
+  it('reports stripeMode mock when STRIPE_SECRET_KEY unset', () => {
+    setEnvForTest({ STRIPE_SECRET_KEY: '' });
+    expect(buildOpsStatus().stripeMode).toBe('mock');
+  });
+
   it('requires bearer token when OPS_BEARER_TOKEN is set', async () => {
     setEnvForTest({ OPS_BEARER_TOKEN: 'test-ops-token-16chars' });
 

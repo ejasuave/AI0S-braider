@@ -23,6 +23,8 @@
     "ops:kill-switch-drill": "bash scripts/ops/kill-switch-drill.sh",
     "ops:rollback": "bash scripts/ops/rollback.sh",
     "ops:smoke-staging": "bash scripts/ops/smoke-staging.sh",
+    "ops:check-stripe-staging": "bash scripts/ops/check-stripe-staging-mode.sh",
+    "ops:set-vercel-stripe-test": "bash scripts/ops/set-vercel-stripe-test.sh",
     "prepare": "husky"
   },
   "devDependencies": {

@@ -1,12 +1,11 @@
-# Fly.io template for apps/api — copy to fly.toml and set app name + secrets.
-# Deploy: fly deploy --config infrastructure/fly/api.toml
+# Staging API — deploy from repo root:
+#   fly deploy --config fly.api.staging.toml -a project-braids-api-staging
 
 app = "project-braids-api-staging"
 primary_region = "lhr"
 
 [build]
-  # Path is relative to this file's directory (infrastructure/fly/)
-  dockerfile = "../docker/Dockerfile.api"
+  dockerfile = "infrastructure/docker/Dockerfile.api"
 
 [env]
   NODE_ENV = "staging"

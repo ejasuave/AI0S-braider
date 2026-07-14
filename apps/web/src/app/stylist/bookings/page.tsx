@@ -169,7 +169,7 @@ export default function StylistBookingsPage() {
           </h2>
           {pendingApproval.map((booking) => (
             <Card key={booking.id} className="space-y-3 border-warning/40">
-              <BookingCard booking={booking} href={`/stylist/bookings/${booking.id}`} />
+              <BookingCard booking={booking} href={`/stylist/bookings/${booking.id}`} showClient />
               <Button
                 fullWidth
                 onClick={() => void approveBookingMutation.mutateAsync(booking.id)}
@@ -210,7 +210,7 @@ export default function StylistBookingsPage() {
           ) : (
             dayBookings.map((booking) => (
               <div key={booking.id} className="space-y-1">
-                <BookingCard booking={booking} href={`/stylist/bookings/${booking.id}`} />
+                <BookingCard booking={booking} href={`/stylist/bookings/${booking.id}`} showClient />
                 {booking.pendingStylistApproval ? (
                   <StatusBadge label="Pending approval" tone="warning" />
                 ) : null}

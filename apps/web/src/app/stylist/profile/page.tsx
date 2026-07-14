@@ -6,9 +6,11 @@ import { useState, useEffect } from 'react';
 import { fetchStylistConversations } from '@/features/messaging/api';
 import type {
   BusinessProfile,
+  ServiceVenueMode,
   StylistProfile,
   StylistSmsBookingNumber,
 } from '@project-braids/shared-types/api';
+import { serviceVenueModeLabel } from '@/shared/lib/venue';
 import { SignOutButton } from '@/features/auth/sign-out-button';
 import { apiFetchData, getApiErrorMessage } from '@/shared/lib/api-client';
 import { formatPhoneHint, isValidE164Phone, normalizePhoneNumber } from '@/shared/lib/phone';
@@ -45,6 +47,10 @@ export default function StylistProfilePage() {
   const [businessName, setBusinessName] = useState('');
   const [locationLabel, setLocationLabel] = useState('');
   const [bio, setBio] = useState('');
+  const [serviceVenueMode, setServiceVenueMode] =
+    useState<ServiceVenueMode>('stylist_location');
+  const [workplaceAddress, setWorkplaceAddress] = useState('');
+  const [homeVisitSurcharge, setHomeVisitSurcharge] = useState('');
   const [smsNumber, setSmsNumber] = useState('');
   const [smsSaved, setSmsSaved] = useState(false);
   const [smsError, setSmsError] = useState<string | null>(null);
@@ -60,6 +66,9 @@ export default function StylistProfilePage() {
       setBusinessName(profileQuery.data.businessName);
       setLocationLabel(profileQuery.data.locationLabel ?? '');
       setBio(profileQuery.data.bio ?? '');
+      setServiceVenueMode(profileQuery.data.serviceVenueMode);
+      setWorkplaceAddress(profileQuery.data.workplaceAddress ?? '');
+      setHomeVisitSurcharge(profileQuery.data.homeVisitSurcharge ?? '');
     }
   }, [profileQuery.data]);
 
@@ -77,6 +86,10 @@ export default function StylistProfilePage() {
           businessName,
           locationLabel: locationLabel || null,
           bio: bio || null,
+          serviceVenueMode,
+          workplaceAddress: workplaceAddress.trim() || null,
+          homeVisitSurcharge:
+            homeVisitSurcharge.trim() === '' ? (serviceVenueMode === 'come_to_client' ? 0 : null) : Number(homeVisitSurcharge),
         },
       }),
     onSuccess: () => {
@@ -225,8 +238,52 @@ export default function StylistProfilePage() {
                 label="Location area"
                 value={locationLabel}
                 onChange={(e) => setLocationLabel(e.target.value)}
-                hint="e.g. South London, Peckham"
+                hint="Neighborhood clients see before booking (e.g. Peckham)"
               />
+              <fieldset className="space-y-2">
+                <legend className="text-sm font-medium text-ink">Where do you work?</legend>
+                <p className="text-xs text-ink-muted">
+                  Default for new bookings. Clients see the address after confirmation.
+                </p>
+                {(
+                  [
+                    ['stylist_location', 'Clients come to my workplace'],
+                    ['come_to_client', 'I come to the client (home visit)'],
+                    ['remote', 'Remote / online'],
+                  ] as const
+                ).map(([value, label]) => (
+                  <label key={value} className="flex min-h-11 items-center gap-2 text-sm text-ink">
+                    <input
+                      type="radio"
+                      name="serviceVenueMode"
+                      value={value}
+                      checked={serviceVenueMode === value}
+                      onChange={() => setServiceVenueMode(value)}
+                    />
+                    {label}
+                  </label>
+                ))}
+              </fieldset>
+              {serviceVenueMode === 'stylist_location' ? (
+                <Textarea
+                  label="Workplace address"
+                  value={workplaceAddress}
+                  onChange={(e) => setWorkplaceAddress(e.target.value)}
+                  placeholder="Studio or salon address clients will travel to"
+                  required
+                />
+              ) : null}
+              {serviceVenueMode === 'come_to_client' ? (
+                <Input
+                  label="Home visit surcharge (£)"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={homeVisitSurcharge}
+                  onChange={(e) => setHomeVisitSurcharge(e.target.value)}
+                  hint={`Added on top of the service price. Current mode: ${serviceVenueModeLabel(serviceVenueMode)}`}
+                />
+              ) : null}
               <Textarea
                 label="Bio"
                 value={bio}

@@ -5,7 +5,8 @@ app = "project-braids-worker-staging"
 primary_region = "lhr"
 
 [build]
-  dockerfile = "infrastructure/docker/Dockerfile.worker"
+  # Path is relative to this file's directory (infrastructure/fly/)
+  dockerfile = "../docker/Dockerfile.worker"
 
 [env]
   NODE_ENV = "staging"

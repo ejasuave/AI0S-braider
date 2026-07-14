@@ -47,6 +47,8 @@ export const opsStatusResponseSchema = z.object({
   gitSha: z.string().nullable(),
   aiReceptionistEnabled: z.boolean(),
   killSwitchActive: z.boolean(),
+  /** Inferred from `STRIPE_SECRET_KEY` prefix — never returns the key itself. */
+  stripeMode: z.enum(['test', 'live', 'mock']),
   timestamp: z.string().datetime(),
 });
 

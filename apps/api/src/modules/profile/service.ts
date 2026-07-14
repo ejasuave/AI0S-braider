@@ -62,6 +62,8 @@ export class ProfileService {
     stylistId: string;
     businessName: string;
     locationArea: string | null;
+    serviceVenueMode: 'remote' | 'stylist_location' | 'come_to_client';
+    homeVisitSurcharge: string | null;
     offerings: Array<{
       id: string;
       styleName: string;
@@ -71,11 +73,24 @@ export class ProfileService {
   }> {
     const profile = await getStylistProfileById(stylistId);
     const offerings = await listActiveServiceOfferings(stylistId);
+    const business = profile.businessId
+      ? await prisma.business.findUnique({
+          where: { id: profile.businessId },
+          select: {
+            serviceVenueMode: true,
+            homeVisitSurcharge: true,
+          },
+        })
+      : null;
     return {
       businessId: profile.businessId,
       stylistId: profile.id,
       businessName: profile.businessName,
       locationArea: profile.locationArea,
+      serviceVenueMode: business?.serviceVenueMode ?? 'stylist_location',
+      homeVisitSurcharge: business?.homeVisitSurcharge
+        ? business.homeVisitSurcharge.toFixed(2)
+        : null,
       offerings: offerings.map((offering) => ({
         id: offering.id,
         styleName: offering.styleName,

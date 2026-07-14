@@ -13,7 +13,34 @@ export type NotificationContentContext = {
   depositAmount?: number | null;
   depositPaid?: boolean;
   audience: 'client' | 'stylist';
+  /** Venue line for confirmation (e.g. address or "Remote appointment"). */
+  venueLine?: string | null;
+  clientDisplayName?: string | null;
 };
+
+export function formatVenueLineForNotification(input: {
+  mode: 'remote' | 'stylist_location' | 'come_to_client';
+  address: string | null;
+  audience: 'client' | 'stylist';
+}): string | null {
+  if (input.mode === 'remote') {
+    return 'Remote appointment.';
+  }
+  if (input.mode === 'come_to_client') {
+    if (input.address) {
+      return input.audience === 'stylist'
+        ? `Home visit at ${input.address}.`
+        : `Home visit — ${input.address}.`;
+    }
+    return 'Home visit.';
+  }
+  if (input.address) {
+    return input.audience === 'client'
+      ? `Location: ${input.address}.`
+      : `At your workplace (${input.address}).`;
+  }
+  return 'At stylist location.';
+}
 
 /**
  * Templated notification copy for automated delivery (Ch.12.1).
@@ -34,7 +61,8 @@ export function generateNotificationContent(context: NotificationContentContext)
         context.depositPaid && context.depositAmount
           ? ` £${context.depositAmount} deposit paid.`
           : '';
-      return `Booking confirmed: ${serviceLine} on ${when}.${depositLine} See you then! Reply here if you need to change anything.`;
+      const venueLine = context.venueLine ? ` ${context.venueLine}` : '';
+      return `Booking confirmed: ${serviceLine} on ${when}.${depositLine}${venueLine} See you then! Reply here if you need to change anything.`;
     }
     case 'cancellation': {
       const dispositionLine = context.depositDisposition
@@ -66,7 +94,9 @@ function generateStylistNotificationContent(
         context.depositPaid && context.depositAmount
           ? `, £${context.depositAmount} deposit paid`
           : '';
-      return `New booking confirmed: ${serviceLine} on ${when}${depositLine}.`;
+      const clientLine = context.clientDisplayName ? ` for ${context.clientDisplayName}` : '';
+      const venueLine = context.venueLine ? ` ${context.venueLine}` : '';
+      return `New booking confirmed${clientLine}: ${serviceLine} on ${when}${depositLine}.${venueLine}`;
     }
     case 'cancellation':
       return `Booking cancelled: ${serviceLine} on ${when}.${

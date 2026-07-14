@@ -4,7 +4,7 @@ import { getEnv } from '../../config/env.js';
 import { getSystemQueue, JOB_NAMES } from '../../lib/queue.js';
 import { messagingService } from '../messaging/service.js';
 import { prisma } from '../../lib/db.js';
-import { generateNotificationContent } from './content.js';
+import { generateNotificationContent, formatVenueLineForNotification } from './content.js';
 import { notificationsRepository } from './repository.js';
 import { calculateReminderScheduledFor, reminderTypesForBooking } from './reminder-window.js';
 import {
@@ -220,6 +220,12 @@ export class NotificationsService {
 
     const depositDisposition = notification.depositDisposition as DepositDisposition | null;
 
+    const venueLine = formatVenueLineForNotification({
+      mode: context.serviceVenueMode,
+      address: context.venueAddress,
+      audience: isClientRecipient ? 'client' : 'stylist',
+    });
+
     const contentInput = {
       type: notification.type,
       businessName: context.businessName,
@@ -231,6 +237,8 @@ export class NotificationsService {
       depositAmount: context.depositAmount,
       depositPaid: context.depositStatus === 'paid',
       audience: isClientRecipient ? ('client' as const) : ('stylist' as const),
+      venueLine,
+      clientDisplayName: context.clientDisplayName,
     };
 
     const body = generateNotificationContent(contentInput);

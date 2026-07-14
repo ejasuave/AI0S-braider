@@ -84,6 +84,21 @@ export class StylistProfileService {
     businessId: string,
     input: UpdateBusinessProfileRequest,
   ): Promise<BusinessProfile> {
+    const existing = await prisma.business.findUnique({ where: { id: businessId } });
+    if (!existing) {
+      throw ApiError.notFound('Business not found');
+    }
+
+    const nextMode = input.serviceVenueMode ?? existing.serviceVenueMode;
+    const nextWorkplace =
+      input.workplaceAddress !== undefined ? input.workplaceAddress : existing.workplaceAddress;
+
+    if (nextMode === 'stylist_location' && (!nextWorkplace || nextWorkplace.trim().length < 5)) {
+      throw ApiError.validation(
+        'Add your workplace address when clients come to your location',
+      );
+    }
+
     const business = await prisma.business.update({
       where: { id: businessId },
       data: {
@@ -94,6 +109,15 @@ export class StylistProfileService {
         ...(input.locationLabel !== undefined ? { locationLabel: input.locationLabel } : {}),
         ...(input.serviceAreaRadiusKm !== undefined
           ? { serviceAreaRadiusKm: input.serviceAreaRadiusKm }
+          : {}),
+        ...(input.serviceVenueMode !== undefined
+          ? { serviceVenueMode: input.serviceVenueMode }
+          : {}),
+        ...(input.workplaceAddress !== undefined
+          ? { workplaceAddress: input.workplaceAddress }
+          : {}),
+        ...(input.homeVisitSurcharge !== undefined
+          ? { homeVisitSurcharge: input.homeVisitSurcharge }
           : {}),
       },
       include: { profile: { select: { id: true } } },

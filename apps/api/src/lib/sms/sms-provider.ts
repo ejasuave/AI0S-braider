@@ -24,7 +24,12 @@ export function setLastDevOtpForTests(phoneNumber: string, code: string): void {
 export class ConsoleSmsProvider implements SmsProvider {
   async send(message: SmsMessage): Promise<{ providerMessageId?: string }> {
     const match = message.body.match(/\b(\d{6})\b/);
-    if (match?.[1] && (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test')) {
+    const captureOtp =
+      process.env.NODE_ENV === 'development' ||
+      process.env.NODE_ENV === 'test' ||
+      process.env.NODE_ENV === 'staging';
+
+    if (match?.[1] && captureOtp) {
       lastDevOtp = { phoneNumber: message.to, code: match[1] };
       if (process.env.NODE_ENV === 'development') {
         const otpPath = path.resolve(process.cwd(), '../../.local/last-otp.json');
@@ -33,7 +38,10 @@ export class ConsoleSmsProvider implements SmsProvider {
       }
     }
 
-    if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
+    // Log OTP bodies whenever Twilio is not configured (local + staging).
+    // In production with Twilio unset this still never runs — getSmsProvider would
+    // only use ConsoleSmsProvider when Twilio env is missing.
+    if (captureOtp) {
       const from = message.from ? ` from=${message.from}` : '';
       console.info(`[sms] to=${message.to}${from} body=${message.body}`);
     }

@@ -4,10 +4,12 @@
 FROM node:22-alpine AS base
 RUN corepack enable && corepack prepare pnpm@11.11.0 --activate
 WORKDIR /app
+ENV CI=true
 
 FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json apps/api/
+COPY apps/web/package.json apps/web/
 COPY packages/shared-types/package.json packages/shared-types/
 COPY packages/config/package.json packages/config/
 RUN pnpm install --frozen-lockfile
@@ -20,19 +22,22 @@ COPY apps/api apps/api
 RUN pnpm db:generate
 RUN pnpm --filter @project-braids/shared-types build
 RUN pnpm --filter @project-braids/api build
+RUN pnpm --filter @project-braids/api deploy --prod --legacy /app/deploy
+RUN rm -rf /app/deploy/dist \
+  && cp -r /app/apps/api/dist /app/deploy/dist \
+  && cp -r /app/prisma /app/deploy/prisma \
+  && SRC="$(find /app/node_modules/.pnpm -type d -path '*/node_modules/.prisma' | head -1)" \
+  && DEST_PARENT="$(find /app/deploy/node_modules/.pnpm -type d -path '*/@prisma+client@*/node_modules' | head -1)" \
+  && test -n "$SRC" && test -n "$DEST_PARENT" \
+  && rm -rf "$DEST_PARENT/.prisma" \
+  && cp -a "$SRC" "$DEST_PARENT/.prisma"
 
 FROM node:22-alpine AS runner
-RUN corepack enable && corepack prepare pnpm@11.11.0 --activate
 WORKDIR /app
 ENV NODE_ENV=production
 ARG GIT_SHA=unknown
 ENV GIT_SHA=${GIT_SHA}
 
-COPY --from=build /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml ./
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/prisma ./prisma
-COPY --from=build /app/packages/shared-types ./packages/shared-types
-COPY --from=build /app/apps/api/package.json ./apps/api/
-COPY --from=build /app/apps/api/dist ./apps/api/dist
+COPY --from=build /app/deploy ./
 
-CMD ["node", "apps/api/dist/worker.js"]
+CMD ["node", "dist/worker.js"]

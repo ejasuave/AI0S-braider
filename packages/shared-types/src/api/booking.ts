@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+export const SERVICE_VENUE_MODES = ['remote', 'stylist_location', 'come_to_client'] as const;
+export type ServiceVenueMode = (typeof SERVICE_VENUE_MODES)[number];
+
 export const BOOKING_STATUSES = ['held', 'confirmed', 'completed', 'cancelled', 'no_show'] as const;
 export type BookingStatus = (typeof BOOKING_STATUSES)[number];
 
@@ -33,6 +36,13 @@ export const bookingSchema = z.object({
   depositStatus: z.enum(BOOKING_DEPOSIT_STATUSES),
   holdExpiresAt: z.string().datetime().nullable(),
   source: z.enum(BOOKING_SOURCES),
+  serviceVenueMode: z.enum(SERVICE_VENUE_MODES),
+  /** Workplace or client visit address; may be redacted for clients until confirmation. */
+  venueAddress: z.string().nullable(),
+  homeVisitSurcharge: z.string(),
+  clientDisplayName: z.string().nullable(),
+  /** Present for stylist audience when client is known. */
+  clientPhoneNumber: z.string().nullable().optional(),
   createdAt: z.string().datetime(),
   cancelledAt: z.string().datetime().nullable(),
   cancellationReason: z.string().nullable(),
@@ -47,6 +57,9 @@ export const createBookingHoldRequestSchema = z.object({
   serviceOfferingId: z.string().uuid(),
   startTime: z.string().datetime(),
   source: z.enum(BOOKING_SOURCES).default('client_direct'),
+  clientDisplayName: z.string().trim().min(1).max(80).optional(),
+  /** Required when the stylist's default venue mode is come_to_client. */
+  clientVisitAddress: z.string().trim().min(5).max(500).optional(),
 });
 
 export type CreateBookingHoldRequest = z.infer<typeof createBookingHoldRequestSchema>;

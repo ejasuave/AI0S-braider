@@ -25,6 +25,7 @@ import {
   formatMoney,
   paymentStatusLabel,
 } from '@/shared/lib/format';
+import { serviceVenueModeLabel } from '@/shared/lib/venue';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { PageHeader, PageShell } from '@/shared/ui/page-shell';
@@ -238,9 +239,48 @@ function ClientBookingDetailContent() {
                 <dd className="font-medium text-ink">{formatDateTime(booking.startTime)}</dd>
               </div>
               <div>
+                <dt className="text-ink-muted">Where</dt>
+                <dd className="font-medium text-ink">
+                  {serviceVenueModeLabel(booking.serviceVenueMode)}
+                </dd>
+              </div>
+              {booking.venueAddress ? (
+                <div>
+                  <dt className="text-ink-muted">
+                    {booking.serviceVenueMode === 'come_to_client'
+                      ? 'Your address'
+                      : booking.status === 'confirmed' || booking.status === 'completed'
+                        ? 'Stylist location'
+                        : 'Address'}
+                  </dt>
+                  <dd className="font-medium text-ink whitespace-pre-wrap">{booking.venueAddress}</dd>
+                </div>
+              ) : booking.serviceVenueMode === 'stylist_location' &&
+                booking.status === 'held' ? (
+                <div>
+                  <dt className="text-ink-muted">Stylist location</dt>
+                  <dd className="font-medium text-ink-muted">
+                    Full address shared when your booking is confirmed.
+                  </dd>
+                </div>
+              ) : booking.serviceVenueMode === 'remote' ? (
+                <div>
+                  <dt className="text-ink-muted">Details</dt>
+                  <dd className="font-medium text-ink">Your stylist will confirm how to join.</dd>
+                </div>
+              ) : null}
+              <div>
                 <dt className="text-ink-muted">Total price</dt>
                 <dd className="font-medium text-ink">{formatMoney(booking.agreedPrice)}</dd>
               </div>
+              {Number(booking.homeVisitSurcharge) > 0 ? (
+                <div>
+                  <dt className="text-ink-muted">Includes home visit</dt>
+                  <dd className="font-medium text-ink">
+                    +{formatMoney(booking.homeVisitSurcharge)}
+                  </dd>
+                </div>
+              ) : null}
               <div>
                 <dt className="text-ink-muted">Deposit due</dt>
                 <dd className="font-medium text-ink">{formatMoney(booking.depositAmount)}</dd>

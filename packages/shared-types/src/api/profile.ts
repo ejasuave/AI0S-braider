@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { SERVICE_VENUE_MODES } from './booking.js';
 
 export const ONBOARDING_STATUSES = ['in_progress', 'complete'] as const;
 export type OnboardingStatus = (typeof ONBOARDING_STATUSES)[number];
@@ -120,6 +121,8 @@ export const publicBookingPageSchema = z.object({
   stylistId: z.string().uuid(),
   businessName: z.string(),
   locationArea: z.string().nullable(),
+  serviceVenueMode: z.enum(SERVICE_VENUE_MODES),
+  homeVisitSurcharge: z.string().nullable(),
   offerings: z.array(publicBookingOfferingSchema),
 });
 

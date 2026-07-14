@@ -92,13 +92,13 @@ This creates `.env.staging` from `.env.staging.example` and generates:
 fly auth login
 
 fly apps create project-braids-api-staging
-# If name taken, pick another and update infrastructure/fly/api.toml → app = "..."
+# If name taken, pick another and update fly.api.staging.toml → app = "..."
 
 # Import secrets (never commit .env.staging)
 fly secrets import --stage < .env.staging -a project-braids-api-staging
 
-# Deploy
-fly deploy --config infrastructure/fly/api.toml -a project-braids-api-staging
+# Deploy from repo root (build context must be monorepo root)
+fly deploy --config fly.api.staging.toml -a project-braids-api-staging
 ```
 
 After deploy, note the HTTPS URL (e.g. `https://project-braids-api-staging.fly.dev`). Update:
@@ -123,7 +123,7 @@ fly apps create project-braids-worker-staging
 
 fly secrets import --stage < .env.staging -a project-braids-worker-staging
 
-fly deploy --config infrastructure/fly/worker.toml -a project-braids-worker-staging
+fly deploy --config fly.worker.staging.toml -a project-braids-worker-staging
 ```
 
 The worker has no public URL — it consumes Redis queues only.
@@ -147,7 +147,22 @@ The worker has no public URL — it consumes Redis queues only.
    NEXT_PUBLIC_GOOGLE_CLIENT_ID=<same as GOOGLE_CLIENT_ID>
    ```
 
+   **Do not use `pk_live_` on staging.** Publishable and secret keys must be the same mode
+   (`pk_test_` + Fly `sk_test_`). A live publishable key does **not** enable real stylist payouts
+   safely — it mismatches the test API and/or risks charging real cards. Live money only after a
+   deliberate cutover ([STRIPE_LIVE_SETUP.md](./STRIPE_LIVE_SETUP.md)).
+   `parseWebEnv` **ignores** `pk_live_` on staging surfaces (Stripe.js stays off until you set `pk_test_`).
+
 6. Deploy. Open the Vercel URL → confirm login page loads.
+
+Confirm Stripe test mode on both sides:
+
+```bash
+WEB_URL=https://<vercel-host> \
+API_URL=https://<fly-api-host> \
+OPS_TOKEN=<ops> \
+pnpm ops:check-stripe-staging
+```
 
 Update Fly secrets with the final web URL:
 
@@ -266,15 +281,16 @@ On staging URLs (not localhost):
 
 ## Troubleshooting
 
-| Symptom                        | Fix                                                        |
-| ------------------------------ | ---------------------------------------------------------- |
-| CORS error in browser          | `CORS_ORIGIN` on API must exactly match Vercel URL         |
-| Stripe webhook 4xx             | Check `STRIPE_WEBHOOK_SECRET`; URL must be HTTPS           |
-| Google `redirect_uri_mismatch` | Redirect URI must exactly match Vercel `/stylist/calendar` |
-| Google `access_denied` (403)   | Add stylist email as OAuth **test user**                   |
-| Calendar mock mode on staging  | `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` missing on Fly |
-| Deposits blocked               | Stylist must finish Stripe Connect (`isPaymentReady`)      |
-| SMS not received               | Twilio webhook URL + UK number; check Fly logs             |
+| Symptom                                        | Fix                                                                                                                                          |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| CORS error in browser                          | `CORS_ORIGIN` on API must exactly match Vercel URL                                                                                           |
+| Stripe `pk_live_` on staging / payments broken | Vercel → set `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_…` from `.env.staging` → **Redeploy**. Confirm with `pnpm ops:check-stripe-staging` |
+| Stripe webhook 4xx                             | Check `STRIPE_WEBHOOK_SECRET`; URL must be HTTPS; use **Test mode** endpoint secret                                                          |
+| Google `redirect_uri_mismatch`                 | Redirect URI must exactly match Vercel `/stylist/calendar`                                                                                   |
+| Google `access_denied` (403)                   | Add stylist email as OAuth **test user**                                                                                                     |
+| Calendar mock mode on staging                  | `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` missing on Fly                                                                                   |
+| Deposits blocked                               | Stylist must finish Stripe Connect (`isPaymentReady`)                                                                                        |
+| SMS not received                               | Twilio webhook URL + UK number; check Fly logs                                                                                               |
 
 ---
 

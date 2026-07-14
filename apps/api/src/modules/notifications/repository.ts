@@ -27,6 +27,9 @@ export type BookingNotificationContext = {
   clientPhone: string;
   businessName: string;
   styleName: string;
+  serviceVenueMode: 'remote' | 'stylist_location' | 'come_to_client';
+  venueAddress: string | null;
+  clientDisplayName: string | null;
 };
 
 export class NotificationsRepository {
@@ -87,6 +90,9 @@ export class NotificationsRepository {
       clientPhone: clientUser.phoneNumber,
       businessName: stylistProfile.businessName || 'your stylist',
       styleName,
+      serviceVenueMode: booking.serviceVenueMode,
+      venueAddress: booking.venueAddress,
+      clientDisplayName: booking.clientDisplayName,
     };
   }
 

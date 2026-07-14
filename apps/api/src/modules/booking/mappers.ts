@@ -3,6 +3,7 @@ import type {
   BookingDepositStatus,
   BookingSource,
   BookingStatus,
+  ServiceVenueMode,
 } from '@project-braids/shared-types/api';
 import type { Booking as DbBooking } from '@prisma/client';
 
@@ -10,15 +11,34 @@ function toIso(date: Date): string {
   return date.toISOString();
 }
 
-export function toBooking(
+export type BookingMapOptions = {
+  requireStylistApproval?: boolean;
+  audience?: 'stylist' | 'client';
+  clientPhoneNumber?: string | null;
+};
+
+function shouldRevealVenueAddress(
   booking: DbBooking,
-  options?: { requireStylistApproval?: boolean },
-): Booking {
+  audience: 'stylist' | 'client',
+): boolean {
+  if (audience === 'stylist') return true;
+  if (booking.serviceVenueMode === 'come_to_client') return true;
+  if (booking.serviceVenueMode === 'remote') return false;
+  // stylist_location: hide street address until confirmed (Playbook: no street pre-booking).
+  return booking.status === 'confirmed' || booking.status === 'completed';
+}
+
+export function toBooking(booking: DbBooking, options?: BookingMapOptions): Booking {
+  const audience = options?.audience ?? 'stylist';
   const pendingStylistApproval =
     options?.requireStylistApproval === true &&
     booking.status === 'held' &&
     booking.source === 'ai_agent' &&
     booking.stylistApprovedAt === null;
+
+  const venueAddress = shouldRevealVenueAddress(booking, audience)
+    ? booking.venueAddress
+    : null;
 
   return {
     id: booking.id,
@@ -34,6 +54,13 @@ export function toBooking(
     depositStatus: booking.depositStatus as BookingDepositStatus,
     holdExpiresAt: booking.holdExpiresAt ? toIso(booking.holdExpiresAt) : null,
     source: booking.source as BookingSource,
+    serviceVenueMode: booking.serviceVenueMode as ServiceVenueMode,
+    venueAddress,
+    homeVisitSurcharge: booking.homeVisitSurcharge.toString(),
+    clientDisplayName: booking.clientDisplayName,
+    ...(audience === 'stylist'
+      ? { clientPhoneNumber: options?.clientPhoneNumber ?? null }
+      : {}),
     createdAt: toIso(booking.createdAt),
     cancelledAt: booking.cancelledAt ? toIso(booking.cancelledAt) : null,
     cancellationReason: booking.cancellationReason,
