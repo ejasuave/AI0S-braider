@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   AuthSessionResponse,
   AuthUser,
@@ -79,38 +79,12 @@ function isSessionResponse(value: OtpVerifyResponse): value is AuthSessionRespon
   return 'tokens' in value && Boolean(value.tokens?.accessToken);
 }
 
-async function hydrateSession(
-  queryClient: QueryClient,
-  session: AuthSessionResponse,
-): Promise<AuthMe> {
-  setAccessToken(session.tokens.accessToken);
-  queryClient.setQueryData<AuthMe>(AUTH_ME_KEY, {
-    user: session.user,
-    stylistId: null,
-    businessId: null,
-    permissions: null,
-  });
-
-  try {
-    return await queryClient.fetchQuery({
-      queryKey: AUTH_ME_KEY,
-      queryFn: fetchMe,
-      staleTime: 0,
-    });
-  } catch (error) {
-    if (error instanceof ApiClientError && error.status === 401) {
-      clearAccessToken();
-      queryClient.setQueryData(AUTH_ME_KEY, null);
-      throw error;
-    }
-    return { user: session.user, stylistId: null, businessId: null, permissions: null };
-  }
-}
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
   const [bootstrapped, setBootstrapped] = useState(false);
   const [hasToken, setHasToken] = useState(false);
+  /** Login/OTP response user — does not wait on /auth/me. */
+  const [sessionUser, setSessionUser] = useState<AuthUser | null>(null);
 
   useEffect(() => {
     setBootstrapped(true);
@@ -122,16 +96,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     queryFn: fetchMe,
     enabled: bootstrapped && hasToken,
     retry: false,
+    // Avoid QueryClient default retry:1 delaying login/dashboard forever.
+    staleTime: 30_000,
   });
 
-  // Recover from a stored access token that /auth/me rejects or cannot load.
+  // Mirror /auth/me into sessionUser when cold-loading from a stored token.
+  useEffect(() => {
+    if (meQuery.data?.user) {
+      setSessionUser(meQuery.data.user);
+    }
+  }, [meQuery.data?.user]);
+
+  // Only clear session on auth failure (401), not on transient network/DB errors.
   useEffect(() => {
     if (!bootstrapped || !hasToken) return;
     if (!meQuery.isError) return;
+    const err = meQuery.error;
+    const isUnauthorized = err instanceof ApiClientError && err.status === 401;
+    if (!isUnauthorized) return;
     clearAccessToken();
     setHasToken(false);
+    setSessionUser(null);
     queryClient.setQueryData(AUTH_ME_KEY, null);
-  }, [bootstrapped, hasToken, meQuery.isError, queryClient]);
+  }, [bootstrapped, hasToken, meQuery.isError, meQuery.error, queryClient]);
+
+  const applySession = useCallback(
+    (session: AuthSessionResponse) => {
+      setAccessToken(session.tokens.accessToken);
+      setSessionUser(session.user);
+      queryClient.setQueryData<AuthMe>(AUTH_ME_KEY, {
+        user: session.user,
+        stylistId: null,
+        businessId: null,
+        permissions: null,
+      });
+      setHasToken(true);
+    },
+    [queryClient],
+  );
 
   const refreshMe = useCallback(async () => {
     setHasToken(Boolean(getAccessToken()));
@@ -145,15 +147,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         method: 'POST',
         json: input,
       });
-      setAccessToken(session.tokens.accessToken);
-      queryClient.setQueryData<AuthMe>(AUTH_ME_KEY, {
-        user: session.user,
-        stylistId: null,
-        businessId: null,
-        permissions: null,
-      });
-      setHasToken(true);
-      // Enrich stylistId/permissions in the background — don't block sign-in on /auth/me.
+      applySession(session);
+      // Enrich stylistId/permissions in the background — never block navigation.
       void queryClient
         .fetchQuery({
           queryKey: AUTH_ME_KEY,
@@ -161,11 +156,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           staleTime: 0,
         })
         .catch(() => {
-          /* session user is enough to route; dashboard may refetch */
+          /* session user is enough to enter the app */
         });
       return session.user;
     },
-    [queryClient],
+    [applySession, queryClient],
   );
 
   const registerStylist = useCallback(
@@ -209,12 +204,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new ApiClientError('Verification did not return a session', 500);
       }
 
-      const me = await hydrateSession(queryClient, result);
+      applySession(result);
       clearPendingOtp();
-      setHasToken(true);
-      return me.user;
+
+      try {
+        const me = await queryClient.fetchQuery({
+          queryKey: AUTH_ME_KEY,
+          queryFn: fetchMe,
+          staleTime: 0,
+        });
+        return me.user;
+      } catch (error) {
+        if (error instanceof ApiClientError && error.status === 401) {
+          clearAccessToken();
+          setHasToken(false);
+          setSessionUser(null);
+          queryClient.setQueryData(AUTH_ME_KEY, null);
+          throw error;
+        }
+        // Network/DB blip — still admit with OTP session user.
+        return result.user;
+      }
     },
-    [queryClient],
+    [applySession, queryClient],
   );
 
   const logout = useCallback(async () => {
@@ -224,16 +236,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearAccessToken();
       clearPendingOtp();
       setHasToken(false);
+      setSessionUser(null);
       queryClient.setQueryData(AUTH_ME_KEY, null);
     }
   }, [queryClient]);
 
   const value = useMemo<AuthContextValue>(() => {
-    const user = meQuery.data?.user ?? null;
+    const user = sessionUser ?? meQuery.data?.user ?? null;
     const stylistId = meQuery.data?.stylistId ?? null;
     const businessId = meQuery.data?.businessId ?? null;
     const permissions = meQuery.data?.permissions ?? null;
-    const resolvingSession =
+
+    // Only block the UI before we know if a stored token can resolve a user.
+    // Once we have sessionUser (from login/OTP) or /auth/me data, never spin forever.
+    const waitingForStoredSession =
       hasToken &&
       !user &&
       !meQuery.isError &&
@@ -244,7 +260,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       stylistId,
       businessId,
       permissions,
-      isLoading: !bootstrapped || resolvingSession,
+      isLoading: !bootstrapped || waitingForStoredSession,
       isAuthenticated: Boolean(user),
       isStylist: user?.role === 'stylist_owner' || user?.role === 'stylist_staff',
       isClient: user?.role === 'client',
@@ -267,6 +283,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     refreshMe,
     registerClient,
     registerStylist,
+    sessionUser,
     verifyOtp,
   ]);
 

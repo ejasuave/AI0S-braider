@@ -11,7 +11,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
         defaultOptions: {
           queries: {
             staleTime: 30_000,
-            retry: 1,
+            // Auth/session queries set their own retry. Global retry makes
+            // dashboards look "stuck" when Redis/DB blips hit /auth/me.
+            retry: false,
           },
         },
       }),
