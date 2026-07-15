@@ -15,7 +15,7 @@ import { ApiError } from '../../lib/errors.js';
 import { getEnv } from '../../config/env.js';
 import { getSystemQueue, JOB_NAMES } from '../../lib/queue.js';
 import { profileService } from '../profile/service.js';
-import { getBusinessPolicyByStylistId } from '../stylist-profile/policy.js';
+import { getBusinessPolicyByStylistId, resolveDepositPolicy } from '../stylist-profile/policy.js';
 import { expireStaleHolds, findConflictingBookingIds } from './conflict.js';
 import { calculateBalanceAmount, calculateBookingEndTime, calculateDepositAmount, toBooking } from './mappers.js';
 import { evaluateCancellationDeposit, evaluateNoShowDeposit } from './policy.js';
@@ -61,6 +61,16 @@ type CreateBookingInput = {
   venueAddress?: string | null;
   homeVisitSurcharge?: number;
   clientDisplayName?: string | null;
+  addonsSnapshot?: Array<{
+    serviceAddonId: string;
+    name: string;
+    description: string | null;
+    price: string;
+  }>;
+  depositPolicyOverride?: { type: 'flat' | 'percent'; value: number } | null;
+  remainingBalanceMethod?: 'cash' | 'card' | 'cash_or_card' | null;
+  requirementsAcknowledgedAt?: Date | null;
+  policiesAcknowledgedAt?: Date | null;
 };
 
 async function loadClientPhones(
@@ -278,6 +288,20 @@ export class BookingService {
       input.serviceOfferingId,
     );
     const venue = await resolveVenueOffersForStylist(input.stylistId);
+    const businessPolicy = await getBusinessPolicyByStylistId(input.stylistId);
+
+    const requirements = Array.isArray(offering.requirements)
+      ? offering.requirements.filter((item): item is string => typeof item === 'string')
+      : [];
+
+    if (input.source !== 'ai_agent') {
+      if (!input.acknowledgedPolicies) {
+        throw ApiError.validation('You must accept the stylist policies to continue');
+      }
+      if (requirements.length > 0 && !input.acknowledgedRequirements) {
+        throw ApiError.validation('You must acknowledge the service requirements to continue');
+      }
+    }
 
     const chosenMode =
       input.serviceVenueMode ??
@@ -311,8 +335,46 @@ export class BookingService {
       clientDisplayName = profile?.displayName ?? null;
     }
 
+    const selectedAddonIds = [...new Set(input.addonIds ?? [])];
+    let addonsSnapshot: Array<{
+      serviceAddonId: string;
+      name: string;
+      description: string | null;
+      price: string;
+    }> = [];
+    let addonsTotal = 0;
+
+    if (selectedAddonIds.length > 0) {
+      const addons = await prisma.serviceAddon.findMany({
+        where: {
+          id: { in: selectedAddonIds },
+          serviceOfferingId: offering.id,
+          active: true,
+        },
+      });
+      if (addons.length !== selectedAddonIds.length) {
+        throw ApiError.validation('One or more selected add-ons are unavailable');
+      }
+      addonsSnapshot = addons
+        .sort((a, b) => a.displayOrder - b.displayOrder)
+        .map((addon) => ({
+          serviceAddonId: addon.id,
+          name: addon.name,
+          description: addon.description,
+          price: addon.price.toFixed(2),
+        }));
+      addonsTotal = addons.reduce((sum, addon) => sum + addon.price.toNumber(), 0);
+    }
+
     const surcharge = chosenMode === 'come_to_client' ? (venue.homeVisitSurcharge ?? 0) : 0;
-    const agreedPrice = offering.basePrice.toNumber() + surcharge;
+    const agreedPrice =
+      Math.round((offering.basePrice.toNumber() + surcharge + addonsTotal) * 100) / 100;
+
+    const depositPolicyOverride = resolveDepositPolicy({
+      serviceDepositType: offering.depositType,
+      serviceDepositValue: offering.depositValue?.toNumber() ?? null,
+      businessPolicy,
+    });
 
     const venueAddress =
       chosenMode === 'come_to_client'
@@ -321,6 +383,7 @@ export class BookingService {
           ? venue.workplaceAddress
           : null;
 
+    const now = new Date();
     return this.createBookingRecord({
       stylistId: input.stylistId,
       clientId,
@@ -334,6 +397,15 @@ export class BookingService {
       venueAddress,
       homeVisitSurcharge: surcharge,
       clientDisplayName,
+      addonsSnapshot,
+      depositPolicyOverride,
+      remainingBalanceMethod: businessPolicy.remainingBalanceMethod,
+      requirementsAcknowledgedAt:
+        requirements.length > 0 && (input.acknowledgedRequirements || input.source === 'ai_agent')
+          ? now
+          : null,
+      policiesAcknowledgedAt:
+        input.acknowledgedPolicies || input.source === 'ai_agent' ? now : null,
     });
   }
 
@@ -407,7 +479,10 @@ export class BookingService {
 
     const depositAmount =
       input.status === 'held'
-        ? calculateDepositAmount(input.agreedPrice, scheduling.depositPolicy)
+        ? calculateDepositAmount(
+            input.agreedPrice,
+            input.depositPolicyOverride ?? scheduling.depositPolicy,
+          )
         : 0;
     const holdExpiresAt = input.status === 'held' ? new Date(Date.now() + this.holdTtlMs()) : null;
 
@@ -431,6 +506,16 @@ export class BookingService {
       depositValue: policy.depositValue,
       cancellationWindowHours: policy.cancellationWindowHours,
       noShowFeeType: policy.noShowFeeType,
+      remainingBalanceMethod: policy.remainingBalanceMethod,
+      serviceDepositOverride: input.depositPolicyOverride ?? null,
+      cancellationPolicyText: policy.cancellationPolicyText,
+      reschedulingPolicyText: policy.reschedulingPolicyText,
+      lateArrivalPolicyText: policy.lateArrivalPolicyText,
+      noShowPolicyText: policy.noShowPolicyText,
+      refundPolicyText: policy.refundPolicyText,
+      childrenPolicyText: policy.childrenPolicyText,
+      guestPolicyText: policy.guestPolicyText,
+      depositPolicyText: policy.depositPolicyText,
       capturedAt: new Date().toISOString(),
     };
 
@@ -465,6 +550,10 @@ export class BookingService {
           venueAddress: input.venueAddress ?? null,
           homeVisitSurcharge: input.homeVisitSurcharge ?? 0,
           clientDisplayName: input.clientDisplayName ?? null,
+          addonsSnapshot: input.addonsSnapshot ?? [],
+          remainingBalanceMethod: input.remainingBalanceMethod ?? policy.remainingBalanceMethod,
+          requirementsAcknowledgedAt: input.requirementsAcknowledgedAt ?? null,
+          policiesAcknowledgedAt: input.policiesAcknowledgedAt ?? null,
         },
       });
     });

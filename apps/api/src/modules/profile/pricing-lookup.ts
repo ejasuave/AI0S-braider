@@ -12,17 +12,26 @@ function normalize(value: string | null | undefined): string | null {
 }
 
 function toApiOffering(offering: DbServiceOffering): ServiceOffering {
+  const requirements = Array.isArray(offering.requirements)
+    ? offering.requirements.filter((item): item is string => typeof item === 'string')
+    : [];
   return {
     id: offering.id,
     stylistId: offering.stylistId,
+    styleCategoryId: offering.styleCategoryId,
     styleName: offering.styleName,
     sizeTier: offering.sizeTier,
     lengthTier: offering.lengthTier,
+    description: offering.description,
+    requirements,
     basePrice: offering.basePrice.toString(),
     estimatedDurationMinutes: offering.estimatedDurationMinutes,
     hairIncluded: offering.hairIncluded,
     isCustomStyle: offering.isCustomStyle,
     active: offering.active,
+    depositType: offering.depositType,
+    depositValue: offering.depositValue != null ? offering.depositValue.toNumber() : null,
+    addons: [],
     portfolio: [],
     createdAt: offering.createdAt.toISOString(),
     updatedAt: offering.updatedAt.toISOString(),

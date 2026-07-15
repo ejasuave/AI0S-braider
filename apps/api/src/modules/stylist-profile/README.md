@@ -3,21 +3,21 @@
 Owns business configuration per `docs/ARCHITECTURE.md`: bio, portfolio, profile photo, structured pricing, policies, and availability rules.
 
 - **Module path:** `apps/api/src/modules/stylist-profile/`
-- **Tables:** `businesses` (extended), `business_policies`, `working_hours`, `schedule_exceptions`, `portfolio_items`, `service_offerings`, `style_categories`, `instagram_connections`; profile photo on `stylist_profiles`
-- **Routes:** `/api/v1/businesses/me/*` (including `/me/photo*`), public `/api/v1/style-categories`, `/api/v1/businesses/:businessId/services|policy`
+- **Tables:** `businesses` (extended), `business_policies`, `working_hours`, `schedule_exceptions`, `portfolio_items`, `service_offerings`, `service_addons`, `style_categories`, `instagram_connections`; profile photo on `stylist_profiles`
+- **Routes:** `/api/v1/businesses/me/*` (including `/me/photo*`, `/me/services/:id/addons*`), public `/api/v1/style-categories`, `/api/v1/businesses/:businessId/services|policy`
 - **Storage:** pre-signed uploads via `lib/storage` (`StorageProvider.createPresignedUploadUrl`)
-- **Client surfaces:** directory listing/detail and public booking page expose `photoUrl` + portfolio images
+- **Client surfaces:** directory listing/detail and public booking page expose `photoUrl` + portfolio images, requirements, add-ons, and policy text
 
 ## Prompt coverage
 
-| Prompt | Deliverable                                                                                                                        |
-| ------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| 6.1    | `POST/GET/PATCH /businesses`, onboarding completion gate, `can_manage_profile`                                                     |
-| 6.2    | Portfolio upload-url, register, reorder, delete; **service-scoped** galleries (10/service, 50 business-wide); profile photo upload |
-| 6.3    | Instagram connect/import, encrypted tokens, `INSTAGRAM_ACCOUNT_INELIGIBLE`, refresh job                                            |
-| 6.4    | Seeded `style_categories`, structured `service_offerings`, soft-delete                                                             |
-| 6.5    | `business_policies` with defaults (20% deposit), cross-module `getBusinessPolicy`                                                  |
-| 6.6    | `working_hours`, `schedule_exceptions`, `getBaseAvailabilityRules` for Ch.8                                                        |
+| Prompt | Deliverable                                                                                                                                       |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 6.1    | `POST/GET/PATCH /businesses`, onboarding completion gate, `can_manage_profile`                                                                    |
+| 6.2    | Portfolio upload-url, register, reorder, delete; **service-scoped** galleries (10/service, 50 business-wide); profile photo upload                |
+| 6.3    | Instagram connect/import, encrypted tokens, `INSTAGRAM_ACCOUNT_INELIGIBLE`, refresh job                                                           |
+| 6.4    | Seeded `style_categories`, structured `service_offerings` (+ description, requirements, optional deposit override, `service_addons`), soft-delete |
+| 6.5    | `business_policies` with defaults (20% deposit), client-facing policy text, `remaining_balance_method`, cross-module `getBusinessPolicy`          |
+| 6.6    | `working_hours`, `schedule_exceptions`, `getBaseAvailabilityRules` for Ch.8                                                                       |
 
 ## Instagram prerequisite
 

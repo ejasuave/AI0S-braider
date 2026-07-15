@@ -16,6 +16,9 @@ export type NotificationContentContext = {
   /** Venue line for confirmation (e.g. address or "Remote appointment"). */
   venueLine?: string | null;
   clientDisplayName?: string | null;
+  addonNames?: string[];
+  remainingBalanceMethod?: 'cash' | 'card' | 'cash_or_card' | null;
+  balanceAmount?: number | null;
 };
 
 export function formatVenueLineForNotification(input: {
@@ -42,6 +45,15 @@ export function formatVenueLineForNotification(input: {
   return 'At stylist location.';
 }
 
+function remainingBalanceLabel(
+  method: 'cash' | 'card' | 'cash_or_card' | null | undefined,
+): string | null {
+  if (!method) return null;
+  if (method === 'cash') return 'Cash only';
+  if (method === 'card') return 'Card only';
+  return 'Cash or card';
+}
+
 /**
  * Templated notification copy for automated delivery (Ch.12.1).
  * Chapter 13 may eventually enrich this with the same AI content layer used in live
@@ -49,10 +61,14 @@ export function formatVenueLineForNotification(input: {
  */
 export function generateNotificationContent(context: NotificationContentContext): string {
   const when = formatSlotLabel(context.startTime, context.timeZone);
-  const serviceLine = `${context.styleName} with ${context.businessName}`;
+  const addonsSuffix =
+    context.addonNames && context.addonNames.length > 0
+      ? ` (+ ${context.addonNames.join(', ')})`
+      : '';
+  const serviceLine = `${context.styleName}${addonsSuffix} with ${context.businessName}`;
 
   if (context.audience === 'stylist') {
-    return generateStylistNotificationContent(context, when, context.styleName);
+    return generateStylistNotificationContent(context, when, `${context.styleName}${addonsSuffix}`);
   }
 
   switch (context.type) {
@@ -61,8 +77,15 @@ export function generateNotificationContent(context: NotificationContentContext)
         context.depositPaid && context.depositAmount
           ? ` £${context.depositAmount} deposit paid.`
           : '';
+      const balanceMethod = remainingBalanceLabel(context.remainingBalanceMethod);
+      const balanceLine =
+        context.balanceAmount != null && context.balanceAmount > 0
+          ? ` Remaining balance £${context.balanceAmount}${
+              balanceMethod ? ` (${balanceMethod})` : ''
+            }.`
+          : '';
       const venueLine = context.venueLine ? ` ${context.venueLine}` : '';
-      return `Booking confirmed: ${serviceLine} on ${when}.${depositLine}${venueLine} See you then! Reply here if you need to change anything.`;
+      return `Booking confirmed: ${serviceLine} on ${when}.${depositLine}${balanceLine}${venueLine} See you then! Reply here if you need to change anything.`;
     }
     case 'cancellation': {
       const dispositionLine = context.depositDisposition

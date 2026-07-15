@@ -77,6 +77,60 @@ export type UpdateBusinessProfileRequest = z.infer<typeof updateBusinessProfileR
 
 export const DEPOSIT_TYPES = ['flat', 'percentage'] as const;
 export const NO_SHOW_FEE_TYPES = ['forfeit_deposit', 'flat_fee', 'no_fee'] as const;
+export const REMAINING_BALANCE_METHODS = ['cash', 'card', 'cash_or_card'] as const;
+
+export const MAX_SERVICE_REQUIREMENTS = 20;
+export const MAX_SERVICE_ADDONS = 50;
+export const MAX_REQUIREMENT_LENGTH = 200;
+export const MAX_POLICY_TEXT_LENGTH = 2000;
+
+const policyTextSchema = z.string().trim().max(MAX_POLICY_TEXT_LENGTH).nullable();
+
+export const serviceRequirementSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(MAX_REQUIREMENT_LENGTH);
+
+export const serviceAddonSchema = z.object({
+  id: z.string().uuid(),
+  serviceOfferingId: z.string().uuid(),
+  name: z.string(),
+  description: z.string().nullable(),
+  price: z.string(),
+  active: z.boolean(),
+  displayOrder: z.number().int(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export type ServiceAddon = z.infer<typeof serviceAddonSchema>;
+
+export const createServiceAddonRequestSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  description: z.string().trim().max(500).nullable().optional(),
+  price: z.number().nonnegative().max(100_000),
+  active: z.boolean().optional(),
+});
+
+export type CreateServiceAddonRequest = z.infer<typeof createServiceAddonRequestSchema>;
+
+export const updateServiceAddonRequestSchema = z
+  .object({
+    name: z.string().trim().min(1).max(120).optional(),
+    description: z.string().trim().max(500).nullable().optional(),
+    price: z.number().nonnegative().max(100_000).optional(),
+    active: z.boolean().optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, 'At least one field is required');
+
+export type UpdateServiceAddonRequest = z.infer<typeof updateServiceAddonRequestSchema>;
+
+export const reorderServiceAddonsRequestSchema = z.object({
+  orderedIds: z.array(z.string().uuid()).min(1).max(MAX_SERVICE_ADDONS),
+});
+
+export type ReorderServiceAddonsRequest = z.infer<typeof reorderServiceAddonsRequestSchema>;
 
 export const businessPolicySchema = z.object({
   businessId: z.string().uuid(),
@@ -85,6 +139,15 @@ export const businessPolicySchema = z.object({
   cancellationWindowHours: z.number().int().nonnegative(),
   noShowFeeType: z.enum(NO_SHOW_FEE_TYPES),
   noShowFeeValue: z.number().nonnegative().nullable(),
+  cancellationPolicyText: z.string().nullable(),
+  reschedulingPolicyText: z.string().nullable(),
+  lateArrivalPolicyText: z.string().nullable(),
+  noShowPolicyText: z.string().nullable(),
+  refundPolicyText: z.string().nullable(),
+  childrenPolicyText: z.string().nullable(),
+  guestPolicyText: z.string().nullable(),
+  depositPolicyText: z.string().nullable(),
+  remainingBalanceMethod: z.enum(REMAINING_BALANCE_METHODS),
 });
 
 export type BusinessPolicy = z.infer<typeof businessPolicySchema>;
@@ -95,6 +158,44 @@ export const DEFAULT_BUSINESS_POLICY = {
   cancellationWindowHours: 24,
   noShowFeeType: 'forfeit_deposit' as const,
   noShowFeeValue: null,
+  cancellationPolicyText: null as string | null,
+  reschedulingPolicyText: null as string | null,
+  lateArrivalPolicyText: null as string | null,
+  noShowPolicyText: null as string | null,
+  refundPolicyText: null as string | null,
+  childrenPolicyText: null as string | null,
+  guestPolicyText: null as string | null,
+  depositPolicyText: null as string | null,
+  remainingBalanceMethod: 'cash_or_card' as const,
+};
+
+const depositOverrideRefine = (
+  value: {
+    depositType?: 'flat' | 'percentage' | null;
+    depositValue?: number | null;
+  },
+  ctx: z.RefinementCtx,
+) => {
+  const hasType = value.depositType !== undefined && value.depositType !== null;
+  const hasValue = value.depositValue !== undefined && value.depositValue !== null;
+  if (hasType !== hasValue) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'depositType and depositValue must be set together (or both cleared)',
+      path: ['depositValue'],
+    });
+  }
+  if (
+    value.depositType === 'percentage' &&
+    value.depositValue != null &&
+    (value.depositValue < 1 || value.depositValue > 100)
+  ) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'Percentage deposit must be between 1 and 100',
+      path: ['depositValue'],
+    });
+  }
 };
 
 export const updateBusinessPolicyRequestSchema = z
@@ -104,6 +205,15 @@ export const updateBusinessPolicyRequestSchema = z
     cancellationWindowHours: z.number().int().nonnegative(),
     noShowFeeType: z.enum(NO_SHOW_FEE_TYPES),
     noShowFeeValue: z.number().nonnegative().nullable().optional(),
+    cancellationPolicyText: policyTextSchema.optional(),
+    reschedulingPolicyText: policyTextSchema.optional(),
+    lateArrivalPolicyText: policyTextSchema.optional(),
+    noShowPolicyText: policyTextSchema.optional(),
+    refundPolicyText: policyTextSchema.optional(),
+    childrenPolicyText: policyTextSchema.optional(),
+    guestPolicyText: policyTextSchema.optional(),
+    depositPolicyText: policyTextSchema.optional(),
+    remainingBalanceMethod: z.enum(REMAINING_BALANCE_METHODS).optional(),
   })
   .superRefine((value, ctx) => {
     if (
@@ -127,6 +237,30 @@ export const updateBusinessPolicyRequestSchema = z
 
 export type UpdateBusinessPolicyRequest = z.infer<typeof updateBusinessPolicyRequestSchema>;
 
+export const publicBusinessPolicySchema = z.object({
+  cancellationWindowHours: z.number().int().nonnegative(),
+  depositType: z.enum(DEPOSIT_TYPES),
+  depositValue: z.number().positive(),
+  noShowFeeType: z.enum(NO_SHOW_FEE_TYPES),
+  noShowFeeValue: z.number().nonnegative().nullable(),
+  cancellationPolicyText: z.string().nullable(),
+  reschedulingPolicyText: z.string().nullable(),
+  lateArrivalPolicyText: z.string().nullable(),
+  noShowPolicyText: z.string().nullable(),
+  refundPolicyText: z.string().nullable(),
+  childrenPolicyText: z.string().nullable(),
+  guestPolicyText: z.string().nullable(),
+  depositPolicyText: z.string().nullable(),
+  remainingBalanceMethod: z.enum(REMAINING_BALANCE_METHODS),
+});
+
+export type PublicBusinessPolicy = z.infer<typeof publicBusinessPolicySchema>;
+
+export const remainingBalanceMethodLabel = {
+  cash: 'Cash only',
+  card: 'Card only',
+  cash_or_card: 'Cash or card',
+} as const;
 export const workingHourRowSchema = z.object({
   id: z.string().uuid().optional(),
   dayOfWeek: z.number().int().min(0).max(6),
@@ -248,6 +382,10 @@ export const createBusinessServiceRequestSchema = z
       .positive()
       .max(24 * 60),
     hairIncluded: z.boolean().optional(),
+    description: z.string().trim().max(2000).nullable().optional(),
+    requirements: z.array(serviceRequirementSchema).max(MAX_SERVICE_REQUIREMENTS).optional(),
+    depositType: z.enum(DEPOSIT_TYPES).nullable().optional(),
+    depositValue: z.number().positive().max(100_000).nullable().optional(),
   })
   .superRefine((value, ctx) => {
     if (!value.styleCategoryId && !value.customStyleName) {
@@ -264,11 +402,13 @@ export const createBusinessServiceRequestSchema = z
         path: ['customStyleName'],
       });
     }
+    depositOverrideRefine(value, ctx);
   });
 
 const businessServiceFieldsSchema = z.object({
-  styleCategoryId: z.string().uuid().optional(),
+  styleCategoryId: z.string().uuid().nullable().optional(),
   customStyleName: z.string().trim().min(1).max(120).optional(),
+  styleName: z.string().trim().min(1).max(120).optional(),
   sizeTier: z.string().trim().min(1).max(60).nullable().optional(),
   lengthTier: z.string().trim().min(1).max(60).nullable().optional(),
   basePrice: z.number().positive().max(100_000).optional(),
@@ -280,12 +420,15 @@ const businessServiceFieldsSchema = z.object({
     .optional(),
   hairIncluded: z.boolean().optional(),
   active: z.boolean().optional(),
+  description: z.string().trim().max(2000).nullable().optional(),
+  requirements: z.array(serviceRequirementSchema).max(MAX_SERVICE_REQUIREMENTS).optional(),
+  depositType: z.enum(DEPOSIT_TYPES).nullable().optional(),
+  depositValue: z.number().positive().max(100_000).nullable().optional(),
 });
 
-export const updateBusinessServiceRequestSchema = businessServiceFieldsSchema.refine(
-  (value) => Object.keys(value).length > 0,
-  'At least one field is required',
-);
+export const updateBusinessServiceRequestSchema = businessServiceFieldsSchema
+  .refine((value) => Object.keys(value).length > 0, 'At least one field is required')
+  .superRefine((value, ctx) => depositOverrideRefine(value, ctx));
 
 export const instagramConnectRequestSchema = z.object({
   code: z.string().trim().min(1),

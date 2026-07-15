@@ -16,6 +16,10 @@ import { apiFetchData, getApiErrorMessage } from '@/shared/lib/api-client';
 import { serviceBookingPath, stylistBookingPath } from '@/shared/lib/booking-links';
 import { formatDateTime, formatMoney } from '@/shared/lib/format';
 import { serviceVenueModeLabel } from '@/shared/lib/venue';
+import {
+  calculateBookingPriceSummary,
+  remainingBalanceMethodLabel,
+} from '@/shared/lib/pricing';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { Input } from '@/shared/ui/input';
@@ -107,6 +111,9 @@ function ServiceBooking({
   const [clientDisplayName, setClientDisplayName] = useState('');
   const [clientVisitAddress, setClientVisitAddress] = useState('');
   const [chosenVenueMode, setChosenVenueMode] = useState<ServiceVenueMode | null>(null);
+  const [selectedAddonIds, setSelectedAddonIds] = useState<string[]>([]);
+  const [ackRequirements, setAckRequirements] = useState(false);
+  const [ackPolicies, setAckPolicies] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const pageQuery = useBookingPage(stylistId);
@@ -114,6 +121,7 @@ function ServiceBooking({
   const businessId = pageQuery.data?.businessId ?? '';
   const venueOptions = pageQuery.data?.venueOptions ?? [];
   const homeVisitSurcharge = pageQuery.data?.homeVisitSurcharge;
+  const policy = pageQuery.data?.policy;
 
   useEffect(() => {
     if (venueOptions.length === 1) {
@@ -135,6 +143,45 @@ function ServiceBooking({
     enabled: Boolean(businessId && serviceOfferingId),
   });
 
+  const depositType =
+    offering?.depositType ?? pageQuery.data?.depositType ?? policy?.depositType ?? 'percentage';
+  const depositValue =
+    offering?.depositValue ?? pageQuery.data?.depositValue ?? policy?.depositValue ?? 20;
+
+  const selectedAddonPrices =
+    offering?.addons
+      .filter((addon) => selectedAddonIds.includes(addon.id))
+      .map((addon) => Number(addon.price)) ?? [];
+
+  const priceSummary = offering
+    ? calculateBookingPriceSummary({
+        basePrice: Number(offering.basePrice),
+        addonPrices: selectedAddonPrices,
+        homeVisitSurcharge:
+          venueMode === 'come_to_client' && homeVisitSurcharge
+            ? Number(homeVisitSurcharge)
+            : 0,
+        depositType,
+        depositValue,
+      })
+    : null;
+
+  const requirements = offering?.requirements ?? [];
+  const policyEntries = (
+    policy
+      ? [
+          { label: 'Cancellation', text: policy.cancellationPolicyText },
+          { label: 'Rescheduling', text: policy.reschedulingPolicyText },
+          { label: 'Late arrival', text: policy.lateArrivalPolicyText },
+          { label: 'No-show', text: policy.noShowPolicyText },
+          { label: 'Refund', text: policy.refundPolicyText },
+          { label: 'Children', text: policy.childrenPolicyText },
+          { label: 'Guests', text: policy.guestPolicyText },
+          { label: 'Deposit', text: policy.depositPolicyText },
+        ]
+      : []
+  ).filter((entry): entry is { label: string; text: string } => Boolean(entry.text?.trim()));
+
   const holdMutation = useMutation({
     mutationFn: (startTime: string) =>
       apiFetchData<Booking>('/bookings/holds', {
@@ -148,12 +195,21 @@ function ServiceBooking({
           serviceVenueMode: venueMode ?? undefined,
           clientVisitAddress:
             venueMode === 'come_to_client' ? clientVisitAddress.trim() : undefined,
+          addonIds: selectedAddonIds,
+          acknowledgedRequirements: requirements.length > 0 ? ackRequirements : true,
+          acknowledgedPolicies: ackPolicies,
         },
       }),
   });
 
   const bookPath = serviceBookingPath(stylistId, serviceOfferingId);
   const authNext = encodeURIComponent(bookPath);
+
+  function toggleAddon(id: string) {
+    setSelectedAddonIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  }
 
   async function handleBook() {
     if (!selectedSlot) return;
@@ -179,6 +235,16 @@ function ServiceBooking({
       return;
     }
 
+    if (requirements.length > 0 && !ackRequirements) {
+      setError('Please acknowledge the service requirements.');
+      return;
+    }
+
+    if (!ackPolicies) {
+      setError('Please confirm you have read and accept the stylist policies.');
+      return;
+    }
+
     try {
       const booking = await holdMutation.mutateAsync(selectedSlot);
       router.push(`/client/bookings/${booking.id}`);
@@ -186,13 +252,6 @@ function ServiceBooking({
       setError(getApiErrorMessage(err));
     }
   }
-
-  const serviceTotal =
-    offering && venueMode === 'come_to_client' && homeVisitSurcharge
-      ? Number(offering.basePrice) + Number(homeVisitSurcharge)
-      : offering
-        ? Number(offering.basePrice)
-        : null;
 
   return (
     <PageShell>
@@ -206,15 +265,23 @@ function ServiceBooking({
         {pageQuery.isLoading ? (
           <p className="text-sm text-ink-muted">Loading…</p>
         ) : offering ? (
-          <Card className="space-y-2">
+          <Card className="space-y-3">
             <h2 className="font-display text-lg font-semibold text-ink">{offering.styleName}</h2>
             <p className="text-sm text-ink-muted">
               {formatMoney(offering.basePrice)} · {offering.estimatedDurationMinutes} minutes
             </p>
-            {serviceTotal != null && venueMode === 'come_to_client' && Number(homeVisitSurcharge) > 0 ? (
-              <p className="text-sm text-ink">
-                Estimated total with home visit: {formatMoney(serviceTotal.toFixed(2))}
-              </p>
+            {offering.description ? (
+              <p className="text-sm text-ink">{offering.description}</p>
+            ) : null}
+            {requirements.length > 0 ? (
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-ink">Requirements</h3>
+                <ul className="list-disc space-y-1 pl-5 text-sm text-ink">
+                  {requirements.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </div>
             ) : null}
             <StatusBadge label="AI receptionist available via SMS" tone="ai" />
           </Card>
@@ -228,6 +295,82 @@ function ServiceBooking({
             </Link>
           </Card>
         )}
+
+        {offering && (offering.addons?.length ?? 0) > 0 ? (
+          <Card className="space-y-3">
+            <h3 className="text-sm font-semibold text-ink">Optional add-ons</h3>
+            {offering.addons.map((addon) => (
+              <label key={addon.id} className="flex min-h-11 items-start gap-3 text-sm text-ink">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={selectedAddonIds.includes(addon.id)}
+                  onChange={() => toggleAddon(addon.id)}
+                />
+                <span>
+                  <span className="font-medium">
+                    {addon.name} (+{formatMoney(addon.price)})
+                  </span>
+                  {addon.description ? (
+                    <span className="mt-0.5 block text-ink-muted">{addon.description}</span>
+                  ) : null}
+                </span>
+              </label>
+            ))}
+          </Card>
+        ) : null}
+
+        {priceSummary ? (
+          <Card className="space-y-2">
+            <h3 className="text-sm font-semibold text-ink">Price summary</h3>
+            <p className="text-sm text-ink">
+              Service: {formatMoney(priceSummary.serviceSubtotal.toFixed(2))}
+            </p>
+            {priceSummary.addonsTotal > 0 ? (
+              <p className="text-sm text-ink">
+                Add-ons: {formatMoney(priceSummary.addonsTotal.toFixed(2))}
+              </p>
+            ) : null}
+            {priceSummary.surcharge > 0 ? (
+              <p className="text-sm text-ink">
+                Home visit: {formatMoney(priceSummary.surcharge.toFixed(2))}
+              </p>
+            ) : null}
+            <p className="text-sm font-medium text-ink">
+              Total: {formatMoney(priceSummary.total.toFixed(2))}
+            </p>
+            <p className="text-sm text-ink">
+              Deposit due today: {formatMoney(priceSummary.deposit.toFixed(2))}
+            </p>
+            <p className="text-sm text-ink">
+              Remaining at appointment: {formatMoney(priceSummary.remaining.toFixed(2))}
+            </p>
+            <p className="text-sm text-ink-muted">
+              Accepted payment method:{' '}
+              {remainingBalanceMethodLabel(
+                pageQuery.data?.remainingBalanceMethod ?? policy?.remainingBalanceMethod,
+              )}
+            </p>
+          </Card>
+        ) : null}
+
+        {policyEntries.length > 0 || policy ? (
+          <Card className="space-y-3">
+            <h3 className="text-sm font-semibold text-ink">Policies</h3>
+            {policy ? (
+              <p className="text-sm text-ink-muted">
+                Free cancellation up to {policy.cancellationWindowHours} hours before your
+                appointment (subject to deposit rules).
+              </p>
+            ) : null}
+            {policyEntries.map((entry) => (
+              <div key={entry.label}>
+                <p className="text-sm font-medium text-ink">{entry.label}</p>
+                <p className="whitespace-pre-wrap text-sm text-ink-muted">{entry.text}</p>
+              </div>
+            ))}
+          </Card>
+        ) : null}
 
         {!auth.isAuthenticated ? (
           <Card className="space-y-3 border-primary/20 bg-primary-subtle">
@@ -325,6 +468,30 @@ function ServiceBooking({
                   The stylist&apos;s workplace address is shared after your booking is confirmed.
                 </p>
               ) : null}
+
+              {requirements.length > 0 ? (
+                <label className="flex min-h-11 items-start gap-3 text-sm text-ink">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={ackRequirements}
+                    onChange={(e) => setAckRequirements(e.target.checked)}
+                  />
+                  <span>I acknowledge the service requirements listed above.</span>
+                </label>
+              ) : null}
+              <label className="flex min-h-11 items-start gap-3 text-sm text-ink">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={ackPolicies}
+                  onChange={(e) => setAckPolicies(e.target.checked)}
+                />
+                <span>
+                  I have read and accept the stylist&apos;s policies, including deposit and
+                  cancellation rules.
+                </span>
+              </label>
             </Card>
 
             {error ? <p className="text-sm text-error">{error}</p> : null}

@@ -38,6 +38,7 @@ export async function ensureDefaultBusinessPolicy(businessId: string): Promise<B
       cancellationWindowHours: DEFAULT_BUSINESS_POLICY.cancellationWindowHours,
       noShowFeeType: DEFAULT_BUSINESS_POLICY.noShowFeeType,
       noShowFeeValue: DEFAULT_BUSINESS_POLICY.noShowFeeValue,
+      remainingBalanceMethod: DEFAULT_BUSINESS_POLICY.remainingBalanceMethod,
     },
   });
 
@@ -53,4 +54,19 @@ export function policyToLegacyDeposit(policy: BusinessPolicy): {
     type: policy.depositType === 'flat' ? 'flat' : 'percent',
     value: policy.depositValue,
   };
+}
+
+/** Resolve deposit policy: per-service override wins over business policy. */
+export function resolveDepositPolicy(input: {
+  serviceDepositType?: 'flat' | 'percentage' | null;
+  serviceDepositValue?: number | null;
+  businessPolicy: BusinessPolicy;
+}): { type: 'flat' | 'percent'; value: number } {
+  if (input.serviceDepositType && input.serviceDepositValue != null) {
+    return {
+      type: input.serviceDepositType === 'flat' ? 'flat' : 'percent',
+      value: input.serviceDepositValue,
+    };
+  }
+  return policyToLegacyDeposit(input.businessPolicy);
 }

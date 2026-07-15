@@ -26,10 +26,23 @@ Seeded reference categories live in `style_categories` (see `STYLE_TAXONOMY_SEED
 
 ## Policies & hours
 
-- `depositPolicy`: `{ type: 'flat' | 'percent', value: number }`
-- `cancellationPolicy`: `{ windowHours, feeType, feeAmount, noShowFeeAmount }`
-- `workingHours`: per-weekday `{ enabled, start, end }` (HH:MM, UK local for MVP)
-- `bufferMinutes`: gap between appointments (consumed by Ch.8 availability)
+Canonical policy lives on `business_policies` (not legacy JSON on stylist profiles):
+
+- **Enforced fields:** `depositType` / `depositValue`, `cancellationWindowHours`, `noShowFeeType` / `noShowFeeValue`
+- **Client-facing text:** cancellation, rescheduling, late arrival, no-show, refund, children, guest, deposit notes
+- **Remaining balance method:** `cash` | `card` | `cash_or_card` (how clients may settle after deposit)
+
+Legacy `depositPolicy` / `cancellationPolicy` JSON on `stylist_profiles` is still mirrored for older consumers.
+
+### Service offerings (extended)
+
+Each `service_offerings` row may include:
+
+- `description`, ordered `requirements` (JSON string array)
+- optional per-service `depositType` / `depositValue` (null = inherit business policy)
+- related `service_addons` (name, optional description, price, active, displayOrder)
+
+Booking holds snapshot selected add-ons into `bookings.addons_snapshot` and require policy acknowledgement (`client_direct`). Existing bookings keep their agreed price; later service edits do not rewrite history.
 
 ## Storage
 

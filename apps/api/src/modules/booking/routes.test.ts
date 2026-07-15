@@ -195,6 +195,8 @@ describe('booking routes', () => {
       serviceOfferingId: offeringId,
       startTime: holdSlot,
       source: 'client_direct',
+      acknowledgedPolicies: true,
+      acknowledgedRequirements: true,
     };
 
     const first = await app.inject({
@@ -253,6 +255,8 @@ describe('booking routes', () => {
         stylistId: stylistProfileId,
         serviceOfferingId: offeringId,
         startTime: holdSlot,
+        acknowledgedPolicies: true,
+        acknowledgedRequirements: true,
       },
     });
 

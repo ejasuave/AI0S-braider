@@ -2,6 +2,7 @@ import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import {
   createBusinessServiceRequestSchema,
   createScheduleExceptionRequestSchema,
+  createServiceAddonRequestSchema,
   instagramConnectRequestSchema,
   instagramImportRequestSchema,
   portfolioUploadUrlRequestSchema,
@@ -9,11 +10,13 @@ import {
   registerPortfolioItemRequestSchema,
   registerProfilePhotoRequestSchema,
   reorderPortfolioRequestSchema,
+  reorderServiceAddonsRequestSchema,
   replaceWorkingHoursRequestSchema,
   updateBusinessPolicyRequestSchema,
   updateBusinessProfileRequestSchema,
   updateBusinessServiceRequestSchema,
   updateScheduleExceptionRequestSchema,
+  updateServiceAddonRequestSchema,
   resolveCalendarConflictRequestSchema,
 } from '@project-braids/shared-types/api';
 import { sendData } from '../../lib/http.js';
@@ -231,6 +234,53 @@ export const stylistProfileRoutes: FastifyPluginAsync = async (app) => {
       const { serviceId } = request.params as { serviceId: string };
       const service = await stylistProfileService.deactivateService(businessId, serviceId);
       sendData(reply, service);
+    },
+  );
+
+  app.post(
+    '/me/services/:serviceId/addons',
+    { preHandler: [requireBusinessPermission('can_manage_pricing')] },
+    async (request, reply) => {
+      const { businessId } = await resolveMe(request);
+      const { serviceId } = request.params as { serviceId: string };
+      const body = createServiceAddonRequestSchema.parse(request.body);
+      const addon = await stylistProfileService.createAddon(businessId, serviceId, body);
+      sendData(reply, addon, 201);
+    },
+  );
+
+  app.patch(
+    '/me/services/:serviceId/addons/:addonId',
+    { preHandler: [requireBusinessPermission('can_manage_pricing')] },
+    async (request, reply) => {
+      const { businessId } = await resolveMe(request);
+      const { serviceId, addonId } = request.params as { serviceId: string; addonId: string };
+      const body = updateServiceAddonRequestSchema.parse(request.body);
+      const addon = await stylistProfileService.updateAddon(businessId, serviceId, addonId, body);
+      sendData(reply, addon);
+    },
+  );
+
+  app.delete(
+    '/me/services/:serviceId/addons/:addonId',
+    { preHandler: [requireBusinessPermission('can_manage_pricing')] },
+    async (request, reply) => {
+      const { businessId } = await resolveMe(request);
+      const { serviceId, addonId } = request.params as { serviceId: string; addonId: string };
+      await stylistProfileService.deleteAddon(businessId, serviceId, addonId);
+      reply.status(204).send();
+    },
+  );
+
+  app.put(
+    '/me/services/:serviceId/addons/reorder',
+    { preHandler: [requireBusinessPermission('can_manage_pricing')] },
+    async (request, reply) => {
+      const { businessId } = await resolveMe(request);
+      const { serviceId } = request.params as { serviceId: string };
+      const body = reorderServiceAddonsRequestSchema.parse(request.body);
+      const addons = await stylistProfileService.reorderAddons(businessId, serviceId, body);
+      sendData(reply, addons);
     },
   );
 

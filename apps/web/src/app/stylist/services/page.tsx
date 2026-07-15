@@ -13,7 +13,7 @@ import { Input } from '@/shared/ui/input';
 import { PageHeader, PageShell, SectionTitle } from '@/shared/ui/page-shell';
 import { StatusBadge } from '@/shared/ui/status-badge';
 import { EmptyState } from '@/shared/ui/empty-state';
-import { ServicePortfolioManager } from '@/features/stylist/service-portfolio-manager';
+import { ServiceEditorPanel } from '@/features/stylist/service-editor-panel';
 
 export default function StylistServicesPage() {
   const auth = useAuth();
@@ -284,10 +284,9 @@ export default function StylistServicesPage() {
                     {service.active ? 'Deactivate' : 'Activate'}
                   </Button>
                 </div>
-                <ServicePortfolioManager
-                  serviceId={service.id}
-                  serviceName={service.styleName}
-                  items={service.portfolio ?? []}
+                <ServiceEditorPanel
+                  service={service}
+                  categories={categoriesQuery.data ?? []}
                 />
               </Card>
             ))}

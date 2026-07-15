@@ -71,11 +71,38 @@ export class ProfileService {
     }>;
     venueOptions: Array<'remote' | 'stylist_location' | 'come_to_client'>;
     homeVisitSurcharge: string | null;
+    depositType: 'flat' | 'percentage';
+    depositValue: number;
+    remainingBalanceMethod: 'cash' | 'card' | 'cash_or_card';
+    policy: {
+      cancellationWindowHours: number;
+      cancellationPolicyText: string | null;
+      reschedulingPolicyText: string | null;
+      lateArrivalPolicyText: string | null;
+      noShowPolicyText: string | null;
+      refundPolicyText: string | null;
+      childrenPolicyText: string | null;
+      guestPolicyText: string | null;
+      depositPolicyText: string | null;
+      remainingBalanceMethod: 'cash' | 'card' | 'cash_or_card';
+      depositType: 'flat' | 'percentage';
+      depositValue: number;
+    } | null;
     offerings: Array<{
       id: string;
       styleName: string;
+      description: string | null;
       basePrice: string;
       estimatedDurationMinutes: number;
+      requirements: string[];
+      depositType: 'flat' | 'percentage' | null;
+      depositValue: number | null;
+      addons: Array<{
+        id: string;
+        name: string;
+        description: string | null;
+        price: string;
+      }>;
       portfolio: Array<{
         id: string;
         imageUrl: string;
@@ -85,7 +112,7 @@ export class ProfileService {
     }>;
   }> {
     const profile = await getStylistProfileById(stylistId);
-    const [business, offerings, otherWork] = await Promise.all([
+    const [business, offerings, otherWork, policy] = await Promise.all([
       profile.businessId
         ? prisma.business.findUnique({
             where: { id: profile.businessId },
@@ -109,6 +136,16 @@ export class ProfileService {
               serviceOfferingId: true,
             },
           },
+          addons: {
+            where: { active: true },
+            orderBy: { displayOrder: 'asc' },
+            select: {
+              id: true,
+              name: true,
+              description: true,
+              price: true,
+            },
+          },
         },
         orderBy: [{ styleName: 'asc' }, { sizeTier: 'asc' }, { lengthTier: 'asc' }],
       }),
@@ -122,6 +159,9 @@ export class ProfileService {
           serviceOfferingId: true,
         },
       }),
+      profile.businessId
+        ? prisma.businessPolicy.findUnique({ where: { businessId: profile.businessId } })
+        : Promise.resolve(null),
     ]);
 
     const portfolio = [
@@ -142,6 +182,10 @@ export class ProfileService {
     if (business?.offersRemote) venueOptions.push('remote');
     if (venueOptions.length === 0) venueOptions.push('stylist_location');
 
+    const depositType = policy?.depositType ?? 'percentage';
+    const depositValue = policy?.depositValue?.toNumber() ?? 20;
+    const remainingBalanceMethod = policy?.remainingBalanceMethod ?? 'cash_or_card';
+
     return {
       businessId: profile.businessId,
       stylistId: profile.id,
@@ -153,18 +197,52 @@ export class ProfileService {
       homeVisitSurcharge: business?.homeVisitSurcharge
         ? business.homeVisitSurcharge.toFixed(2)
         : null,
-      offerings: offerings.map((offering) => ({
-        id: offering.id,
-        styleName: offering.styleName,
-        basePrice: offering.basePrice.toFixed(2),
-        estimatedDurationMinutes: offering.estimatedDurationMinutes,
-        portfolio: offering.portfolioItems.map((item) => ({
-          id: item.id,
-          imageUrl: item.imageUrl,
-          displayOrder: item.displayOrder,
-          serviceOfferingId: item.serviceOfferingId,
-        })),
-      })),
+      depositType,
+      depositValue,
+      remainingBalanceMethod,
+      policy: policy
+        ? {
+            cancellationWindowHours: policy.cancellationWindowHours,
+            cancellationPolicyText: policy.cancellationPolicyText,
+            reschedulingPolicyText: policy.reschedulingPolicyText,
+            lateArrivalPolicyText: policy.lateArrivalPolicyText,
+            noShowPolicyText: policy.noShowPolicyText,
+            refundPolicyText: policy.refundPolicyText,
+            childrenPolicyText: policy.childrenPolicyText,
+            guestPolicyText: policy.guestPolicyText,
+            depositPolicyText: policy.depositPolicyText,
+            remainingBalanceMethod: policy.remainingBalanceMethod,
+            depositType: policy.depositType,
+            depositValue: policy.depositValue.toNumber(),
+          }
+        : null,
+      offerings: offerings.map((offering) => {
+        const requirements = Array.isArray(offering.requirements)
+          ? offering.requirements.filter((item): item is string => typeof item === 'string')
+          : [];
+        return {
+          id: offering.id,
+          styleName: offering.styleName,
+          description: offering.description,
+          basePrice: offering.basePrice.toFixed(2),
+          estimatedDurationMinutes: offering.estimatedDurationMinutes,
+          requirements,
+          depositType: offering.depositType,
+          depositValue: offering.depositValue != null ? offering.depositValue.toNumber() : null,
+          addons: offering.addons.map((addon) => ({
+            id: addon.id,
+            name: addon.name,
+            description: addon.description,
+            price: addon.price.toFixed(2),
+          })),
+          portfolio: offering.portfolioItems.map((item) => ({
+            id: item.id,
+            imageUrl: item.imageUrl,
+            displayOrder: item.displayOrder,
+            serviceOfferingId: item.serviceOfferingId,
+          })),
+        };
+      }),
     };
   }
 
@@ -344,6 +422,16 @@ export class ProfileService {
             serviceOfferingId: true,
           },
         },
+        addons: {
+          where: { active: true },
+          orderBy: { displayOrder: 'asc' },
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            price: true,
+          },
+        },
       },
       orderBy: [{ styleName: 'asc' }, { sizeTier: 'asc' }, { lengthTier: 'asc' }],
     });
@@ -382,18 +470,33 @@ export class ProfileService {
       bio: profile.bio,
       photoUrl: profile.photoUrl,
       portfolio,
-      offerings: offerings.map((offering) => ({
-        id: offering.id,
-        styleName: offering.styleName,
-        basePrice: offering.basePrice.toFixed(2),
-        estimatedDurationMinutes: offering.estimatedDurationMinutes,
-        portfolio: offering.portfolioItems.map((item) => ({
-          id: item.id,
-          imageUrl: item.imageUrl,
-          displayOrder: item.displayOrder,
-          serviceOfferingId: item.serviceOfferingId,
-        })),
-      })),
+      offerings: offerings.map((offering) => {
+        const requirements = Array.isArray(offering.requirements)
+          ? offering.requirements.filter((item): item is string => typeof item === 'string')
+          : [];
+        return {
+          id: offering.id,
+          styleName: offering.styleName,
+          description: offering.description,
+          basePrice: offering.basePrice.toFixed(2),
+          estimatedDurationMinutes: offering.estimatedDurationMinutes,
+          requirements,
+          depositType: offering.depositType,
+          depositValue: offering.depositValue != null ? offering.depositValue.toNumber() : null,
+          addons: offering.addons.map((addon) => ({
+            id: addon.id,
+            name: addon.name,
+            description: addon.description,
+            price: addon.price.toFixed(2),
+          })),
+          portfolio: offering.portfolioItems.map((item) => ({
+            id: item.id,
+            imageUrl: item.imageUrl,
+            displayOrder: item.displayOrder,
+            serviceOfferingId: item.serviceOfferingId,
+          })),
+        };
+      }),
     };
   }
 

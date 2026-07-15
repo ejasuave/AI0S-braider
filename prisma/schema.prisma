@@ -323,15 +323,33 @@ enum PortfolioSource {
   @@map("portfolio_source")
 }
 
+enum RemainingBalanceMethod {
+  cash
+  card
+  cash_or_card
+
+  @@map("remaining_balance_method")
+}
+
 model BusinessPolicy {
-  businessId              String        @id @map("business_id") @db.Uuid
-  depositType             DepositType   @map("deposit_type")
-  depositValue            Decimal       @map("deposit_value") @db.Decimal(10, 2)
-  cancellationWindowHours Int           @map("cancellation_window_hours")
-  noShowFeeType           NoShowFeeType @map("no_show_fee_type")
-  noShowFeeValue          Decimal?      @map("no_show_fee_value") @db.Decimal(10, 2)
-  createdAt               DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt               DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  businessId              String                  @id @map("business_id") @db.Uuid
+  depositType             DepositType             @map("deposit_type")
+  depositValue            Decimal                 @map("deposit_value") @db.Decimal(10, 2)
+  cancellationWindowHours Int                     @map("cancellation_window_hours")
+  noShowFeeType           NoShowFeeType           @map("no_show_fee_type")
+  noShowFeeValue          Decimal?                @map("no_show_fee_value") @db.Decimal(10, 2)
+  /// Client-facing policy copy (structured deposit/cancel fields above remain authoritative for enforcement).
+  cancellationPolicyText  String?                 @map("cancellation_policy_text")
+  reschedulingPolicyText  String?                 @map("rescheduling_policy_text")
+  lateArrivalPolicyText   String?                 @map("late_arrival_policy_text")
+  noShowPolicyText        String?                 @map("no_show_policy_text")
+  refundPolicyText        String?                 @map("refund_policy_text")
+  childrenPolicyText      String?                 @map("children_policy_text")
+  guestPolicyText         String?                 @map("guest_policy_text")
+  depositPolicyText       String?                 @map("deposit_policy_text")
+  remainingBalanceMethod  RemainingBalanceMethod  @default(cash_or_card) @map("remaining_balance_method")
+  createdAt               DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
@@ -436,30 +454,56 @@ model PortfolioItem {
 }
 
 model ServiceOffering {
-  id                       String   @id @default(uuid()) @db.Uuid
-  businessId               String   @map("business_id") @db.Uuid
-  stylistId                String   @map("stylist_id") @db.Uuid
-  styleCategoryId          String?  @map("style_category_id") @db.Uuid
-  styleName                String   @map("style_name")
-  sizeTier                 String?  @map("size_tier")
-  lengthTier               String?  @map("length_tier")
-  basePrice                Decimal  @map("base_price") @db.Decimal(10, 2)
-  estimatedDurationMinutes Int      @map("estimated_duration_minutes")
-  hairIncluded             Boolean  @default(false) @map("hair_included")
-  isCustomStyle            Boolean  @default(false) @map("is_custom_style")
-  active                   Boolean  @default(true)
-  createdAt                DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                       String       @id @default(uuid()) @db.Uuid
+  businessId               String       @map("business_id") @db.Uuid
+  stylistId                String       @map("stylist_id") @db.Uuid
+  styleCategoryId          String?      @map("style_category_id") @db.Uuid
+  styleName                String       @map("style_name")
+  sizeTier                 String?      @map("size_tier")
+  lengthTier               String?      @map("length_tier")
+  basePrice                Decimal      @map("base_price") @db.Decimal(10, 2)
+  estimatedDurationMinutes Int          @map("estimated_duration_minutes")
+  hairIncluded             Boolean      @default(false) @map("hair_included")
+  isCustomStyle            Boolean      @default(false) @map("is_custom_style")
+  active                   Boolean      @default(true)
+  description              String?
+  /// Ordered bullet-point requirements clients must acknowledge before booking.
+  requirements             Json         @default("[]")
+  /// Optional per-service deposit override; null inherits BusinessPolicy.
+  depositType              DepositType? @map("deposit_type")
+  depositValue             Decimal?     @map("deposit_value") @db.Decimal(10, 2)
+  createdAt                DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   business       Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
   stylist        StylistProfile  @relation(fields: [stylistId], references: [id], onDelete: Cascade)
   styleCategory  StyleCategory?  @relation(fields: [styleCategoryId], references: [id], onDelete: SetNull)
   portfolioItems PortfolioItem[]
+  addons         ServiceAddon[]
 
   @@index([businessId, active])
   @@index([stylistId, active])
   @@index([stylistId, styleName])
   @@map("service_offerings")
+}
+
+/// Optional priced extras attached to a service offering.
+model ServiceAddon {
+  id                String   @id @default(uuid()) @db.Uuid
+  serviceOfferingId String   @map("service_offering_id") @db.Uuid
+  name              String
+  description       String?
+  price             Decimal  @db.Decimal(10, 2)
+  active            Boolean  @default(true)
+  displayOrder      Int      @default(0) @map("display_order")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  serviceOffering ServiceOffering @relation(fields: [serviceOfferingId], references: [id], onDelete: Cascade)
+
+  @@index([serviceOfferingId, displayOrder])
+  @@index([serviceOfferingId, active])
+  @@map("service_addons")
 }
 
 /// Seeded reference taxonomy for guided pricing setup (Ch.6.4).
@@ -530,6 +574,12 @@ model Booking {
   /// Remaining balance after deposit: not_due | due | paid_online | paid_in_person.
   balanceStatus          BalanceStatus        @default(not_due) @map("balance_status")
   balancePaidAt          DateTime?            @map("balance_paid_at") @db.Timestamptz(6)
+  /// Snapshot of selected add-ons at hold time: [{serviceAddonId, name, description, price}].
+  addonsSnapshot         Json?                @map("addons_snapshot")
+  /// Snapshot of how remaining balance may be paid after deposit.
+  remainingBalanceMethod RemainingBalanceMethod? @map("remaining_balance_method")
+  requirementsAcknowledgedAt DateTime?        @map("requirements_acknowledged_at") @db.Timestamptz(6)
+  policiesAcknowledgedAt DateTime?            @map("policies_acknowledged_at") @db.Timestamptz(6)
   createdAt              DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
   cancelledAt            DateTime?            @map("cancelled_at") @db.Timestamptz(6)
   cancellationReason     String?              @map("cancellation_reason")

@@ -239,6 +239,9 @@ export class NotificationsService {
       audience: isClientRecipient ? ('client' as const) : ('stylist' as const),
       venueLine,
       clientDisplayName: context.clientDisplayName,
+      addonNames: context.addonNames,
+      remainingBalanceMethod: context.remainingBalanceMethod,
+      balanceAmount: context.balanceAmount,
     };
 
     const body = generateNotificationContent(contentInput);

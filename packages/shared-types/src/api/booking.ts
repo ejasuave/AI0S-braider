@@ -25,6 +25,15 @@ export const CALENDAR_CONFLICT_RESOLUTIONS = [
 ] as const;
 export type CalendarConflictResolution = (typeof CALENDAR_CONFLICT_RESOLUTIONS)[number];
 
+export const bookingAddonSnapshotSchema = z.object({
+  serviceAddonId: z.string().uuid(),
+  name: z.string(),
+  description: z.string().nullable(),
+  price: z.string(),
+});
+
+export type BookingAddonSnapshot = z.infer<typeof bookingAddonSnapshotSchema>;
+
 export const bookingSchema = z.object({
   id: z.string().uuid(),
   stylistId: z.string().uuid(),
@@ -56,6 +65,10 @@ export const bookingSchema = z.object({
   totalPaid: z.string(),
   /** What the stylist should expect to keep for this booking at current payment state. */
   stylistExpectedTotal: z.string(),
+  addons: z.array(bookingAddonSnapshotSchema).default([]),
+  remainingBalanceMethod: z.enum(['cash', 'card', 'cash_or_card']).nullable(),
+  requirementsAcknowledgedAt: z.string().datetime().nullable(),
+  policiesAcknowledgedAt: z.string().datetime().nullable(),
   createdAt: z.string().datetime(),
   cancelledAt: z.string().datetime().nullable(),
   cancellationReason: z.string().nullable(),
@@ -75,6 +88,12 @@ export const createBookingHoldRequestSchema = z.object({
   serviceVenueMode: z.enum(SERVICE_VENUE_MODES).optional(),
   /** Required when the client chooses come_to_client. */
   clientVisitAddress: z.string().trim().min(5).max(500).optional(),
+  /** Selected optional add-on ids for this service. */
+  addonIds: z.array(z.string().uuid()).max(50).optional(),
+  /** Required when the service has requirements (web/client_direct). */
+  acknowledgedRequirements: z.boolean().optional(),
+  /** Required before hold for client_direct — client accepts stylist policies. */
+  acknowledgedPolicies: z.boolean().optional(),
 });
 
 export type CreateBookingHoldRequest = z.infer<typeof createBookingHoldRequestSchema>;

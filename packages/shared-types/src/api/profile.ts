@@ -119,11 +119,26 @@ export const publicPortfolioImageSchema = z.object({
 
 export type PublicPortfolioImage = z.infer<typeof publicPortfolioImageSchema>;
 
+export const publicBookingAddonSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  description: z.string().nullable(),
+  price: z.string(),
+});
+
+export type PublicBookingAddon = z.infer<typeof publicBookingAddonSchema>;
+
 export const publicBookingOfferingSchema = z.object({
   id: z.string().uuid(),
   styleName: z.string(),
+  description: z.string().nullable(),
   basePrice: z.string(),
   estimatedDurationMinutes: z.number().int().positive(),
+  requirements: z.array(z.string()),
+  /** Null = use business deposit policy. */
+  depositType: z.enum(['flat', 'percentage']).nullable(),
+  depositValue: z.number().nullable(),
+  addons: z.array(publicBookingAddonSchema).default([]),
   /** Work photos for this service only. */
   portfolio: z.array(publicPortfolioImageSchema).default([]),
 });
@@ -139,6 +154,26 @@ export const publicBookingPageSchema = z.object({
   /** Venue options this stylist offers — client picks one when booking. */
   venueOptions: z.array(z.enum(SERVICE_VENUE_MODES)).min(1),
   homeVisitSurcharge: z.string().nullable(),
+  /** Business-level deposit policy (fallback when offering has no override). */
+  depositType: z.enum(['flat', 'percentage']),
+  depositValue: z.number().positive(),
+  remainingBalanceMethod: z.enum(['cash', 'card', 'cash_or_card']),
+  policy: z
+    .object({
+      cancellationWindowHours: z.number().int().nonnegative(),
+      cancellationPolicyText: z.string().nullable(),
+      reschedulingPolicyText: z.string().nullable(),
+      lateArrivalPolicyText: z.string().nullable(),
+      noShowPolicyText: z.string().nullable(),
+      refundPolicyText: z.string().nullable(),
+      childrenPolicyText: z.string().nullable(),
+      guestPolicyText: z.string().nullable(),
+      depositPolicyText: z.string().nullable(),
+      remainingBalanceMethod: z.enum(['cash', 'card', 'cash_or_card']),
+      depositType: z.enum(['flat', 'percentage']),
+      depositValue: z.number().positive(),
+    })
+    .nullable(),
   offerings: z.array(publicBookingOfferingSchema),
 });
 
@@ -159,14 +194,34 @@ export type PortfolioItem = z.infer<typeof portfolioItemSchema>;
 export const serviceOfferingSchema = z.object({
   id: z.string().uuid(),
   stylistId: z.string().uuid(),
+  styleCategoryId: z.string().uuid().nullable().optional(),
   styleName: z.string(),
   sizeTier: z.string().nullable(),
   lengthTier: z.string().nullable(),
+  description: z.string().nullable(),
+  requirements: z.array(z.string()).default([]),
   basePrice: z.string(),
   estimatedDurationMinutes: z.number().int().positive(),
   hairIncluded: z.boolean(),
   isCustomStyle: z.boolean(),
   active: z.boolean(),
+  depositType: z.enum(['flat', 'percentage']).nullable(),
+  depositValue: z.number().nullable(),
+  addons: z
+    .array(
+      z.object({
+        id: z.string().uuid(),
+        serviceOfferingId: z.string().uuid(),
+        name: z.string(),
+        description: z.string().nullable(),
+        price: z.string(),
+        active: z.boolean(),
+        displayOrder: z.number().int(),
+        createdAt: z.string().datetime(),
+        updatedAt: z.string().datetime(),
+      }),
+    )
+    .default([]),
   portfolio: z.array(portfolioItemSchema).default([]),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),

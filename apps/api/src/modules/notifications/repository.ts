@@ -2,6 +2,7 @@ import type { DepositDisposition } from '@project-braids/shared-types/api';
 import type { NotificationStatus, NotificationType } from '@prisma/client';
 import { prisma } from '../../lib/db.js';
 import { clientPreferencesRepository } from '../client-preferences/repository.js';
+import { parseAddonsSnapshot } from '../booking/mappers.js';
 
 export type NotificationRecord = {
   id: string;
@@ -30,6 +31,9 @@ export type BookingNotificationContext = {
   serviceVenueMode: 'remote' | 'stylist_location' | 'come_to_client';
   venueAddress: string | null;
   clientDisplayName: string | null;
+  addonNames: string[];
+  remainingBalanceMethod: 'cash' | 'card' | 'cash_or_card' | null;
+  balanceAmount: number | null;
 };
 
 export class NotificationsRepository {
@@ -75,6 +79,13 @@ export class NotificationsRepository {
     }
 
     const styleName = serviceOffering?.styleName ?? 'Appointment';
+    const addons = parseAddonsSnapshot(booking.addonsSnapshot);
+    const depositAmount = booking.depositAmount ? Number(booking.depositAmount) : null;
+    const agreedPrice = Number(booking.agreedPrice);
+    const balanceAmount =
+      depositAmount != null
+        ? Math.max(0, Math.round((agreedPrice - depositAmount) * 100) / 100)
+        : null;
 
     return {
       id: booking.id,
@@ -83,7 +94,7 @@ export class NotificationsRepository {
       status: booking.status,
       startTime: booking.startTime,
       cancellationReason: booking.cancellationReason,
-      depositAmount: booking.depositAmount ? Number(booking.depositAmount) : null,
+      depositAmount,
       depositStatus: booking.depositStatus,
       stylistUserId: stylistUser.id,
       stylistPhone: stylistUser.phoneNumber,
@@ -93,6 +104,9 @@ export class NotificationsRepository {
       serviceVenueMode: booking.serviceVenueMode,
       venueAddress: booking.venueAddress,
       clientDisplayName: booking.clientDisplayName,
+      addonNames: addons.map((addon) => addon.name),
+      remainingBalanceMethod: booking.remainingBalanceMethod,
+      balanceAmount,
     };
   }
 

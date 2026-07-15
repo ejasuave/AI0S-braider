@@ -3,17 +3,22 @@ import type {
   BusinessPolicy,
   BusinessProfile,
   CreateBusinessServiceRequest,
+  CreateServiceAddonRequest,
   PortfolioItem,
   RegisterPortfolioItemRequest,
   RegisterProfilePhotoRequest,
   ReorderPortfolioRequest,
+  ReorderServiceAddonsRequest,
+  ServiceAddon,
   ServiceOffering,
   StyleCategory,
   UpdateBusinessPolicyRequest,
   UpdateBusinessProfileRequest,
   UpdateBusinessServiceRequest,
+  UpdateServiceAddonRequest,
   WorkingHourRow,
 } from '@project-braids/shared-types/api';
+import { MAX_SERVICE_ADDONS } from '@project-braids/shared-types/api';
 import { prisma } from '../../lib/db.js';
 import { ApiError } from '../../lib/errors.js';
 import {
@@ -37,6 +42,7 @@ import {
   toBusinessPolicy,
   toBusinessProfile,
   toPortfolioItem,
+  toServiceAddon,
   toServiceOffering,
   toStyleCategory,
 } from './mappers.js';
@@ -444,6 +450,9 @@ export class StylistProfileService {
         portfolioItems: {
           orderBy: { displayOrder: 'asc' },
         },
+        addons: {
+          orderBy: { displayOrder: 'asc' },
+        },
       },
       orderBy: [{ styleName: 'asc' }, { sizeTier: 'asc' }, { lengthTier: 'asc' }],
     });
@@ -458,6 +467,10 @@ export class StylistProfileService {
   async getServiceById(businessId: string, offeringId: string) {
     const offering = await prisma.serviceOffering.findFirst({
       where: { id: offeringId, businessId },
+      include: {
+        addons: { orderBy: { displayOrder: 'asc' } },
+        portfolioItems: { orderBy: { displayOrder: 'asc' } },
+      },
     });
     if (!offering) {
       throw ApiError.notFound('Service offering not found');
@@ -520,10 +533,21 @@ export class StylistProfileService {
         estimatedDurationMinutes: input.estimatedDurationMinutes,
         hairIncluded: input.hairIncluded ?? false,
         isCustomStyle,
+        description: input.description ?? null,
+        requirements: input.requirements ?? [],
+        depositType: input.depositType ?? null,
+        depositValue: input.depositValue ?? null,
+      },
+      include: {
+        addons: { orderBy: { displayOrder: 'asc' } },
+        portfolioItems: { orderBy: { displayOrder: 'asc' } },
       },
     });
 
-    return toServiceOffering(offering);
+    return toServiceOffering(
+      offering,
+      offering.portfolioItems.map((item) => toPortfolioItem(item)),
+    );
   }
 
   async updateService(
@@ -544,8 +568,19 @@ export class StylistProfileService {
         where: { id: offeringId },
         data: {
           styleCategoryId: category.id,
-          styleName: category.name,
+          styleName: input.styleName?.trim() || category.name,
           isCustomStyle: false,
+        },
+      });
+    } else if (input.styleCategoryId === null) {
+      await prisma.serviceOffering.update({
+        where: { id: offeringId },
+        data: {
+          styleCategoryId: null,
+          isCustomStyle: true,
+          ...(input.styleName || input.customStyleName
+            ? { styleName: (input.styleName ?? input.customStyleName)!.trim() }
+            : {}),
         },
       });
     }
@@ -561,6 +596,10 @@ export class StylistProfileService {
           : {}),
         ...(input.hairIncluded !== undefined ? { hairIncluded: input.hairIncluded } : {}),
         ...(input.active !== undefined ? { active: input.active } : {}),
+        ...(input.description !== undefined ? { description: input.description } : {}),
+        ...(input.requirements !== undefined ? { requirements: input.requirements } : {}),
+        ...(input.depositType !== undefined ? { depositType: input.depositType } : {}),
+        ...(input.depositValue !== undefined ? { depositValue: input.depositValue } : {}),
         ...(input.customStyleName !== undefined
           ? {
               styleName: input.customStyleName.trim(),
@@ -568,14 +607,121 @@ export class StylistProfileService {
               styleCategoryId: null,
             }
           : {}),
+        ...(input.styleName !== undefined &&
+        input.styleCategoryId === undefined &&
+        input.customStyleName === undefined
+          ? { styleName: input.styleName.trim() }
+          : {}),
+      },
+      include: {
+        addons: { orderBy: { displayOrder: 'asc' } },
+        portfolioItems: { orderBy: { displayOrder: 'asc' } },
       },
     });
 
-    return toServiceOffering(offering);
+    return toServiceOffering(
+      offering,
+      offering.portfolioItems.map((item) => toPortfolioItem(item)),
+    );
   }
 
   async deactivateService(businessId: string, offeringId: string): Promise<ServiceOffering> {
     return this.updateService(businessId, offeringId, { active: false });
+  }
+
+  async createAddon(
+    businessId: string,
+    serviceId: string,
+    input: CreateServiceAddonRequest,
+  ): Promise<ServiceAddon> {
+    await this.getServiceById(businessId, serviceId);
+    const count = await prisma.serviceAddon.count({ where: { serviceOfferingId: serviceId } });
+    if (count >= MAX_SERVICE_ADDONS) {
+      throw ApiError.validation(`Maximum of ${MAX_SERVICE_ADDONS} add-ons per service`);
+    }
+    const maxOrder = await prisma.serviceAddon.aggregate({
+      where: { serviceOfferingId: serviceId },
+      _max: { displayOrder: true },
+    });
+    const addon = await prisma.serviceAddon.create({
+      data: {
+        serviceOfferingId: serviceId,
+        name: input.name.trim(),
+        description: input.description ?? null,
+        price: input.price,
+        active: input.active ?? true,
+        displayOrder: (maxOrder._max.displayOrder ?? -1) + 1,
+      },
+    });
+    return toServiceAddon(addon);
+  }
+
+  async updateAddon(
+    businessId: string,
+    serviceId: string,
+    addonId: string,
+    input: UpdateServiceAddonRequest,
+  ): Promise<ServiceAddon> {
+    await this.getServiceById(businessId, serviceId);
+    const existing = await prisma.serviceAddon.findFirst({
+      where: { id: addonId, serviceOfferingId: serviceId },
+    });
+    if (!existing) {
+      throw ApiError.notFound('Add-on not found');
+    }
+    const addon = await prisma.serviceAddon.update({
+      where: { id: addonId },
+      data: {
+        ...(input.name !== undefined ? { name: input.name.trim() } : {}),
+        ...(input.description !== undefined ? { description: input.description } : {}),
+        ...(input.price !== undefined ? { price: input.price } : {}),
+        ...(input.active !== undefined ? { active: input.active } : {}),
+      },
+    });
+    return toServiceAddon(addon);
+  }
+
+  async deleteAddon(businessId: string, serviceId: string, addonId: string): Promise<void> {
+    await this.getServiceById(businessId, serviceId);
+    const existing = await prisma.serviceAddon.findFirst({
+      where: { id: addonId, serviceOfferingId: serviceId },
+    });
+    if (!existing) {
+      throw ApiError.notFound('Add-on not found');
+    }
+    await prisma.serviceAddon.delete({ where: { id: addonId } });
+  }
+
+  async reorderAddons(
+    businessId: string,
+    serviceId: string,
+    input: ReorderServiceAddonsRequest,
+  ): Promise<ServiceAddon[]> {
+    await this.getServiceById(businessId, serviceId);
+    const existing = await prisma.serviceAddon.findMany({
+      where: { serviceOfferingId: serviceId },
+      select: { id: true },
+    });
+    const existingIds = new Set(existing.map((row) => row.id));
+    if (
+      input.orderedIds.length !== existingIds.size ||
+      input.orderedIds.some((id) => !existingIds.has(id))
+    ) {
+      throw ApiError.validation('orderedIds must include every add-on for this service exactly once');
+    }
+    await prisma.$transaction(
+      input.orderedIds.map((id, index) =>
+        prisma.serviceAddon.update({
+          where: { id },
+          data: { displayOrder: index },
+        }),
+      ),
+    );
+    const addons = await prisma.serviceAddon.findMany({
+      where: { serviceOfferingId: serviceId },
+      orderBy: { displayOrder: 'asc' },
+    });
+    return addons.map(toServiceAddon);
   }
 
   async getPolicy(businessId: string): Promise<BusinessPolicy> {
@@ -595,6 +741,15 @@ export class StylistProfileService {
         cancellationWindowHours: input.cancellationWindowHours,
         noShowFeeType: input.noShowFeeType,
         noShowFeeValue: input.noShowFeeValue ?? null,
+        cancellationPolicyText: input.cancellationPolicyText ?? null,
+        reschedulingPolicyText: input.reschedulingPolicyText ?? null,
+        lateArrivalPolicyText: input.lateArrivalPolicyText ?? null,
+        noShowPolicyText: input.noShowPolicyText ?? null,
+        refundPolicyText: input.refundPolicyText ?? null,
+        childrenPolicyText: input.childrenPolicyText ?? null,
+        guestPolicyText: input.guestPolicyText ?? null,
+        depositPolicyText: input.depositPolicyText ?? null,
+        remainingBalanceMethod: input.remainingBalanceMethod ?? 'cash_or_card',
       },
       update: {
         depositType: input.depositType,
@@ -602,6 +757,31 @@ export class StylistProfileService {
         cancellationWindowHours: input.cancellationWindowHours,
         noShowFeeType: input.noShowFeeType,
         noShowFeeValue: input.noShowFeeValue ?? null,
+        ...(input.cancellationPolicyText !== undefined
+          ? { cancellationPolicyText: input.cancellationPolicyText }
+          : {}),
+        ...(input.reschedulingPolicyText !== undefined
+          ? { reschedulingPolicyText: input.reschedulingPolicyText }
+          : {}),
+        ...(input.lateArrivalPolicyText !== undefined
+          ? { lateArrivalPolicyText: input.lateArrivalPolicyText }
+          : {}),
+        ...(input.noShowPolicyText !== undefined
+          ? { noShowPolicyText: input.noShowPolicyText }
+          : {}),
+        ...(input.refundPolicyText !== undefined
+          ? { refundPolicyText: input.refundPolicyText }
+          : {}),
+        ...(input.childrenPolicyText !== undefined
+          ? { childrenPolicyText: input.childrenPolicyText }
+          : {}),
+        ...(input.guestPolicyText !== undefined ? { guestPolicyText: input.guestPolicyText } : {}),
+        ...(input.depositPolicyText !== undefined
+          ? { depositPolicyText: input.depositPolicyText }
+          : {}),
+        ...(input.remainingBalanceMethod !== undefined
+          ? { remainingBalanceMethod: input.remainingBalanceMethod }
+          : {}),
       },
     });
 
@@ -623,7 +803,6 @@ export class StylistProfileService {
 
     return toBusinessPolicy(policy);
   }
-
   async listWorkingHours(businessId: string): Promise<WorkingHourRow[]> {
     const rows = await prisma.workingHour.findMany({
       where: { businessId },

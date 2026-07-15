@@ -28,6 +28,7 @@ import {
   paymentStatusLabel,
 } from '@/shared/lib/format';
 import { serviceVenueModeLabel } from '@/shared/lib/venue';
+import { remainingBalanceMethodLabel } from '@/shared/lib/pricing';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { PageHeader, PageShell } from '@/shared/ui/page-shell';
@@ -396,6 +397,40 @@ function ClientBookingDetailContent() {
                   <dt className="text-ink-muted">Hold expires</dt>
                   <dd className="font-medium text-warning">
                     {formatDateTime(booking.holdExpiresAt)}
+                  </dd>
+                </div>
+              ) : null}
+              <div>
+                <dt className="text-ink-muted">Total</dt>
+                <dd className="font-medium text-ink">{formatMoney(booking.agreedPrice)}</dd>
+              </div>
+              {(booking.addons?.length ?? 0) > 0 ? (
+                <div>
+                  <dt className="text-ink-muted">Add-ons</dt>
+                  <dd className="font-medium text-ink">
+                    <ul className="mt-1 space-y-1">
+                      {booking.addons.map((addon) => (
+                        <li key={addon.serviceAddonId}>
+                          {addon.name} — {formatMoney(addon.price)}
+                        </li>
+                      ))}
+                    </ul>
+                  </dd>
+                </div>
+              ) : null}
+              <div>
+                <dt className="text-ink-muted">Deposit</dt>
+                <dd className="font-medium text-ink">{formatMoney(booking.depositAmount)}</dd>
+              </div>
+              <div>
+                <dt className="text-ink-muted">Remaining balance</dt>
+                <dd className="font-medium text-ink">{formatMoney(booking.balanceAmount)}</dd>
+              </div>
+              {booking.remainingBalanceMethod ? (
+                <div>
+                  <dt className="text-ink-muted">Accepted payment method</dt>
+                  <dd className="font-medium text-ink">
+                    {remainingBalanceMethodLabel(booking.remainingBalanceMethod)}
                   </dd>
                 </div>
               ) : null}
