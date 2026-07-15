@@ -165,7 +165,17 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
     throw new ApiClientError(message, response.status, body);
   }
 
-  return (await response.json()) as T;
+  // DELETE and similar routes often return 204 with an empty body.
+  if (response.status === 204 || response.headers.get('content-length') === '0') {
+    return undefined as T;
+  }
+
+  const text = await response.text();
+  if (!text) {
+    return undefined as T;
+  }
+
+  return JSON.parse(text) as T;
 }
 
 export async function apiFetchData<T>(path: string, options: ApiFetchOptions = {}): Promise<T> {

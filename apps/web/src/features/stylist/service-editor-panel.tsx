@@ -231,170 +231,179 @@ export function ServiceEditorPanel({ service, categories }: Props) {
       </Button>
 
       {open ? (
-        <form className="space-y-4" onSubmit={handleSave}>
-          <Input
-            label="Service name"
-            value={styleName}
-            onChange={(e) => setStyleName(e.target.value)}
-            required
-          />
-          <label className="block text-sm font-medium text-ink">
-            Style category
-            <select
-              className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm"
-              value={styleCategoryId}
-              onChange={(e) => setStyleCategoryId(e.target.value)}
-            >
-              <option value="">Custom style</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          {selectedCategory ? (
-            <>
-              <label className="block text-sm font-medium text-ink">
-                Size tier
-                <select
-                  className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm"
-                  value={sizeTier}
-                  onChange={(e) => setSizeTier(e.target.value)}
-                >
-                  <option value="">Any</option>
-                  {selectedCategory.sizeTiers.map((tier) => (
-                    <option key={tier} value={tier}>
-                      {tier}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block text-sm font-medium text-ink">
-                Length tier
-                <select
-                  className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm"
-                  value={lengthTier}
-                  onChange={(e) => setLengthTier(e.target.value)}
-                >
-                  <option value="">Any</option>
-                  {selectedCategory.lengthTiers.map((tier) => (
-                    <option key={tier} value={tier}>
-                      {tier}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </>
-          ) : null}
-          <Textarea
-            label="Description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="What clients should know about this service"
-          />
-          <Input
-            label="Base price (£)"
-            type="number"
-            min="1"
-            step="0.01"
-            value={basePrice}
-            onChange={(e) => setBasePrice(e.target.value)}
-            required
-          />
-          <Input
-            label="Duration (minutes)"
-            type="number"
-            min="15"
-            step="15"
-            value={duration}
-            onChange={(e) => setDuration(e.target.value)}
-            required
-          />
-          <label className="flex min-h-11 items-center gap-2 text-sm text-ink">
-            <input
-              type="checkbox"
-              checked={hairIncluded}
-              onChange={(e) => setHairIncluded(e.target.checked)}
-            />
-            Hair included in price
-          </label>
-
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-ink">Requirements (bullet points)</p>
-            <ul className="space-y-2">
-              {requirements.map((item, index) => (
-                <li key={`${item}-${index}`} className="flex gap-2">
-                  <p className="flex-1 rounded-md border border-border bg-surface px-3 py-2 text-sm">
-                    {item}
-                  </p>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => setRequirements((prev) => prev.filter((_, i) => i !== index))}
-                  >
-                    Remove
-                  </Button>
-                </li>
-              ))}
-            </ul>
-            <div className="flex gap-2">
-              <Input
-                label="Add requirement"
-                value={newRequirement}
-                onChange={(e) => setNewRequirement(e.target.value)}
-                placeholder="e.g. Hair must be washed and blow-dried"
-              />
-            </div>
-            <Button
-              type="button"
-              variant="secondary"
-              fullWidth
-              onClick={() => {
-                const next = newRequirement.trim();
-                if (!next) return;
-                setRequirements((prev) => [...prev, next]);
-                setNewRequirement('');
-              }}
-            >
-              Add requirement
-            </Button>
-          </div>
-
-          <label className="block text-sm font-medium text-ink">
-            Deposit override
-            <select
-              className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm"
-              value={depositMode}
-              onChange={(e) =>
-                setDepositMode(e.target.value as 'inherit' | 'flat' | 'percentage')
-              }
-            >
-              <option value="inherit">Use business default</option>
-              <option value="percentage">Percentage of total</option>
-              <option value="flat">Flat amount (£)</option>
-            </select>
-          </label>
-          {depositMode !== 'inherit' ? (
+        <div className="space-y-4">
+          {/*
+            Keep service save and add-on create as sibling forms — browsers discard
+            nested <form> tags, so "Add add-on" previously submitted "Save changes".
+          */}
+          <form className="space-y-4" onSubmit={handleSave}>
             <Input
-              label={depositMode === 'percentage' ? 'Deposit (%)' : 'Deposit (£)'}
+              label="Service name"
+              value={styleName}
+              onChange={(e) => setStyleName(e.target.value)}
+              required
+            />
+            <label className="block text-sm font-medium text-ink">
+              Style category
+              <select
+                className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm"
+                value={styleCategoryId}
+                onChange={(e) => setStyleCategoryId(e.target.value)}
+              >
+                <option value="">Custom style</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {selectedCategory ? (
+              <>
+                <label className="block text-sm font-medium text-ink">
+                  Size tier
+                  <select
+                    className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm"
+                    value={sizeTier}
+                    onChange={(e) => setSizeTier(e.target.value)}
+                  >
+                    <option value="">Any</option>
+                    {selectedCategory.sizeTiers.map((tier) => (
+                      <option key={tier} value={tier}>
+                        {tier}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block text-sm font-medium text-ink">
+                  Length tier
+                  <select
+                    className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm"
+                    value={lengthTier}
+                    onChange={(e) => setLengthTier(e.target.value)}
+                  >
+                    <option value="">Any</option>
+                    {selectedCategory.lengthTiers.map((tier) => (
+                      <option key={tier} value={tier}>
+                        {tier}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </>
+            ) : null}
+            <Textarea
+              label="Description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="What clients should know about this service"
+            />
+            <Input
+              label="Base price (£)"
               type="number"
               min="1"
               step="0.01"
-              value={depositValue}
-              onChange={(e) => setDepositValue(e.target.value)}
+              value={basePrice}
+              onChange={(e) => setBasePrice(e.target.value)}
               required
             />
-          ) : null}
+            <Input
+              label="Duration (minutes)"
+              type="number"
+              min="15"
+              step="15"
+              value={duration}
+              onChange={(e) => setDuration(e.target.value)}
+              required
+            />
+            <label className="flex min-h-11 items-center gap-2 text-sm text-ink">
+              <input
+                type="checkbox"
+                checked={hairIncluded}
+                onChange={(e) => setHairIncluded(e.target.checked)}
+              />
+              Hair included in price
+            </label>
 
-          {error ? <p className="text-sm text-error">{error}</p> : null}
-          {saved ? <p className="text-sm text-success">Service saved.</p> : null}
-          <Button type="submit" fullWidth disabled={saveMutation.isPending}>
-            {saveMutation.isPending ? 'Saving…' : 'Save changes'}
-          </Button>
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-ink">Requirements (bullet points)</p>
+              <ul className="space-y-2">
+                {requirements.map((item, index) => (
+                  <li key={`${item}-${index}`} className="flex gap-2">
+                    <p className="flex-1 rounded-md border border-border bg-surface px-3 py-2 text-sm">
+                      {item}
+                    </p>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => setRequirements((prev) => prev.filter((_, i) => i !== index))}
+                    >
+                      Remove
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+              <div className="flex gap-2">
+                <Input
+                  label="Add requirement"
+                  value={newRequirement}
+                  onChange={(e) => setNewRequirement(e.target.value)}
+                  placeholder="e.g. Hair must be washed and blow-dried"
+                />
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                fullWidth
+                onClick={() => {
+                  const next = newRequirement.trim();
+                  if (!next) return;
+                  setRequirements((prev) => [...prev, next]);
+                  setNewRequirement('');
+                }}
+              >
+                Add requirement
+              </Button>
+            </div>
+
+            <label className="block text-sm font-medium text-ink">
+              Deposit override
+              <select
+                className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm"
+                value={depositMode}
+                onChange={(e) =>
+                  setDepositMode(e.target.value as 'inherit' | 'flat' | 'percentage')
+                }
+              >
+                <option value="inherit">Use business default</option>
+                <option value="percentage">Percentage of total</option>
+                <option value="flat">Flat amount (£)</option>
+              </select>
+            </label>
+            {depositMode !== 'inherit' ? (
+              <Input
+                label={depositMode === 'percentage' ? 'Deposit (%)' : 'Deposit (£)'}
+                type="number"
+                min="1"
+                step="0.01"
+                value={depositValue}
+                onChange={(e) => setDepositValue(e.target.value)}
+                required
+              />
+            ) : null}
+
+            {error ? <p className="text-sm text-error">{error}</p> : null}
+            {saved ? <p className="text-sm text-success">Service saved.</p> : null}
+            <Button type="submit" fullWidth disabled={saveMutation.isPending}>
+              {saveMutation.isPending ? 'Saving…' : 'Save changes'}
+            </Button>
+          </form>
 
           <div className="space-y-3 border-t border-border pt-3">
             <h4 className="font-medium text-ink">Add-ons</h4>
+            <p className="text-sm text-ink-muted">
+              Add-ons are saved immediately — you don’t need “Save changes” above.
+            </p>
             {addons.length === 0 ? (
               <p className="text-sm text-ink-muted">No add-ons yet.</p>
             ) : (
@@ -493,7 +502,7 @@ export function ServiceEditorPanel({ service, categories }: Props) {
             serviceName={service.styleName}
             items={service.portfolio ?? []}
           />
-        </form>
+        </div>
       ) : null}
     </div>
   );
