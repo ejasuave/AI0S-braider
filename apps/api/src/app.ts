@@ -38,7 +38,14 @@ export async function buildApp() {
 
   app.setErrorHandler((error, request, reply) => {
     if (isZodError(error)) {
-      sendApiError(reply, ApiError.validation('Validation failed', error.flatten()));
+      const firstIssue = error.issues[0];
+      const path = firstIssue?.path?.length ? firstIssue.path.join('.') : null;
+      const message = firstIssue
+        ? path
+          ? `${path}: ${firstIssue.message}`
+          : firstIssue.message
+        : 'Validation failed';
+      sendApiError(reply, ApiError.validation(message, error.flatten()));
       return;
     }
 

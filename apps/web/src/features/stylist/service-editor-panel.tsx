@@ -63,25 +63,67 @@ export function ServiceEditorPanel({ service, categories }: Props) {
   const selectedCategory = categories.find((c) => c.id === styleCategoryId);
 
   const saveMutation = useMutation({
-    mutationFn: () =>
-      apiFetchData<ServiceOffering>(`/businesses/me/services/${service.id}`, {
+    mutationFn: () => {
+      const price = Number(basePrice);
+      const durationMinutes = Number(duration);
+      if (!Number.isFinite(price) || price <= 0) {
+        throw new Error('Enter a valid base price greater than 0.');
+      }
+      if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) {
+        throw new Error('Enter a valid duration in minutes.');
+      }
+      if (depositMode !== 'inherit') {
+        const deposit = Number(depositValue);
+        if (!Number.isFinite(deposit) || deposit <= 0) {
+          throw new Error('Enter a valid deposit value, or use the business default.');
+        }
+        if (depositMode === 'percentage' && (deposit < 1 || deposit > 100)) {
+          throw new Error('Percentage deposit must be between 1 and 100.');
+        }
+      }
+
+      const trimmedName = styleName.trim();
+      if (!trimmedName) {
+        throw new Error('Service name is required.');
+      }
+
+      const payload: Record<string, unknown> = {
+        styleName: trimmedName,
+        sizeTier: sizeTier.trim() ? sizeTier.trim() : null,
+        lengthTier: lengthTier.trim() ? lengthTier.trim() : null,
+        basePrice: price,
+        estimatedDurationMinutes: durationMinutes,
+        hairIncluded,
+        description: description.trim() || null,
+        requirements: requirements.map((r) => r.trim()).filter(Boolean),
+      };
+
+      if (styleCategoryId) {
+        payload.styleCategoryId = styleCategoryId;
+      } else {
+        payload.customStyleName = trimmedName;
+        // Clear a previous taxonomy link when switching to a custom name.
+        if (service.styleCategoryId) {
+          payload.styleCategoryId = null;
+        }
+      }
+
+      if (depositMode === 'inherit') {
+        // Clear a previous per-service override when returning to business default.
+        if (service.depositType) {
+          payload.depositType = null;
+          payload.depositValue = null;
+        }
+      } else {
+        payload.depositType = depositMode;
+        payload.depositValue = Number(depositValue);
+      }
+
+      return apiFetchData<ServiceOffering>(`/businesses/me/services/${service.id}`, {
         method: 'PATCH',
-        json: {
-          styleName: styleName.trim(),
-          ...(styleCategoryId
-            ? { styleCategoryId }
-            : { styleCategoryId: null, customStyleName: styleName.trim() }),
-          sizeTier: sizeTier || null,
-          lengthTier: lengthTier || null,
-          basePrice: Number(basePrice),
-          estimatedDurationMinutes: Number(duration),
-          hairIncluded,
-          description: description.trim() || null,
-          requirements: requirements.map((r) => r.trim()).filter(Boolean),
-          depositType: depositMode === 'inherit' ? null : depositMode,
-          depositValue: depositMode === 'inherit' ? null : Number(depositValue),
-        },
-      }),
+        json: payload,
+      });
+    },
     onSuccess: () => {
       setSaved(true);
       void queryClient.invalidateQueries({ queryKey: ['business', 'services'] });
@@ -148,14 +190,10 @@ export function ServiceEditorPanel({ service, categories }: Props) {
   async function handleSave(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
-    if (depositMode !== 'inherit' && !(Number(depositValue) > 0)) {
-      setError('Enter a deposit value or use business default.');
-      return;
-    }
     try {
       await saveMutation.mutateAsync();
     } catch (err) {
-      setError(getApiErrorMessage(err));
+      setError(getApiErrorMessage(err, 'Could not save service. Check the form and try again.'));
     }
   }
 

@@ -124,6 +124,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     retry: false,
   });
 
+  // Recover from a stored access token that /auth/me rejects or cannot load.
+  useEffect(() => {
+    if (!bootstrapped || !hasToken) return;
+    if (!meQuery.isError) return;
+    clearAccessToken();
+    setHasToken(false);
+    queryClient.setQueryData(AUTH_ME_KEY, null);
+  }, [bootstrapped, hasToken, meQuery.isError, queryClient]);
+
   const refreshMe = useCallback(async () => {
     setHasToken(Boolean(getAccessToken()));
     await queryClient.invalidateQueries({ queryKey: AUTH_ME_KEY });
@@ -224,7 +233,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const stylistId = meQuery.data?.stylistId ?? null;
     const businessId = meQuery.data?.businessId ?? null;
     const permissions = meQuery.data?.permissions ?? null;
-    const resolvingSession = hasToken && !user && (meQuery.isPending || !meQuery.isFetched);
+    const resolvingSession =
+      hasToken &&
+      !user &&
+      !meQuery.isError &&
+      (meQuery.isPending || !meQuery.isFetched);
 
     return {
       user,
@@ -248,6 +261,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     login,
     logout,
     meQuery.data,
+    meQuery.isError,
     meQuery.isPending,
     meQuery.isFetched,
     refreshMe,

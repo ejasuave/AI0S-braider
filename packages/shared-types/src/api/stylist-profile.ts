@@ -405,12 +405,33 @@ export const createBusinessServiceRequestSchema = z
     depositOverrideRefine(value, ctx);
   });
 
+/** Empty / whitespace-only strings from HTML forms → null for nullable tier fields. */
+const optionalNullableTierSchema = z.preprocess(
+  (value) => {
+    if (value === undefined) return undefined;
+    if (value === null) return null;
+    if (typeof value === 'string' && value.trim() === '') return null;
+    return value;
+  },
+  z.string().trim().min(1).max(60).nullable().optional(),
+);
+
+const optionalNullableDescriptionSchema = z.preprocess(
+  (value) => {
+    if (value === undefined) return undefined;
+    if (value === null) return null;
+    if (typeof value === 'string' && value.trim() === '') return null;
+    return value;
+  },
+  z.string().trim().max(2000).nullable().optional(),
+);
+
 const businessServiceFieldsSchema = z.object({
   styleCategoryId: z.string().uuid().nullable().optional(),
   customStyleName: z.string().trim().min(1).max(120).optional(),
   styleName: z.string().trim().min(1).max(120).optional(),
-  sizeTier: z.string().trim().min(1).max(60).nullable().optional(),
-  lengthTier: z.string().trim().min(1).max(60).nullable().optional(),
+  sizeTier: optionalNullableTierSchema,
+  lengthTier: optionalNullableTierSchema,
   basePrice: z.number().positive().max(100_000).optional(),
   estimatedDurationMinutes: z
     .number()
@@ -420,7 +441,7 @@ const businessServiceFieldsSchema = z.object({
     .optional(),
   hairIncluded: z.boolean().optional(),
   active: z.boolean().optional(),
-  description: z.string().trim().max(2000).nullable().optional(),
+  description: optionalNullableDescriptionSchema,
   requirements: z.array(serviceRequirementSchema).max(MAX_SERVICE_REQUIREMENTS).optional(),
   depositType: z.enum(DEPOSIT_TYPES).nullable().optional(),
   depositValue: z.number().positive().max(100_000).nullable().optional(),

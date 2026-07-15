@@ -38,7 +38,9 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const user = await auth.login({ email: email.trim(), password });
-      window.location.assign(getPostAuthPath(user));
+      // Soft navigate so the session already in AuthProvider is kept — a hard reload
+      // left the dashboard stuck on "Loading…" while /auth/me re-fetched.
+      router.replace(getPostAuthPath(user));
     } catch (err) {
       if (err instanceof ApiClientError && err.status === 403) {
         setError(

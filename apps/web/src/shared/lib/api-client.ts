@@ -36,7 +36,25 @@ export function getApiErrorMessage(error: unknown, fallback = 'Something went wr
         typeof body.error === 'object' &&
         'message' in body.error
       ) {
-        return String((body.error as { message: string }).message);
+        const errObj = body.error as {
+          message: string;
+          details?: {
+            fieldErrors?: Record<string, string[] | undefined>;
+            formErrors?: string[];
+          };
+        };
+        const fieldErrors = errObj.details?.fieldErrors;
+        if (fieldErrors) {
+          const firstField = Object.entries(fieldErrors).find(
+            ([, messages]) => Array.isArray(messages) && messages.length > 0,
+          );
+          if (firstField) {
+            return `${firstField[0]}: ${firstField[1]![0]}`;
+          }
+        }
+        const formError = errObj.details?.formErrors?.[0];
+        if (formError) return formError;
+        return String(errObj.message);
       }
       if ('message' in body && typeof body.message === 'string') {
         return body.message;
