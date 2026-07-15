@@ -85,7 +85,7 @@ export class ProfileService {
     }>;
   }> {
     const profile = await getStylistProfileById(stylistId);
-    const [business, offerings] = await Promise.all([
+    const [business, offerings, otherWork] = await Promise.all([
       profile.businessId
         ? prisma.business.findUnique({
             where: { id: profile.businessId },
@@ -112,16 +112,29 @@ export class ProfileService {
         },
         orderBy: [{ styleName: 'asc' }, { sizeTier: 'asc' }, { lengthTier: 'asc' }],
       }),
+      prisma.portfolioItem.findMany({
+        where: { stylistId, serviceOfferingId: null },
+        orderBy: { displayOrder: 'asc' },
+        select: {
+          id: true,
+          imageUrl: true,
+          displayOrder: true,
+          serviceOfferingId: true,
+        },
+      }),
     ]);
 
-    const portfolio = offerings.flatMap((offering) =>
-      offering.portfolioItems.map((item) => ({
-        id: item.id,
-        imageUrl: item.imageUrl,
-        displayOrder: item.displayOrder,
-        serviceOfferingId: item.serviceOfferingId,
-      })),
-    );
+    const portfolio = [
+      ...offerings.flatMap((offering) =>
+        offering.portfolioItems.map((item) => ({
+          id: item.id,
+          imageUrl: item.imageUrl,
+          displayOrder: item.displayOrder,
+          serviceOfferingId: item.serviceOfferingId,
+        })),
+      ),
+      ...otherWork,
+    ];
 
     const venueOptions: Array<'remote' | 'stylist_location' | 'come_to_client'> = [];
     if (business?.offersStylistLocation) venueOptions.push('stylist_location');
@@ -339,14 +352,28 @@ export class ProfileService {
       throw ApiError.notFound('Stylist not found in directory');
     }
 
-    const portfolio = offerings.flatMap((offering) =>
-      offering.portfolioItems.map((item) => ({
-        id: item.id,
-        imageUrl: item.imageUrl,
-        displayOrder: item.displayOrder,
-        serviceOfferingId: item.serviceOfferingId,
-      })),
-    );
+    const otherWork = await prisma.portfolioItem.findMany({
+      where: { stylistId, serviceOfferingId: null },
+      orderBy: { displayOrder: 'asc' },
+      select: {
+        id: true,
+        imageUrl: true,
+        displayOrder: true,
+        serviceOfferingId: true,
+      },
+    });
+
+    const portfolio = [
+      ...offerings.flatMap((offering) =>
+        offering.portfolioItems.map((item) => ({
+          id: item.id,
+          imageUrl: item.imageUrl,
+          displayOrder: item.displayOrder,
+          serviceOfferingId: item.serviceOfferingId,
+        })),
+      ),
+      ...otherWork,
+    ];
 
     return {
       stylistId: profile.id,

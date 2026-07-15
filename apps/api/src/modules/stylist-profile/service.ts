@@ -192,7 +192,7 @@ export class StylistProfileService {
   async createPortfolioUploadUrl(
     businessId: string,
     contentType: string,
-    serviceOfferingId: string,
+    serviceOfferingId?: string | null,
   ): Promise<{
     uploadUrl: string;
     imageUrl: string;
@@ -204,8 +204,10 @@ export class StylistProfileService {
       throw ApiError.validation('Unsupported image type. Use JPEG, PNG, or WebP.');
     }
 
-    await this.assertServiceOwnedByBusiness(businessId, serviceOfferingId);
-    await this.assertCanAddPortfolioImage(businessId, serviceOfferingId);
+    if (serviceOfferingId) {
+      await this.assertServiceOwnedByBusiness(businessId, serviceOfferingId);
+    }
+    await this.assertCanAddPortfolioImage(businessId, serviceOfferingId ?? null);
 
     const extension =
       contentType === 'image/png' ? 'png' : contentType === 'image/webp' ? 'webp' : 'jpg';
@@ -228,11 +230,14 @@ export class StylistProfileService {
     stylistId: string,
     input: RegisterPortfolioItemRequest,
   ): Promise<PortfolioItem> {
-    await this.assertServiceOwnedByBusiness(businessId, input.serviceOfferingId);
-    await this.assertCanAddPortfolioImage(businessId, input.serviceOfferingId);
+    const serviceOfferingId = input.serviceOfferingId ?? null;
+    if (serviceOfferingId) {
+      await this.assertServiceOwnedByBusiness(businessId, serviceOfferingId);
+    }
+    await this.assertCanAddPortfolioImage(businessId, serviceOfferingId);
 
     const maxOrder = await prisma.portfolioItem.aggregate({
-      where: { businessId, serviceOfferingId: input.serviceOfferingId },
+      where: { businessId, serviceOfferingId },
       _max: { displayOrder: true },
     });
 
@@ -240,7 +245,7 @@ export class StylistProfileService {
       data: {
         businessId,
         stylistId,
-        serviceOfferingId: input.serviceOfferingId,
+        serviceOfferingId,
         imageUrl: input.imageUrl,
         storageKey: input.storageKey,
         source: 'manual',
@@ -311,19 +316,23 @@ export class StylistProfileService {
 
   private async assertCanAddPortfolioImage(
     businessId: string,
-    serviceOfferingId: string,
+    serviceOfferingId: string | null,
   ): Promise<void> {
-    const [businessCount, serviceCount] = await Promise.all([
+    const [businessCount, scopedCount] = await Promise.all([
       prisma.portfolioItem.count({ where: { businessId } }),
-      prisma.portfolioItem.count({ where: { businessId, serviceOfferingId } }),
+      prisma.portfolioItem.count({
+        where: { businessId, serviceOfferingId },
+      }),
     ]);
 
     if (businessCount >= PORTFOLIO_ITEM_LIMIT) {
       throw ApiError.validation(`Portfolio limit of ${PORTFOLIO_ITEM_LIMIT} images reached`);
     }
-    if (serviceCount >= PORTFOLIO_IMAGES_PER_SERVICE) {
+    if (scopedCount >= PORTFOLIO_IMAGES_PER_SERVICE) {
       throw ApiError.validation(
-        `This service already has the maximum of ${PORTFOLIO_IMAGES_PER_SERVICE} images`,
+        serviceOfferingId
+          ? `This service already has the maximum of ${PORTFOLIO_IMAGES_PER_SERVICE} images`
+          : `Other work already has the maximum of ${PORTFOLIO_IMAGES_PER_SERVICE} images`,
       );
     }
   }

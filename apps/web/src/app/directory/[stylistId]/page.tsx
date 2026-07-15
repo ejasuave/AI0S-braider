@@ -7,7 +7,7 @@ import { apiFetchData } from '@/shared/lib/api-client';
 import { resolveMediaUrl } from '@/shared/lib/media-url';
 import { Card } from '@/shared/ui/card';
 import { PageHeader, PageShell } from '@/shared/ui/page-shell';
-import { StylistAvatar } from '@/shared/ui/portfolio-gallery';
+import { StylistAvatar, PortfolioGallery } from '@/shared/ui/portfolio-gallery';
 import { ServiceOfferingAccordion } from '@/shared/ui/service-offering-accordion';
 
 export default function DirectoryStylistPage() {
@@ -22,6 +22,7 @@ export default function DirectoryStylistPage() {
   });
 
   const stylist = detailQuery.data;
+  const otherWork = (stylist?.portfolio ?? []).filter((item) => !item.serviceOfferingId);
   const heroUrl = stylist
     ? (resolveMediaUrl(stylist.photoUrl) ??
       resolveMediaUrl(stylist.portfolio?.[0]?.imageUrl ?? null))
@@ -69,6 +70,13 @@ export default function DirectoryStylistPage() {
               bookHref={(id, serviceId) => `/book?stylistId=${id}&serviceOfferingId=${serviceId}`}
             />
           </div>
+
+          {otherWork.length > 0 ? (
+            <div className="space-y-3">
+              <h2 className="font-medium text-ink">Other work</h2>
+              <PortfolioGallery items={otherWork} />
+            </div>
+          ) : null}
         </div>
       ) : (
         <Card className="mt-6">

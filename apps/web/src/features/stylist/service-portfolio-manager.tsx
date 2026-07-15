@@ -9,7 +9,7 @@ import { Button } from '@/shared/ui/button';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 const MAX_BYTES = 5 * 1024 * 1024;
-const MAX_PER_SERVICE = 10;
+const MAX_PER_GALLERY = 10;
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
 
 function normalizeContentType(type: string): 'image/jpeg' | 'image/png' | 'image/webp' | null {
@@ -20,11 +20,12 @@ function normalizeContentType(type: string): 'image/jpeg' | 'image/png' | 'image
 }
 
 export function ServicePortfolioManager({
-  serviceId,
+  serviceId = null,
   serviceName,
   items,
 }: {
-  serviceId: string;
+  /** Null = general “Other work” gallery (not tied to a service). */
+  serviceId?: string | null;
   serviceName: string;
   items: PortfolioItem[];
 }) {
@@ -32,11 +33,16 @@ export function ServicePortfolioManager({
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
+
+  const isOtherWork = !serviceId;
 
   async function invalidate() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['business', 'services'] }),
       queryClient.invalidateQueries({ queryKey: ['business', 'portfolio'] }),
+      queryClient.invalidateQueries({ queryKey: ['directory'] }),
+      queryClient.invalidateQueries({ queryKey: ['booking-page'] }),
     ]);
   }
 
@@ -46,8 +52,8 @@ export function ServicePortfolioManager({
 
     setError(null);
 
-    if (items.length >= MAX_PER_SERVICE) {
-      setError(`Maximum of ${MAX_PER_SERVICE} images for this service.`);
+    if (items.length >= MAX_PER_GALLERY) {
+      setError(`Maximum of ${MAX_PER_GALLERY} images for this gallery.`);
       event.target.value = '';
       return;
     }
@@ -82,7 +88,10 @@ export function ServicePortfolioManager({
         uploadToken: string;
       }>('/businesses/me/portfolio/upload-url', {
         method: 'POST',
-        json: { contentType, serviceOfferingId: serviceId },
+        json: {
+          contentType,
+          ...(serviceId ? { serviceOfferingId: serviceId } : { serviceOfferingId: null }),
+        },
       });
 
       const putResponse = await fetch(uploadMeta.uploadUrl, {
@@ -132,13 +141,15 @@ export function ServicePortfolioManager({
 
   return (
     <div className="space-y-3 border-t border-border pt-3">
-      <div className="flex items-center justify-between gap-2">
-        <div>
-          <p className="text-sm font-medium text-ink">Work photos</p>
-          <p className="text-xs text-ink-muted">
-            Shown under {serviceName} for clients · {items.length}/{MAX_PER_SERVICE}
-          </p>
-        </div>
+      <div>
+        <p className="text-sm font-medium text-ink">
+          {isOtherWork ? 'Upload photos' : 'Work photos'}
+        </p>
+        <p className="text-xs text-ink-muted">
+          {isOtherWork
+            ? `General photos not tied to one service · ${items.length}/${MAX_PER_GALLERY}`
+            : `Shown under ${serviceName} for clients · ${items.length}/${MAX_PER_GALLERY}`}
+        </p>
       </div>
 
       <label className="block">
@@ -148,7 +159,7 @@ export function ServicePortfolioManager({
           accept="image/jpeg,image/jpg,image/png,image/webp,image/*"
           className="block w-full text-sm"
           onChange={(e) => void handleFileChange(e)}
-          disabled={uploading || items.length >= MAX_PER_SERVICE}
+          disabled={uploading || items.length >= MAX_PER_GALLERY}
         />
       </label>
 
@@ -156,20 +167,34 @@ export function ServicePortfolioManager({
       {uploading ? <p className="text-sm text-ink-muted">Uploading…</p> : null}
 
       {items.length === 0 ? (
-        <p className="text-sm text-ink-muted">No photos for this service yet.</p>
+        <p className="text-sm text-ink-muted">
+          {isOtherWork ? 'No other work photos yet.' : 'No photos for this service yet.'}
+        </p>
       ) : (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {items.map((item) => {
             const src = resolveMediaUrl(item.imageUrl);
+            const failed = failedIds.has(item.id);
             return (
               <div key={item.id} className="space-y-2">
-                {src ? (
+                {src && !failed ? (
                   <img
                     src={src}
                     alt={`${serviceName} portfolio`}
                     className="aspect-square w-full rounded-md object-cover"
+                    onError={() =>
+                      setFailedIds((prev) => {
+                        const next = new Set(prev);
+                        next.add(item.id);
+                        return next;
+                      })
+                    }
                   />
-                ) : null}
+                ) : (
+                  <div className="flex aspect-square items-center justify-center rounded-md bg-surface-raised px-2 text-center text-xs text-ink-muted">
+                    Image unavailable — remove and re-upload
+                  </div>
+                )}
                 <Button
                   type="button"
                   variant="secondary"

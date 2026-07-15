@@ -5,7 +5,6 @@ import Link from 'next/link';
 import type { PortfolioItem, ServiceOffering } from '@project-braids/shared-types/api';
 import { ServicePortfolioManager } from '@/features/stylist/service-portfolio-manager';
 import { apiFetchData } from '@/shared/lib/api-client';
-import { resolveMediaUrl } from '@/shared/lib/media-url';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { EmptyState } from '@/shared/ui/empty-state';
@@ -29,27 +28,27 @@ export default function StylistPortfolioPage() {
     <PageShell>
       <PageHeader
         title="Portfolio"
-        subtitle="Upload work photos on each service — clients see them under that style."
+        subtitle="Add photos per service, plus general other work clients can browse."
       />
       <div className="mt-6 space-y-4">
         <Card className="space-y-3">
           <p className="text-sm text-ink-muted">
-            Predefined and custom services both support up to 10 JPEG, PNG, or WebP images (5 MB
-            each). Manage everything here or from Services.
+            Each service can have up to 10 JPEG, PNG, or WebP images (5 MB each). Use Other work for
+            photos that aren’t tied to one style.
           </p>
           <Link href="/stylist/services">
             <Button variant="secondary" fullWidth>
-              Go to services
+              Manage services
             </Button>
           </Link>
         </Card>
 
-        {servicesQuery.isLoading ? (
+        {servicesQuery.isLoading || portfolioQuery.isLoading ? (
           <p className="text-sm text-ink-muted">Loading…</p>
         ) : services.length === 0 ? (
           <EmptyState
             title="Add a service first"
-            description="Portfolio photos are linked to each service you offer."
+            description="Service galleries live on each style you offer. You can still add Other work below once you’re set up — or add a service to attach style-specific photos."
           />
         ) : (
           <div className="space-y-3">
@@ -72,30 +71,20 @@ export default function StylistPortfolioPage() {
           </div>
         )}
 
-        {uncategorized.length > 0 ? (
-          <Card className="space-y-3">
-            <div>
-              <h2 className="font-medium text-ink">Other work</h2>
-              <p className="text-sm text-ink-muted">
-                Older or Instagram imports not linked to a service. Clients see these separately
-                from service galleries.
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {uncategorized.map((item) => {
-                const src = resolveMediaUrl(item.imageUrl);
-                return src ? (
-                  <img
-                    key={item.id}
-                    src={src}
-                    alt="Portfolio"
-                    className="aspect-square w-full rounded-md object-cover"
-                  />
-                ) : null;
-              })}
-            </div>
-          </Card>
-        ) : null}
+        <Card className="space-y-2">
+          <div>
+            <h2 className="font-medium text-ink">Other work</h2>
+            <p className="text-sm text-ink-muted">
+              General photos not linked to a single service. Shown separately on your public
+              profile.
+            </p>
+          </div>
+          <ServicePortfolioManager
+            serviceId={null}
+            serviceName="Other work"
+            items={uncategorized}
+          />
+        </Card>
       </div>
     </PageShell>
   );

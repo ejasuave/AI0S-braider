@@ -191,8 +191,10 @@ const portfolioImageContentTypeSchema = z.preprocess(
 
 export const portfolioUploadUrlRequestSchema = z.object({
   contentType: portfolioImageContentTypeSchema,
-  /** Required for new manual uploads — images are scoped to a service. */
-  serviceOfferingId: z.string().uuid(),
+  /**
+   * Scope upload to a service gallery. Omit / null for general “Other work” photos.
+   */
+  serviceOfferingId: z.string().uuid().nullable().optional(),
   filename: z.string().trim().min(1).max(200).optional(),
 });
 
@@ -214,7 +216,8 @@ export const portfolioUploadUrlResponseSchema = z.object({
 export const registerPortfolioItemRequestSchema = z.object({
   imageUrl: z.string().url(),
   storageKey: z.string().min(1),
-  serviceOfferingId: z.string().uuid(),
+  /** Omit / null for general “Other work” photos. */
+  serviceOfferingId: z.string().uuid().nullable().optional(),
 });
 
 export type RegisterPortfolioItemRequest = z.infer<typeof registerPortfolioItemRequestSchema>;
