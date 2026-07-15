@@ -44,10 +44,14 @@ export function RequireAuth({
       if (!refreshAttemptedRef.current && getAccessToken()) {
         refreshAttemptedRef.current = true;
         void (async () => {
-          const token = await refreshAccessToken();
-          if (token) {
-            await refreshMe();
-            return;
+          try {
+            const token = await refreshAccessToken();
+            if (token) {
+              await refreshMe();
+              return;
+            }
+          } catch {
+            /* refresh/network failure — fall through to login */
           }
           router.replace('/login');
         })();

@@ -142,6 +142,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(
     async (input: { email: string; password: string }) => {
+      // Drop any half-dead session first so RequireAuth /auth/me cannot race login.
+      clearAccessToken();
+      setHasToken(false);
+      setSessionUser(null);
+      queryClient.setQueryData(AUTH_ME_KEY, null);
+
       const session = await apiFetchData<AuthSessionResponse>('/auth/login', {
         auth: false,
         method: 'POST',

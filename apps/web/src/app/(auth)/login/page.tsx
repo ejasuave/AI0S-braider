@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth, getPostAuthPath } from '@/features/auth/auth-context';
+import { getWebEnv } from '@/env';
 import { ApiClientError, getApiErrorMessage } from '@/shared/lib/api-client';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
@@ -11,14 +12,19 @@ import { Card } from '@/shared/ui/card';
 import { FormError } from '@/shared/ui/form-error';
 import { TOUCH_LINK_CLASS } from '@/shared/lib/touch-target';
 
+/** Never leave the button on “Signing in…” if a fetch hangs without aborting. */
+const LOGIN_UI_FAILSAFE_MS = 15_000;
+
 export default function LoginPage() {
   const auth = useAuth();
   const router = useRouter();
   const errorRef = useRef<HTMLDivElement>(null);
+  const failsafeRef = useRef<number | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const apiUrl = getWebEnv().NEXT_PUBLIC_API_URL;
 
   useEffect(() => {
     if (!auth.isLoading && auth.isAuthenticated && auth.user) {
@@ -32,10 +38,27 @@ export default function LoginPage() {
     }
   }, [error]);
 
+  useEffect(() => {
+    return () => {
+      if (failsafeRef.current !== null) {
+        window.clearTimeout(failsafeRef.current);
+      }
+    };
+  }, []);
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
     setLoading(true);
+    if (failsafeRef.current !== null) {
+      window.clearTimeout(failsafeRef.current);
+    }
+    failsafeRef.current = window.setTimeout(() => {
+      setLoading(false);
+      setError(
+        `Sign-in is taking too long talking to ${apiUrl}. Check the Network tab for POST /auth/login, or restart the API.`,
+      );
+    }, LOGIN_UI_FAILSAFE_MS);
     try {
       const user = await auth.login({ email: email.trim(), password });
       // Soft navigate so the session already in AuthProvider is kept — a hard reload
@@ -55,15 +78,22 @@ export default function LoginPage() {
           'Database is not running. From the project root run `pnpm infra:up`, then restart `pnpm dev`.',
         );
       } else if (err instanceof DOMException && err.name === 'TimeoutError') {
-        setError('Sign-in timed out. Check your connection and try again.');
-      } else if (err instanceof TypeError && /fetch|network/i.test(err.message)) {
+        setError(`Sign-in timed out talking to ${apiUrl}. Is the API running?`);
+      } else if (
+        err instanceof TypeError &&
+        /fetch|network|Failed to fetch|Load failed/i.test(err.message)
+      ) {
         setError(
-          'Cannot reach the API server. From the project root, run `pnpm dev` and ensure port 3001 is listening.',
+          `Cannot reach the API at ${apiUrl}. If you are on localhost, run \`pnpm dev\` and ensure port 3001 is listening.`,
         );
       } else {
-        setError(getApiErrorMessage(err, 'Could not sign in. Is the API running on port 3001?'));
+        setError(getApiErrorMessage(err, `Could not sign in via ${apiUrl}.`));
       }
     } finally {
+      if (failsafeRef.current !== null) {
+        window.clearTimeout(failsafeRef.current);
+        failsafeRef.current = null;
+      }
       setLoading(false);
     }
   }
