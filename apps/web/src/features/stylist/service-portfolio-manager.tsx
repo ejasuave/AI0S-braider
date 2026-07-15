@@ -90,7 +90,8 @@ export function ServicePortfolioManager({
         method: 'POST',
         json: {
           contentType,
-          ...(serviceId ? { serviceOfferingId: serviceId } : { serviceOfferingId: null }),
+          // Omit when null — older APIs rejected explicit null; new APIs treat omit as Other work.
+          ...(serviceId ? { serviceOfferingId: serviceId } : {}),
         },
       });
 
@@ -113,7 +114,7 @@ export function ServicePortfolioManager({
             ? uploadMeta.imageUrl
             : `${API_BASE}${uploadMeta.imageUrl}`,
           storageKey: uploadMeta.storageKey,
-          serviceOfferingId: serviceId,
+          ...(serviceId ? { serviceOfferingId: serviceId } : {}),
         },
       });
 
@@ -167,14 +168,32 @@ export function ServicePortfolioManager({
       {uploading ? <p className="text-sm text-ink-muted">Uploading…</p> : null}
 
       {items.length === 0 ? (
-        <p className="text-sm text-ink-muted">
-          {isOtherWork ? 'No other work photos yet.' : 'No photos for this service yet.'}
-        </p>
+        isOtherWork ? null : (
+          <p className="text-sm text-ink-muted">No photos for this service yet.</p>
+        )
       ) : (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {items.map((item) => {
             const src = resolveMediaUrl(item.imageUrl);
             const failed = failedIds.has(item.id);
+
+            if (isOtherWork && (!src || failed)) {
+              // Nothing visible until a usable upload exists — only keep a remove control
+              // for the stylist to clear stale rows.
+              return (
+                <div key={item.id} className="col-span-full">
+                  <button
+                    type="button"
+                    className="text-xs text-ink-muted underline"
+                    onClick={() => void handleDelete(item.id)}
+                    disabled={deletingId === item.id}
+                  >
+                    {deletingId === item.id ? 'Removing…' : 'Clear unavailable photo'}
+                  </button>
+                </div>
+              );
+            }
+
             return (
               <div key={item.id} className="space-y-2">
                 {src && !failed ? (
