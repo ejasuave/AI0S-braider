@@ -14,6 +14,11 @@ import { EmptyState } from '@/shared/ui/empty-state';
 import { PageHeader, PageShell } from '@/shared/ui/page-shell';
 import { StylistAvatar } from '@/shared/ui/portfolio-gallery';
 
+function listingHeroUrl(listing: DirectorySearchResponse['items'][number]): string | null {
+  // Profile headshot is the public card image; portfolio is only a fallback cover.
+  return resolveMediaUrl(listing.photoUrl) ?? resolveMediaUrl(listing.coverImageUrl);
+}
+
 export default function DirectoryPage() {
   const [q, setQ] = useState('');
   const [location, setLocation] = useState('');
@@ -95,51 +100,56 @@ export default function DirectoryPage() {
           />
         ) : (
           <div className="space-y-3">
-            {items.map((listing) => (
-              <Link
-                key={listing.stylistId}
-                href={`/directory/${listing.stylistId}`}
-                className="block active:opacity-95"
-              >
-                <Card className="transition-shadow active:shadow-raised">
-                  <div className="space-y-3">
-                    {listing.coverImageUrl ? (
-                      <img
-                        src={resolveMediaUrl(listing.coverImageUrl) ?? undefined}
-                        alt=""
-                        className="aspect-[16/10] w-full rounded-md object-cover"
-                      />
-                    ) : null}
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex min-w-0 flex-1 items-start gap-3">
-                        <StylistAvatar
-                          photoUrl={listing.photoUrl}
-                          name={listing.businessName}
-                          size="sm"
+            {items.map((listing) => {
+              const heroUrl = listingHeroUrl(listing);
+              return (
+                <Link
+                  key={listing.stylistId}
+                  href={`/directory/${listing.stylistId}`}
+                  className="block active:opacity-95"
+                >
+                  <Card className="overflow-hidden p-0 transition-shadow active:shadow-raised">
+                    <div className="space-y-3">
+                      {heroUrl ? (
+                        <img
+                          src={heroUrl}
+                          alt={`${listing.businessName} profile`}
+                          className="aspect-[16/10] w-full object-cover"
                         />
-                        <div className="min-w-0">
-                          <h2 className="font-display text-lg font-semibold text-ink">
-                            {listing.businessName}
-                          </h2>
-                          <p className="text-sm text-ink-muted">{listing.locationArea}</p>
-                        </div>
-                      </div>
-                      {listing.startingPrice ? (
-                        <p className="shrink-0 text-sm font-medium text-ink">
-                          from {formatMoney(listing.startingPrice)}
-                        </p>
                       ) : null}
+                      <div className="space-y-3 px-4 pb-4 pt-1">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex min-w-0 flex-1 items-start gap-3">
+                            <StylistAvatar
+                              photoUrl={listing.photoUrl}
+                              name={listing.businessName}
+                              size="sm"
+                            />
+                            <div className="min-w-0">
+                              <h2 className="font-display text-lg font-semibold text-ink">
+                                {listing.businessName}
+                              </h2>
+                              <p className="text-sm text-ink-muted">{listing.locationArea}</p>
+                            </div>
+                          </div>
+                          {listing.startingPrice ? (
+                            <p className="shrink-0 text-sm font-medium text-ink">
+                              from {formatMoney(listing.startingPrice)}
+                            </p>
+                          ) : null}
+                        </div>
+                        {listing.bio ? (
+                          <p className="line-clamp-2 text-sm text-ink-muted">{listing.bio}</p>
+                        ) : null}
+                        <p className="text-xs text-ink-muted">
+                          {listing.styleNames.slice(0, 4).join(' · ')}
+                        </p>
+                      </div>
                     </div>
-                    {listing.bio ? (
-                      <p className="line-clamp-2 text-sm text-ink-muted">{listing.bio}</p>
-                    ) : null}
-                    <p className="text-xs text-ink-muted">
-                      {listing.styleNames.slice(0, 4).join(' · ')}
-                    </p>
-                  </div>
-                </Card>
-              </Link>
-            ))}
+                  </Card>
+                </Link>
+              );
+            })}
           </div>
         )}
       </div>

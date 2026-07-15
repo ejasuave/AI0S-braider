@@ -1,15 +1,14 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import type { DirectoryStylistDetail } from '@project-braids/shared-types/api';
 import { apiFetchData } from '@/shared/lib/api-client';
-import { formatMoney } from '@/shared/lib/format';
-import { Button } from '@/shared/ui/button';
+import { resolveMediaUrl } from '@/shared/lib/media-url';
 import { Card } from '@/shared/ui/card';
 import { PageHeader, PageShell } from '@/shared/ui/page-shell';
-import { PortfolioGallery, StylistAvatar } from '@/shared/ui/portfolio-gallery';
+import { StylistAvatar } from '@/shared/ui/portfolio-gallery';
+import { ServiceOfferingAccordion } from '@/shared/ui/service-offering-accordion';
 
 export default function DirectoryStylistPage() {
   const params = useParams<{ stylistId: string }>();
@@ -23,6 +22,10 @@ export default function DirectoryStylistPage() {
   });
 
   const stylist = detailQuery.data;
+  const heroUrl = stylist
+    ? (resolveMediaUrl(stylist.photoUrl) ??
+      resolveMediaUrl(stylist.portfolio?.[0]?.imageUrl ?? null))
+    : null;
 
   return (
     <PageShell>
@@ -32,43 +35,39 @@ export default function DirectoryStylistPage() {
         <p className="mt-6 text-sm text-ink-muted">Loading…</p>
       ) : stylist ? (
         <div className="mt-6 space-y-4">
-          <Card className="space-y-3">
-            <div className="flex items-start gap-3">
-              <StylistAvatar photoUrl={stylist.photoUrl} name={stylist.businessName} size="lg" />
-              <div className="min-w-0">
-                <h1 className="font-display text-2xl font-semibold text-ink">
-                  {stylist.businessName}
-                </h1>
-                <p className="text-sm text-ink-muted">{stylist.locationArea}</p>
+          <Card className="overflow-hidden p-0">
+            {heroUrl ? (
+              <img
+                src={heroUrl}
+                alt={`${stylist.businessName} profile`}
+                className="aspect-[16/10] w-full object-cover"
+              />
+            ) : null}
+            <div className="space-y-3 p-4">
+              <div className="flex items-start gap-3">
+                <StylistAvatar photoUrl={stylist.photoUrl} name={stylist.businessName} size="lg" />
+                <div className="min-w-0">
+                  <h1 className="font-display text-2xl font-semibold text-ink">
+                    {stylist.businessName}
+                  </h1>
+                  <p className="text-sm text-ink-muted">{stylist.locationArea}</p>
+                </div>
               </div>
+              {stylist.bio ? <p className="text-sm text-ink">{stylist.bio}</p> : null}
+              <p className="text-xs text-ink-muted">
+                Prices shown are starting points — your stylist confirms the final quote when you
+                book.
+              </p>
             </div>
-            {stylist.bio ? <p className="text-sm text-ink">{stylist.bio}</p> : null}
-            <p className="text-xs text-ink-muted">
-              Prices shown are starting points — your stylist confirms the final quote when you
-              book.
-            </p>
           </Card>
 
           <div className="space-y-3">
             <h2 className="font-medium text-ink">Services</h2>
-            {stylist.offerings.map((offering) => (
-              <Card key={offering.id} className="space-y-3">
-                <div>
-                  <h3 className="font-medium text-ink">{offering.styleName}</h3>
-                  <p className="text-sm text-ink-muted">
-                    {formatMoney(offering.basePrice)} · {offering.estimatedDurationMinutes} min
-                  </p>
-                </div>
-                {(offering.portfolio?.length ?? 0) > 0 ? (
-                  <PortfolioGallery items={offering.portfolio ?? []} />
-                ) : null}
-                <Link
-                  href={`/book?stylistId=${stylist.stylistId}&serviceOfferingId=${offering.id}`}
-                >
-                  <Button fullWidth>Book this style</Button>
-                </Link>
-              </Card>
-            ))}
+            <ServiceOfferingAccordion
+              stylistId={stylist.stylistId}
+              items={stylist.offerings}
+              bookHref={(id, serviceId) => `/book?stylistId=${id}&serviceOfferingId=${serviceId}`}
+            />
           </div>
         </div>
       ) : (

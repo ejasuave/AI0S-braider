@@ -295,7 +295,7 @@ export class ProfileService {
         locationArea: row.locationArea ?? '',
         bio: row.bio,
         photoUrl: row.photoUrl,
-        coverImageUrl: row.portfolioItems[0]?.imageUrl ?? null,
+        coverImageUrl: row.photoUrl ?? row.portfolioItems[0]?.imageUrl ?? null,
         styleNames: [...new Set(row.serviceOfferings.map((offering) => offering.styleName))],
         startingPrice: row.serviceOfferings[0]?.basePrice.toFixed(2) ?? null,
       })),

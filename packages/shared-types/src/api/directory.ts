@@ -17,7 +17,7 @@ export const directoryListingSchema = z.object({
   locationArea: z.string(),
   bio: z.string().nullable(),
   photoUrl: z.string().url().nullable(),
-  /** First portfolio image — used as a card preview when present. */
+  /** First image clients see on directory cards — profile photo preferred over portfolio. */
   coverImageUrl: z.string().url().nullable(),
   styleNames: z.array(z.string()),
   startingPrice: z.string().nullable(),

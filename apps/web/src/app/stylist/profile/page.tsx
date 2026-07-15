@@ -280,6 +280,8 @@ export default function StylistProfilePage() {
       });
 
       void queryClient.invalidateQueries({ queryKey: ['profile', 'me'] });
+      void queryClient.invalidateQueries({ queryKey: ['directory'] });
+      void queryClient.invalidateQueries({ queryKey: ['booking-page'] });
     } catch (err) {
       setPhotoError(getApiErrorMessage(err));
     } finally {
@@ -294,6 +296,8 @@ export default function StylistProfilePage() {
     try {
       await apiFetchData('/businesses/me/photo', { method: 'DELETE' });
       void queryClient.invalidateQueries({ queryKey: ['profile', 'me'] });
+      void queryClient.invalidateQueries({ queryKey: ['directory'] });
+      void queryClient.invalidateQueries({ queryKey: ['booking-page'] });
     } catch (err) {
       setPhotoError(getApiErrorMessage(err));
     } finally {

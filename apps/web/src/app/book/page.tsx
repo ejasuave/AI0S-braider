@@ -21,7 +21,8 @@ import { Card } from '@/shared/ui/card';
 import { Input } from '@/shared/ui/input';
 import { Textarea } from '@/shared/ui/textarea';
 import { PageHeader, PageShell } from '@/shared/ui/page-shell';
-import { PortfolioGallery, StylistAvatar } from '@/shared/ui/portfolio-gallery';
+import { StylistAvatar } from '@/shared/ui/portfolio-gallery';
+import { ServiceOfferingAccordion } from '@/shared/ui/service-offering-accordion';
 import { StatusBadge } from '@/shared/ui/status-badge';
 
 function useBookingPage(stylistId: string) {
@@ -81,24 +82,11 @@ function ServicePicker({
                 ? ` Options: ${page!.venueOptions.map(serviceVenueModeLabel).join(', ')}.`
                 : ''}
             </p>
-            <div className="space-y-3">
-              {page.offerings.map((offering) => (
-                <Card key={offering.id} className="space-y-3">
-                  <div>
-                    <h2 className="font-medium text-ink">{offering.styleName}</h2>
-                    <p className="text-sm text-ink-muted">
-                      {formatMoney(offering.basePrice)} · {offering.estimatedDurationMinutes} min
-                    </p>
-                  </div>
-                  {(offering.portfolio?.length ?? 0) > 0 ? (
-                    <PortfolioGallery items={offering.portfolio ?? []} />
-                  ) : null}
-                  <Link href={serviceBookingPath(stylistId, offering.id)}>
-                    <Button fullWidth>Book this style</Button>
-                  </Link>
-                </Card>
-              ))}
-            </div>
+            <ServiceOfferingAccordion
+              stylistId={stylistId}
+              items={page.offerings}
+              bookHref={(id, serviceId) => serviceBookingPath(id, serviceId)}
+            />
           </>
         )}
       </div>
