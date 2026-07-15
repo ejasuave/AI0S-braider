@@ -9,6 +9,10 @@ import { Card } from '@/shared/ui/card';
 import { PageHeader, PageShell } from '@/shared/ui/page-shell';
 import { StylistAvatar, PortfolioGallery } from '@/shared/ui/portfolio-gallery';
 import { ServiceOfferingAccordion } from '@/shared/ui/service-offering-accordion';
+import { SaveStylistButton } from '@/features/client/save-stylist-button';
+import { Button } from '@/shared/ui/button';
+import Link from 'next/link';
+import { stylistBookingPath } from '@/shared/lib/booking-links';
 
 export default function DirectoryStylistPage() {
   const params = useParams<{ stylistId: string }>();
@@ -59,6 +63,14 @@ export default function DirectoryStylistPage() {
                 Prices shown are starting points — your stylist confirms the final quote when you
                 book.
               </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Link href={stylistBookingPath(stylist.stylistId)}>
+                  <Button type="button" fullWidth>
+                    Book appointment
+                  </Button>
+                </Link>
+                <SaveStylistButton stylistId={stylist.stylistId} fullWidth />
+              </div>
             </div>
           </Card>
 

@@ -284,6 +284,9 @@ function ServiceBooking({
               </div>
             ) : null}
             <StatusBadge label="AI receptionist available via SMS" tone="ai" />
+            <Link href={stylistBookingPath(stylistId)} className="inline-block text-sm text-primary underline">
+              Choose a different style with this stylist
+            </Link>
           </Card>
         ) : (
           <Card className="space-y-3">

@@ -29,10 +29,13 @@ import {
 } from '@/shared/lib/format';
 import { serviceVenueModeLabel } from '@/shared/lib/venue';
 import { remainingBalanceMethodLabel } from '@/shared/lib/pricing';
+import { serviceBookingPath, stylistBookingPath } from '@/shared/lib/booking-links';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { PageHeader, PageShell } from '@/shared/ui/page-shell';
 import { StatusBadge } from '@/shared/ui/status-badge';
+import Link from 'next/link';
+import { SaveStylistButton } from '@/features/client/save-stylist-button';
 
 const POLL_INTERVAL_MS = 2000;
 
@@ -357,6 +360,26 @@ function ClientBookingDetailContent() {
               <StatusBadge label={depositStatusLabel(booking.depositStatus)} tone="neutral" />
             </div>
             <dl className="space-y-2 text-sm">
+              {booking.stylistBusinessName ? (
+                <div>
+                  <dt className="text-ink-muted">Stylist</dt>
+                  <dd className="font-medium text-ink">{booking.stylistBusinessName}</dd>
+                </div>
+              ) : null}
+              {booking.serviceStyleName ? (
+                <div>
+                  <dt className="text-ink-muted">Style</dt>
+                  <dd className="font-medium text-ink">{booking.serviceStyleName}</dd>
+                </div>
+              ) : null}
+              {(booking.addons?.length ?? 0) > 0 ? (
+                <div>
+                  <dt className="text-ink-muted">Add-ons</dt>
+                  <dd className="font-medium text-ink">
+                    {booking.addons.map((addon) => addon.name).join(', ')}
+                  </dd>
+                </div>
+              ) : null}
               <div>
                 <dt className="text-ink-muted">When</dt>
                 <dd className="font-medium text-ink">{formatDateTime(booking.startTime)}</dd>
@@ -570,6 +593,28 @@ function ClientBookingDetailContent() {
               <p className="text-sm text-success">Booking confirmed. See you soon!</p>
             </Card>
           ) : null}
+
+          <Card className="space-y-3">
+            <h2 className="font-medium text-ink">Book again</h2>
+            <p className="text-sm text-ink-muted">
+              Same stylist — keep this style or pick a different one.
+            </p>
+            <div className="grid gap-2">
+              {booking.serviceOfferingId ? (
+                <Link href={serviceBookingPath(booking.stylistId, booking.serviceOfferingId)}>
+                  <Button type="button" fullWidth>
+                    Book same style again
+                  </Button>
+                </Link>
+              ) : null}
+              <Link href={stylistBookingPath(booking.stylistId)}>
+                <Button type="button" variant="secondary" fullWidth>
+                  Choose a different style
+                </Button>
+              </Link>
+              <SaveStylistButton stylistId={booking.stylistId} fullWidth />
+            </div>
+          </Card>
 
           {booking.status === 'held' || booking.status === 'confirmed' ? (
             <Button

@@ -85,6 +85,52 @@ async function loadClientPhones(
   return new Map(users.map((u) => [u.id, u.phoneNumber]));
 }
 
+/** Resolve stylist business name + style name for client booking history. */
+async function loadClientBookingLabels(
+  bookings: Array<{ id: string; stylistId: string; serviceOfferingId: string | null }>,
+): Promise<Map<string, { stylistBusinessName: string | null; serviceStyleName: string | null }>> {
+  const stylistIds = [...new Set(bookings.map((b) => b.stylistId))];
+  const serviceIds = [
+    ...new Set(
+      bookings
+        .map((b) => b.serviceOfferingId)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+
+  const [stylists, offerings] = await Promise.all([
+    stylistIds.length === 0
+      ? Promise.resolve([])
+      : prisma.stylistProfile.findMany({
+          where: { id: { in: stylistIds } },
+          select: { id: true, businessName: true },
+        }),
+    serviceIds.length === 0
+      ? Promise.resolve([])
+      : prisma.serviceOffering.findMany({
+          where: { id: { in: serviceIds } },
+          select: { id: true, styleName: true },
+        }),
+  ]);
+
+  const stylistNames = new Map(stylists.map((row) => [row.id, row.businessName]));
+  const styleNames = new Map(offerings.map((row) => [row.id, row.styleName]));
+  const labels = new Map<
+    string,
+    { stylistBusinessName: string | null; serviceStyleName: string | null }
+  >();
+
+  for (const booking of bookings) {
+    labels.set(booking.id, {
+      stylistBusinessName: stylistNames.get(booking.stylistId) ?? null,
+      serviceStyleName: booking.serviceOfferingId
+        ? (styleNames.get(booking.serviceOfferingId) ?? null)
+        : null,
+    });
+  }
+  return labels;
+}
+
 async function resolveVenueOffersForStylist(stylistId: string): Promise<{
   offeredModes: Array<'remote' | 'stylist_location' | 'come_to_client'>;
   workplaceAddress: string | null;
@@ -199,7 +245,15 @@ export class BookingService {
       where,
       orderBy: { startTime: 'desc' },
     });
-    return bookings.map((booking) => toBooking(booking, { audience: 'client' }));
+    const labels = await loadClientBookingLabels(bookings);
+    return bookings.map((booking) => {
+      const label = labels.get(booking.id);
+      return toBooking(booking, {
+        audience: 'client',
+        stylistBusinessName: label?.stylistBusinessName ?? null,
+        serviceStyleName: label?.serviceStyleName ?? null,
+      });
+    });
   }
 
   async requiresStylistApproval(stylistId: string): Promise<boolean> {
@@ -279,7 +333,13 @@ export class BookingService {
     if (!booking) {
       throw ApiError.notFound('Booking not found');
     }
-    return toBooking(booking, { audience: 'client' });
+    const labels = await loadClientBookingLabels([booking]);
+    const label = labels.get(booking.id);
+    return toBooking(booking, {
+      audience: 'client',
+      stylistBusinessName: label?.stylistBusinessName ?? null,
+      serviceStyleName: label?.serviceStyleName ?? null,
+    });
   }
 
   async createHold(clientId: string, input: CreateBookingHoldRequest): Promise<Booking> {

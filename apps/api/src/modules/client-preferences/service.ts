@@ -1,5 +1,6 @@
 import { getEnv } from '../../config/env.js';
 import type { UpdateNotificationPreferencesRequest } from '@project-braids/shared-types/api';
+import { prisma } from '../../lib/db.js';
 import { ApiError } from '../../lib/errors.js';
 import { clientPreferencesRepository } from './repository.js';
 import { startConfirmationMessage, stopConfirmationMessage } from '../notifications/opt-out.js';
@@ -104,6 +105,13 @@ export class ClientPreferencesService {
   }
 
   async saveStylist(clientId: string, stylistId: string) {
+    const stylist = await prisma.stylistProfile.findUnique({
+      where: { id: stylistId },
+      select: { id: true },
+    });
+    if (!stylist) {
+      throw ApiError.notFound('Stylist not found');
+    }
     return clientPreferencesRepository.saveStylist(clientId, stylistId);
   }
 

@@ -15,15 +15,21 @@ export function BookingCard({
   booking,
   href,
   showClient = false,
+  showStylist = false,
 }: {
   booking: Booking;
   href: string;
   showClient?: boolean;
+  /** Client history: show who they booked with + style done. */
+  showStylist?: boolean;
 }) {
   const clientLabel =
     booking.clientDisplayName?.trim() ||
     booking.clientPhoneNumber ||
     (booking.clientId ? 'Client' : null);
+
+  const stylistLabel = booking.stylistBusinessName?.trim() || null;
+  const styleLabel = booking.serviceStyleName?.trim() || null;
 
   return (
     <Link href={href} className="block transition-opacity active:opacity-90">
@@ -33,7 +39,17 @@ export function BookingCard({
             {showClient && clientLabel ? (
               <p className="font-medium text-ink">{clientLabel}</p>
             ) : null}
-            <p className={`font-medium text-ink ${showClient && clientLabel ? 'text-sm' : ''}`}>
+            {showStylist && stylistLabel ? (
+              <p className="font-medium text-ink">{stylistLabel}</p>
+            ) : null}
+            {showStylist && styleLabel ? (
+              <p className="text-sm text-ink">{styleLabel}</p>
+            ) : null}
+            <p
+              className={`font-medium text-ink ${
+                (showClient && clientLabel) || (showStylist && stylistLabel) ? 'text-sm' : ''
+              }`}
+            >
               {formatDateTime(booking.startTime)}
             </p>
             <p className="text-sm text-ink-muted">

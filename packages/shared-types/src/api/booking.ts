@@ -69,6 +69,10 @@ export const bookingSchema = z.object({
   remainingBalanceMethod: z.enum(['cash', 'card', 'cash_or_card']).nullable(),
   requirementsAcknowledgedAt: z.string().datetime().nullable(),
   policiesAcknowledgedAt: z.string().datetime().nullable(),
+  /** Client history — stylist display name (joined, not snapshotted). */
+  stylistBusinessName: z.string().nullable().optional(),
+  /** Client history — style/service name (joined; null if offering removed). */
+  serviceStyleName: z.string().nullable().optional(),
   createdAt: z.string().datetime(),
   cancelledAt: z.string().datetime().nullable(),
   cancellationReason: z.string().nullable(),

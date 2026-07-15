@@ -21,6 +21,8 @@ export type BookingMapOptions = {
   requireStylistApproval?: boolean;
   audience?: 'stylist' | 'client';
   clientPhoneNumber?: string | null;
+  stylistBusinessName?: string | null;
+  serviceStyleName?: string | null;
 };
 
 function shouldRevealVenueAddress(
@@ -151,6 +153,12 @@ export function toBooking(booking: DbBooking, options?: BookingMapOptions): Book
     policiesAcknowledgedAt: booking.policiesAcknowledgedAt
       ? toIso(booking.policiesAcknowledgedAt)
       : null,
+    ...(options?.stylistBusinessName !== undefined
+      ? { stylistBusinessName: options.stylistBusinessName }
+      : {}),
+    ...(options?.serviceStyleName !== undefined
+      ? { serviceStyleName: options.serviceStyleName }
+      : {}),
     createdAt: toIso(booking.createdAt),
     cancelledAt: booking.cancelledAt ? toIso(booking.cancelledAt) : null,
     cancellationReason: booking.cancellationReason,

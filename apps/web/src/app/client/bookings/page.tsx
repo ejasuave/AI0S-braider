@@ -67,6 +67,7 @@ export default function ClientBookingsPage() {
               key={booking.id}
               booking={booking}
               href={`/client/bookings/${booking.id}`}
+              showStylist
             />
           ))
         )}
