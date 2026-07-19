@@ -27,15 +27,26 @@ export const RECEPTIONIST_NEXT_ACTIONS = [
 
 export type ReceptionistNextAction = (typeof RECEPTIONIST_NEXT_ACTIONS)[number];
 
+/** Claude often returns `""` for unused optional tool fields — treat as omitted. */
+function emptyToUndefined(value: unknown): unknown {
+  if (value === null || value === '') return undefined;
+  return value;
+}
+
+const optionalNonEmptyString = z.preprocess(
+  emptyToUndefined,
+  z.string().trim().min(1).optional(),
+);
+
 export const extractedSlotsSchema = z.object({
-  styleName: z.string().trim().min(1).optional(),
-  sizeTier: z.string().trim().min(1).optional(),
-  lengthTier: z.string().trim().min(1).optional(),
-  preferredDate: z.string().trim().min(1).optional(),
-  selectedSlotStart: z.string().datetime().optional(),
-  selectedSlotIndex: z.number().int().min(1).max(9).optional(),
-  serviceOfferingId: z.string().uuid().optional(),
-  bookingId: z.string().uuid().optional(),
+  styleName: optionalNonEmptyString,
+  sizeTier: optionalNonEmptyString,
+  lengthTier: optionalNonEmptyString,
+  preferredDate: optionalNonEmptyString,
+  selectedSlotStart: z.preprocess(emptyToUndefined, z.string().datetime().optional()),
+  selectedSlotIndex: z.preprocess(emptyToUndefined, z.number().int().min(1).max(9).optional()),
+  serviceOfferingId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  bookingId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
 });
 
 export type ExtractedSlots = z.infer<typeof extractedSlotsSchema>;
@@ -46,7 +57,7 @@ export const receptionistTurnOutputSchema = z.object({
   confidence: z.number().min(0).max(1),
   next_action: z.enum(RECEPTIONIST_NEXT_ACTIONS),
   client_message: z.string().trim().min(1).max(1600),
-  escalation_reason: z.string().trim().min(1).max(500).optional(),
+  escalation_reason: z.preprocess(emptyToUndefined, z.string().trim().min(1).max(500).optional()),
 });
 
 export type ReceptionistTurnOutput = z.infer<typeof receptionistTurnOutputSchema>;

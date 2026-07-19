@@ -42,4 +42,25 @@ describe('receptionistTurnOutputSchema', () => {
     });
     expect(parsed.success).toBe(false);
   });
+
+  it('treats empty optional extracted_slots fields as omitted', () => {
+    const parsed = receptionistTurnOutputSchema.safeParse({
+      intent: 'new_booking',
+      extracted_slots: {
+        styleName: '',
+        preferredDate: '',
+        selectedSlotStart: '',
+        serviceOfferingId: '',
+      },
+      confidence: 0.92,
+      next_action: 'ask_clarification',
+      client_message: 'What style are you looking for?',
+      escalation_reason: '',
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.extracted_slots).toEqual({});
+      expect(parsed.data.escalation_reason).toBeUndefined();
+    }
+  });
 });

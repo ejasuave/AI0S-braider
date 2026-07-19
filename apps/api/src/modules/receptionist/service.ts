@@ -5,6 +5,7 @@ import {
 } from '@project-braids/shared-types/api';
 import { getEnv } from '../../config/env.js';
 import { getClaudeProvider } from '../../lib/claude/index.js';
+import { createLogger } from '../../lib/logger.js';
 import { messagingRepository } from '../messaging/repository.js';
 import { messagingService } from '../messaging/service.js';
 import { clientPreferencesService } from '../client-preferences/service.js';
@@ -14,6 +15,8 @@ import { dispatchReceptionistTurn } from './dispatch.js';
 import { detectPromptInjection, isAmbiguousSlotSelection, shouldEscalate } from './escalation.js';
 import { buildSystemPrompt, buildUserPrompt } from './prompt.js';
 import { advanceBookingFlow } from './flow.js';
+
+const log = createLogger().child({ module: 'receptionist' });
 
 export type ProcessTurnResult = {
   status: 'replied' | 'escalated' | 'skipped';
@@ -90,12 +93,20 @@ export class ReceptionistService {
     try {
       output = await completeTurnWithValidation(context);
     } catch (firstError) {
+      log.warn(
+        { conversationId, err: firstError },
+        'Receptionist structured output failed; retrying with correction',
+      );
       try {
         output = await completeTurnWithValidation(
           context,
           firstError instanceof Error ? firstError.message : 'invalid structured output',
         );
-      } catch {
+      } catch (retryError) {
+        log.error(
+          { conversationId, err: retryError },
+          'Receptionist structured output failed after retry; escalating',
+        );
         await escalateWithModelContext(
           conversationId,
           ESCALATION_REASONS.structuredOutputValidationFailed,

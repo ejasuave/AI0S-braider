@@ -44,7 +44,7 @@ export const apiEnvSchema = z.object({
   MESSAGING_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(30),
   MESSAGING_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
   ANTHROPIC_API_KEY: z.string().optional(),
-  ANTHROPIC_MODEL: z.string().default('claude-sonnet-4-20250514'),
+  ANTHROPIC_MODEL: z.string().default('claude-sonnet-5'),
   AI_RECEPTIONIST_ENABLED: z
     .enum(['true', 'false'])
     .default('true')
