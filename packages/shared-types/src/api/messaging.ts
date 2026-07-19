@@ -102,6 +102,17 @@ export const sendConversationMessageRequestSchema = z.object({
 });
 export type SendConversationMessageRequest = z.infer<typeof sendConversationMessageRequestSchema>;
 
+/** Authenticated client starts (or resumes) an in-app web conversation with a stylist. */
+export const startClientConversationRequestSchema = z.object({
+  stylistId: z.string().uuid(),
+});
+export type StartClientConversationRequest = z.infer<typeof startClientConversationRequestSchema>;
+
+export const startClientConversationResponseSchema = z.object({
+  conversationId: z.string().uuid(),
+});
+export type StartClientConversationResponse = z.infer<typeof startClientConversationResponseSchema>;
+
 export const resolveEscalationRequestSchema = z.object({
   note: z.string().max(500).optional(),
 });

@@ -1,6 +1,6 @@
 # Messaging (Chapter 11)
 
-Channel-agnostic conversation substrate for SMS (MVP), with WhatsApp and web widget deferred to V2 per locked stack.
+Channel-agnostic conversation substrate. **Founder override (2026-07):** authenticated **in-app web chat** is the primary client ↔ AI receptionist channel. Twilio SMS ingress remains supported (webhook + booking numbers) but is not the primary product UI. Anonymous embeddable web widget and WhatsApp remain V2.
 
 ## Module ownership
 
@@ -9,6 +9,7 @@ Channel-agnostic conversation substrate for SMS (MVP), with WhatsApp and web wid
 | `conversations`, `messages`, `escalations` schema            | AI message content / intent (Ch.13 receptionist) |
 | `sendMessage` / `receiveMessage` write paths                 | Notification scheduling (Ch.12)                  |
 | Twilio SMS ingress/egress + delivery status                  | Payment capture (Ch.9)                           |
+| In-app client web chat (authenticated)                       | Anonymous embeddable widget (V2)                 |
 | `escalateConversation` / `isEscalated` / `resolveEscalation` |                                                  |
 
 **Tenant key:** `stylistId` on `conversations` (maps to prompt library `business_id`).
@@ -30,12 +31,20 @@ messagingService.resolveEscalation(stylistId, conversationId, resolvedById)
 | GET    | `/api/v1/messaging/conversations`                        | stylist    | Paginated inbox (`limit`, `offset`) |
 | GET    | `/api/v1/messaging/conversations/:id`                    | stylist    | Thread detail                       |
 | GET    | `/api/v1/messaging/client/conversations`                 | client     | Own threads only                    |
+| POST   | `/api/v1/messaging/client/conversations`                 | client     | Start/resume `channel: web` thread  |
 | GET    | `/api/v1/messaging/client/conversations/:id`             | client     | Own thread detail                   |
+| POST   | `/api/v1/messaging/client/conversations/:id/messages`    | client     | In-app client message + AI turn     |
 | POST   | `/api/v1/messaging/conversations/:id/messages`           | stylist    | Reply while escalated               |
 | POST   | `/api/v1/messaging/conversations/:id/escalate`           | stylist    | Handoff to human                    |
 | POST   | `/api/v1/messaging/conversations/:id/resolve-escalation` | stylist    | Return to AI                        |
 | POST   | `/api/v1/webhooks/twilio/sms`                            | Twilio sig | Inbound SMS                         |
 | POST   | `/api/v1/webhooks/twilio/sms/status`                     | Twilio     | Delivery callbacks                  |
+
+## In-app web chat (primary)
+
+1. Client `POST /messaging/client/conversations` with `{ stylistId }` → open `channel: 'web'` conversation.
+2. Client `POST .../messages` with `{ content }` → `receiveMessage` then `receptionistService.processInboundTurn`.
+3. AI / stylist / system replies use `sendOutboundMessage`, which **does not** send Twilio SMS when `channel !== 'sms'`.
 
 ## SMS trust model (Prompt 11.2)
 
@@ -61,6 +70,8 @@ Outbound SMS messages store `delivery_status` (`pending` → `sent` → `deliver
 | Prompt          | Status | Notes                                                      |
 | --------------- | ------ | ---------------------------------------------------------- |
 | 11.3 WhatsApp   | V2     | Requires Meta WhatsApp Business API provisioned externally |
-| 11.4 Web widget | V2     | Session-token channel + SSE; embed on public pages         |
+| 11.4 Web widget | V2     | Anonymous/embeddable widget on public pages (SSE)          |
+
+Authenticated in-app web chat (above) is **not** the V2 widget.
 
 See `apps/api/src/modules/messaging/README.md` for implementation file map.

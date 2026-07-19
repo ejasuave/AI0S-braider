@@ -13,4 +13,4 @@ alwaysApply: true
 
 **API-first:** Business logic in `apps/api` only. Web uses typed API client + TanStack Query. No Prisma in web. No Server Actions as canonical writes.
 
-**MVP channel:** SMS only (Twilio). WhatsApp and web widget are V2.
+**MVP channel:** Authenticated in-app web chat (primary; founder override). Twilio SMS ingress still supported. WhatsApp and anonymous web widget are V2.

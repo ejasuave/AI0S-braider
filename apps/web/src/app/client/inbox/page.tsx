@@ -45,7 +45,7 @@ export default function ClientInboxPage() {
     <PageShell>
       <PageHeader
         title="Messages"
-        subtitle="SMS threads with stylists. Reply from your phone — AI and stylist replies land here too."
+        subtitle="In-app chats with stylists and their AI receptionist."
       />
 
       <div className="mt-6 space-y-3" aria-live="polite">
@@ -58,12 +58,11 @@ export default function ClientInboxPage() {
           <>
             <EmptyState
               title="No conversations yet"
-              description="Find a stylist, then tap Text AI receptionist to open SMS. Threads appear here after you text."
+              description="Open a stylist profile and tap Message AI receptionist to start chatting in the app."
             />
             <Card className="space-y-2">
               <p className="text-sm text-ink-muted">
-                Looking for someone to message? Browse the directory and use the SMS button on their
-                profile.
+                Browse the directory to find someone to message.
               </p>
               <Link href="/directory" className={TOUCH_LINK_CLASS}>
                 Find a braider →

@@ -27,7 +27,7 @@ import { Textarea } from '@/shared/ui/textarea';
 import { PageHeader, PageShell } from '@/shared/ui/page-shell';
 import { StylistAvatar } from '@/shared/ui/portfolio-gallery';
 import { ServiceOfferingAccordion } from '@/shared/ui/service-offering-accordion';
-import { TextSmsCta } from '@/features/messaging/text-sms-cta';
+import { MessageStylistButton } from '@/features/messaging/message-stylist-button';
 
 function useBookingPage(stylistId: string) {
   return useQuery({
@@ -80,8 +80,8 @@ function ServicePicker({
                 ) : null}
               </div>
             </Card>
-            <TextSmsCta
-              smsBookingNumber={page.smsBookingNumber}
+            <MessageStylistButton
+              stylistId={stylistId}
               stylistName={page.businessName}
             />
             <p className="text-sm text-ink-muted">
@@ -287,8 +287,8 @@ function ServiceBooking({
                 </ul>
               </div>
             ) : null}
-            <TextSmsCta
-              smsBookingNumber={pageQuery.data?.smsBookingNumber}
+            <MessageStylistButton
+              stylistId={stylistId}
               stylistName={pageQuery.data?.businessName}
               compact
             />

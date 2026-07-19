@@ -6,6 +6,7 @@ import {
   resolveEscalationRequestSchema,
   sendConversationMessageRequestSchema,
   setSmsBookingNumberRequestSchema,
+  startClientConversationRequestSchema,
 } from '@project-braids/shared-types/api';
 import { sendData } from '../../lib/http.js';
 import { requireClient, requireStylist } from '../identity/guards.js';
@@ -44,12 +45,39 @@ export const messagingRoutes: FastifyPluginAsync = async (app) => {
     sendData(reply, conversations);
   });
 
+  app.post('/client/conversations', { preHandler: [requireClient] }, async (request, reply) => {
+    const auth = (request as AuthenticatedRequest).auth;
+    const body = startClientConversationRequestSchema.parse(request.body);
+    const result = await messagingService.startClientWebConversation(auth.user.id, body.stylistId);
+    sendData(reply, result, 201);
+  });
+
   app.get('/client/conversations/:id', { preHandler: [requireClient] }, async (request, reply) => {
     const auth = (request as AuthenticatedRequest).auth;
     const { id } = request.params as { id: string };
     const conversation = await messagingService.getClientConversation(auth.user.id, id);
     sendData(reply, conversation);
   });
+
+  app.post(
+    '/client/conversations/:id/messages',
+    { preHandler: [requireClient] },
+    async (request, reply) => {
+      const auth = (request as AuthenticatedRequest).auth;
+      const { id } = request.params as { id: string };
+      const body = sendConversationMessageRequestSchema.parse(request.body);
+      const inbound = await messagingService.receiveClientWebMessage(
+        auth.user.id,
+        id,
+        body.content,
+      );
+      if (!inbound.duplicate) {
+        await receptionistService.processInboundTurn(inbound.conversationId);
+      }
+      const conversation = await messagingService.getClientConversation(auth.user.id, id);
+      sendData(reply, conversation);
+    },
+  );
 
   app.get('/conversations/:id', { preHandler: [requireStylist] }, async (request, reply) => {
     const auth = (request as AuthenticatedRequest).auth;

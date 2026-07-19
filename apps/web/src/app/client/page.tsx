@@ -85,10 +85,10 @@ export default function ClientHomePage() {
         </Card>
 
         <Card className="space-y-2">
-          <p className="text-sm font-medium text-ink">Messages (SMS)</p>
+          <p className="text-sm font-medium text-ink">Messages</p>
           <p className="text-sm text-ink-muted">
-            Chat with stylists via text — the AI receptionist replies by SMS. Open a stylist
-            profile and tap Text AI receptionist, then check Messages for the thread.
+            Chat with a stylist&apos;s AI receptionist in the app — ask about styles, times, and
+            bookings. Start from a stylist profile or your Messages tab.
           </p>
           <Link href="/client/inbox" className={TOUCH_LINK_CLASS}>
             Open Messages →

@@ -9,6 +9,7 @@ import type {
   ConversationListQuery,
   ConversationListResponse,
   InboundSmsResult,
+  StartClientConversationResponse,
   StylistSmsBookingNumber,
 } from '@project-braids/shared-types/api';
 import { ApiError } from '../../lib/errors.js';
@@ -16,6 +17,7 @@ import { getEnv } from '../../config/env.js';
 import { assertInboundMessagingAllowed } from '../../lib/messaging-rate-limit.js';
 import { isValidE164Phone, normalizePhoneNumber } from '../../lib/phone.js';
 import { getSmsProvider } from '../../lib/sms/sms-provider.js';
+import { prisma } from '../../lib/db.js';
 import { identityService } from '../identity/service.js';
 import { emitConversationEscalated, emitConversationMessage } from '../../lib/domain-events.js';
 import { toConversationDetail, toConversationSummary } from './mappers.js';
@@ -508,6 +510,72 @@ export class MessagingService {
       clientId: input.clientId,
       channel,
     });
+  }
+
+  /** In-app client chat — start or resume an open web conversation with a stylist. */
+  async startClientWebConversation(
+    clientId: string,
+    stylistId: string,
+  ): Promise<StartClientConversationResponse> {
+    const stylist = await prisma.stylistProfile.findUnique({
+      where: { id: stylistId },
+      select: { id: true },
+    });
+    if (!stylist) {
+      throw ApiError.notFound('Stylist not found');
+    }
+
+    const conversation = await this.findOrCreateSmsConversation({
+      stylistId,
+      clientId,
+      channel: 'web',
+    });
+
+    return { conversationId: conversation.id };
+  }
+
+  /**
+   * In-app client chat — append a client message on a web thread.
+   * Caller should invoke the receptionist turn when `duplicate` is false.
+   */
+  async receiveClientWebMessage(
+    clientId: string,
+    conversationId: string,
+    content: string,
+  ): Promise<InboundSmsResult & { stylistId: string }> {
+    const conversation = await messagingRepository.getConversationForClient(
+      clientId,
+      conversationId,
+    );
+    if (!conversation) {
+      throw ApiError.notFound('Conversation not found');
+    }
+
+    if (conversation.channel !== 'web') {
+      throw new ApiError(
+        'FORBIDDEN',
+        'This conversation is not an in-app chat thread',
+        403,
+      );
+    }
+
+    if (!ACTIVE_STATUSES.has(conversation.status)) {
+      throw new ApiError('CONFLICT', 'Conversation is not open', 409);
+    }
+
+    const trimmed = content.trim();
+    if (!trimmed) {
+      throw ApiError.validation('Message content is required');
+    }
+
+    const inbound = await this.receiveMessage({
+      stylistId: conversation.stylistId,
+      clientId,
+      channel: 'web',
+      content: trimmed,
+    });
+
+    return { ...inbound, stylistId: conversation.stylistId };
   }
 }
 

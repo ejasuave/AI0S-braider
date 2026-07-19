@@ -318,4 +318,77 @@ describe('messaging routes', () => {
 
     await app.close();
   });
+
+  it('starts an in-app web conversation, runs AI reply, and does not send SMS', async ({ skip }) => {
+    if (!databaseAvailable) skip();
+    const app = await buildApp();
+    await registerAndLoginStylist(app);
+
+    const me = await app.inject({
+      method: 'GET',
+      url: '/api/v1/auth/me',
+      headers: { authorization: `Bearer ${stylistAccessToken}` },
+    });
+    expect(me.statusCode).toBe(200);
+    const stylistId = me.json().data.stylistId as string;
+    expect(stylistId).toBeTruthy();
+
+    await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/register/client',
+      payload: { phoneNumber: clientPhone },
+    });
+    const otp = getLastDevOtp();
+    const verify = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/otp/verify',
+      payload: {
+        phoneNumber: clientPhone,
+        code: otp?.code,
+        purpose: 'phone_verify',
+      },
+    });
+    expect(verify.statusCode).toBe(200);
+    const clientToken = verify.json().data.tokens.accessToken as string;
+
+    const smsBefore = sms.sent.length;
+
+    const start = await app.inject({
+      method: 'POST',
+      url: '/api/v1/messaging/client/conversations',
+      headers: { authorization: `Bearer ${clientToken}` },
+      payload: { stylistId },
+    });
+    expect(start.statusCode).toBe(201);
+    const conversationId = start.json().data.conversationId as string;
+
+    const send = await app.inject({
+      method: 'POST',
+      url: `/api/v1/messaging/client/conversations/${conversationId}/messages`,
+      headers: { authorization: `Bearer ${clientToken}` },
+      payload: { content: 'Hello — are you available for a chat?' },
+    });
+    expect(send.statusCode).toBe(200);
+    const detail = send.json().data;
+    expect(detail.channel).toBe('web');
+    expect(detail.status).toBe('active');
+    expect(detail.messages.some((m: { sender: string }) => m.sender === 'client')).toBe(true);
+    expect(detail.messages.some((m: { sender: string }) => m.sender === 'ai')).toBe(true);
+    const aiMessage = detail.messages.find((m: { sender: string }) => m.sender === 'ai');
+    expect(aiMessage?.content).toContain('Thanks');
+
+    // Web channel must not trigger Twilio/console SMS for the AI reply.
+    expect(sms.sent.length).toBe(smsBefore);
+
+    const resume = await app.inject({
+      method: 'POST',
+      url: '/api/v1/messaging/client/conversations',
+      headers: { authorization: `Bearer ${clientToken}` },
+      payload: { stylistId },
+    });
+    expect(resume.statusCode).toBe(201);
+    expect(resume.json().data.conversationId).toBe(conversationId);
+
+    await app.close();
+  });
 });

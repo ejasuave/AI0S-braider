@@ -19,7 +19,7 @@ Read every relevant document **completely** before making changes.
 - **Storage:** Supabase Storage via `StorageProvider` abstraction
 - **AI:** Anthropic Claude only, stateless — no OpenAI, no LangGraph
 - **Payments:** Stripe Connect
-- **Messaging:** Twilio SMS (MVP); WhatsApp V2
+- **Messaging:** Authenticated in-app web chat (primary client ↔ AI); Twilio SMS ingress still supported; WhatsApp V2
 
 ## Non-negotiables
 
@@ -56,7 +56,7 @@ On doc conflict: **stop and explain** before writing code.
 
 ## MVP scope
 
-SMS-only client channel. Dashboard + onboarding web UI. Beta directory at `/directory` (opt-in). Direct booking link (`/book?…`) still supported. Embeddable web widget remains V2.
+Authenticated **in-app web chat** is the primary client ↔ AI receptionist channel (**founder override** of Blueprint SMS-only MVP). Dashboard + onboarding web UI. Beta directory at `/directory` (opt-in). Direct booking link (`/book?…`) still supported. Twilio SMS webhook remains supported as a secondary ingress. Embeddable anonymous web widget remains V2.
 
 ## Current phase
 
