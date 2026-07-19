@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ConversationDetail } from '@project-braids/shared-types/api';
 import { fetchClientConversation, sendClientMessage } from '@/features/messaging/api';
 import { getApiErrorMessage } from '@/shared/lib/api-client';
@@ -10,7 +10,7 @@ import { formatDateTime } from '@/shared/lib/format';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { Textarea } from '@/shared/ui/textarea';
-import { PageHeader, PageShell } from '@/shared/ui/page-shell';
+import { PageHeader } from '@/shared/ui/page-shell';
 import { StatusBadge } from '@/shared/ui/status-badge';
 
 function messageCardClass(sender: string): string | undefined {
@@ -46,6 +46,7 @@ export default function ClientConversationPage() {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const conversationQuery = useQuery({
     queryKey: ['messaging', 'client', 'conversation', params.id],
@@ -69,6 +70,10 @@ export default function ClientConversationPage() {
   const isEscalated = conversation?.status === 'escalated';
   const canCompose = conversation?.channel === 'web' && isOpen;
 
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [conversation?.messages.length, sendMutation.isPending]);
+
   async function handleSend(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
@@ -82,22 +87,21 @@ export default function ClientConversationPage() {
   }
 
   return (
-    <PageShell className="pb-[calc(8rem+env(safe-area-inset-bottom))]">
-      <PageHeader
-        title={conversation?.stylistBusinessName ?? 'Conversation'}
-        subtitle={
-          isEscalated
-            ? 'A stylist has taken over — keep messaging here.'
-            : 'Chat with the AI receptionist in the app.'
-        }
-        backHref="/client/inbox"
-      />
-
-      <div className="mt-4">
+    <div className="mx-auto flex h-[100dvh] w-full max-w-lg flex-col px-4 pt-6 md:max-w-2xl pb-[calc(3.5rem+env(safe-area-inset-bottom))]">
+      <div className="shrink-0 space-y-3">
+        <PageHeader
+          title={conversation?.stylistBusinessName ?? 'Conversation'}
+          subtitle={
+            isEscalated
+              ? 'A stylist has taken over — keep messaging here.'
+              : 'Chat with the AI receptionist in the app.'
+          }
+          backHref="/client/inbox"
+        />
         {conversation ? <StatusBadge label={conversation.status} tone="neutral" /> : null}
       </div>
 
-      <div className="mt-6 space-y-3">
+      <div className="mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain">
         {conversationQuery.isLoading ? (
           <p className="text-sm text-ink-muted">Loading…</p>
         ) : (
@@ -113,12 +117,13 @@ export default function ClientConversationPage() {
             </Card>
           ))
         )}
+        <div ref={messagesEndRef} className="h-1 shrink-0" aria-hidden />
       </div>
 
       {canCompose ? (
         <form
           onSubmit={(event) => void handleSend(event)}
-          className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-40 border-t border-border bg-surface/95 p-3 backdrop-blur md:mx-auto md:max-w-2xl"
+          className="shrink-0 border-t border-border bg-surface pt-3"
         >
           {isEscalated ? (
             <p className="mb-2 text-xs text-ink-muted">
@@ -142,7 +147,7 @@ export default function ClientConversationPage() {
           </div>
         </form>
       ) : conversation && conversation.channel !== 'web' ? (
-        <Card className="mt-6 space-y-1">
+        <Card className="mt-4 shrink-0 space-y-1">
           <p className="text-sm font-medium text-ink">SMS thread</p>
           <p className="text-sm text-ink-muted">
             This conversation started over SMS. Start a new in-app chat from the stylist&apos;s
@@ -150,6 +155,6 @@ export default function ClientConversationPage() {
           </p>
         </Card>
       ) : null}
-    </PageShell>
+    </div>
   );
 }

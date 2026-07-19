@@ -76,6 +76,7 @@ export const ESCALATION_REASONS = {
   killSwitch: 'kill_switch',
   smsOptOut: 'sms_opt_out',
   dispatchFailed: 'dispatch_failed',
+  aiProviderUnavailable: 'ai_provider_unavailable',
 } as const;
 
 export type EscalationReason = (typeof ESCALATION_REASONS)[keyof typeof ESCALATION_REASONS];

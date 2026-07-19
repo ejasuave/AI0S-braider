@@ -5,11 +5,13 @@ alwaysApply: true
 
 # Locked stack
 
-**Use:** Claude (stateless), Prisma, Supabase Postgres, Supabase Storage (via `StorageProvider` only), Stripe Connect, custom auth, Fastify API, Next.js web.
+**Use:** Claude (stateless) by default, Prisma, Supabase Postgres, Supabase Storage (via `StorageProvider` only), Stripe Connect, custom auth, Fastify API, Next.js web.
 
-**Forbidden:** OpenAI, LangGraph, agent frameworks, Supabase Auth, Outlook calendar.
+**Forbidden:** LangGraph, agent frameworks, Supabase Auth, Outlook calendar. OpenAI product APIs remain out of MVP scope.
 
 **AI:** Structured JSON output; app executes actions; confidence threshold 0.8; escalate below.
+
+**Founder staging override:** When Anthropic has no credits, staging may use `AI_PROVIDER=openai_compatible` with Groq (`OPENAI_COMPAT_*`). Production target remains Anthropic Claude.
 
 **API-first:** Business logic in `apps/api` only. Web uses typed API client + TanStack Query. No Prisma in web. No Server Actions as canonical writes.
 

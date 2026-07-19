@@ -45,6 +45,14 @@ export const apiEnvSchema = z.object({
   MESSAGING_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
   ANTHROPIC_API_KEY: z.string().optional(),
   ANTHROPIC_MODEL: z.string().default('claude-sonnet-5'),
+  /**
+   * Founder staging override: `openai_compatible` (e.g. Groq) when Anthropic has no credits.
+   * Production default remains `anthropic` (Blueprint).
+   */
+  AI_PROVIDER: z.enum(['anthropic', 'openai_compatible']).default('anthropic'),
+  OPENAI_COMPAT_API_KEY: z.string().optional(),
+  OPENAI_COMPAT_BASE_URL: z.string().url().default('https://api.groq.com/openai/v1'),
+  OPENAI_COMPAT_MODEL: z.string().default('llama-3.3-70b-versatile'),
   AI_RECEPTIONIST_ENABLED: z
     .enum(['true', 'false'])
     .default('true')

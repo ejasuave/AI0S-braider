@@ -44,7 +44,8 @@ messagingService.resolveEscalation(stylistId, conversationId, resolvedById)
 
 1. Client `POST /messaging/client/conversations` with `{ stylistId }` → open `channel: 'web'` conversation.
 2. Client `POST .../messages` with `{ content }` → `receiveMessage` then `receptionistService.processInboundTurn`.
-3. AI / stylist / system replies use `sendOutboundMessage`, which **does not** send Twilio SMS when `channel !== 'sms'`.
+3. Provider: Anthropic by default; **staging founder override** may use Groq via `AI_PROVIDER=openai_compatible` when Anthropic has no credits.
+4. AI / stylist / system replies use `sendOutboundMessage`, which **does not** send Twilio SMS when `channel !== 'sms'`.
 
 ## SMS trust model (Prompt 11.2)
 

@@ -18,6 +18,19 @@ import { advanceBookingFlow } from './flow.js';
 
 const log = createLogger().child({ module: 'receptionist' });
 
+function isAiProviderTransportError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  return (
+    message.includes('ai provider request failed') ||
+    message.includes('credit balance') ||
+    message.includes('rate limit') ||
+    message.includes('too many requests') ||
+    message.includes('insufficient_quota') ||
+    message.includes('unauthorized') ||
+    /\b(401|402|429|503)\b/.test(message)
+  );
+}
+
 export type ProcessTurnResult = {
   status: 'replied' | 'escalated' | 'skipped';
   reason?: string;
@@ -93,6 +106,18 @@ export class ReceptionistService {
     try {
       output = await completeTurnWithValidation(context);
     } catch (firstError) {
+      if (isAiProviderTransportError(firstError)) {
+        log.error(
+          { conversationId, err: firstError },
+          'Receptionist AI provider unavailable; escalating',
+        );
+        await escalateWithModelContext(
+          conversationId,
+          ESCALATION_REASONS.aiProviderUnavailable,
+        );
+        return { status: 'escalated', reason: ESCALATION_REASONS.aiProviderUnavailable };
+      }
+
       log.warn(
         { conversationId, err: firstError },
         'Receptionist structured output failed; retrying with correction',
@@ -103,6 +128,18 @@ export class ReceptionistService {
           firstError instanceof Error ? firstError.message : 'invalid structured output',
         );
       } catch (retryError) {
+        if (isAiProviderTransportError(retryError)) {
+          log.error(
+            { conversationId, err: retryError },
+            'Receptionist AI provider unavailable on retry; escalating',
+          );
+          await escalateWithModelContext(
+            conversationId,
+            ESCALATION_REASONS.aiProviderUnavailable,
+          );
+          return { status: 'escalated', reason: ESCALATION_REASONS.aiProviderUnavailable };
+        }
+
         log.error(
           { conversationId, err: retryError },
           'Receptionist structured output failed after retry; escalating',

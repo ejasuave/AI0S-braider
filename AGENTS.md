@@ -17,7 +17,7 @@ Read every relevant document **completely** before making changes.
 - **Backend:** Fastify, TypeScript — all business logic here
 - **DB:** Supabase Postgres + Prisma (not Supabase Auth)
 - **Storage:** Supabase Storage via `StorageProvider` abstraction
-- **AI:** Anthropic Claude only, stateless — no OpenAI, no LangGraph
+- **AI:** Anthropic Claude by default (stateless). **Staging founder override:** OpenAI-compatible provider (Groq) via `AI_PROVIDER=openai_compatible` when Anthropic credits are exhausted. No LangGraph / agent frameworks.
 - **Payments:** Stripe Connect
 - **Messaging:** Authenticated in-app web chat (primary client ↔ AI); Twilio SMS ingress still supported; WhatsApp V2
 

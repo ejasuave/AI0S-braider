@@ -4,62 +4,16 @@ import type { ReceptionistTurnOutput } from '@project-braids/shared-types/api';
 import { getEnv } from '../../config/env.js';
 import { ApiError } from '../errors.js';
 import type { ClaudeCompletionRequest, ClaudeProvider } from './claude-provider.types.js';
+import {
+  RECEPTIONIST_TOOL_NAME,
+  RECEPTIONIST_TOOL_PARAMETERS,
+} from './receptionist-tool-schema.js';
 
 const RECEPTIONIST_TOOL = {
-  name: 'receptionist_turn',
+  name: RECEPTIONIST_TOOL_NAME,
   description: 'Return the structured receptionist turn for this conversation.',
-  input_schema: {
-    type: 'object',
-    properties: {
-      intent: {
-        type: 'string',
-        enum: [
-          'new_booking',
-          'reschedule',
-          'faq',
-          'slot_selection',
-          'dispute',
-          'complaint',
-          'out_of_scope',
-          'prompt_injection',
-          'general',
-        ],
-      },
-      extracted_slots: {
-        type: 'object',
-        properties: {
-          styleName: { type: 'string' },
-          sizeTier: { type: 'string' },
-          lengthTier: { type: 'string' },
-          preferredDate: { type: 'string' },
-          selectedSlotStart: { type: 'string' },
-          selectedSlotIndex: { type: 'number' },
-          serviceOfferingId: { type: 'string' },
-          bookingId: { type: 'string' },
-        },
-        additionalProperties: false,
-      },
-      confidence: { type: 'number', minimum: 0, maximum: 1 },
-      next_action: {
-        type: 'string',
-        enum: [
-          'ask_clarification',
-          'confirm_style_price',
-          'propose_slots',
-          'create_hold',
-          'send_deposit_link',
-          'answer_faq',
-          'escalate',
-          'noop',
-        ],
-      },
-      client_message: { type: 'string' },
-      escalation_reason: { type: 'string' },
-    },
-    required: ['intent', 'extracted_slots', 'confidence', 'next_action', 'client_message'],
-    additionalProperties: false,
-  },
-} as Anthropic.Tool;
+  input_schema: RECEPTIONIST_TOOL_PARAMETERS,
+} as unknown as Anthropic.Tool;
 
 export class AnthropicClaudeProvider implements ClaudeProvider {
   private readonly client: Anthropic;

@@ -6,8 +6,9 @@ Owns AI receptionist orchestration (Ch.13): structured-output turns, escalation 
 
 - `handleInboundMessage` / `processInboundTurn` — orchestration entry after Ch.11 `receiveMessage`
 - Load bounded conversation history + stylist context (timezone, offerings, policies)
-- Call Claude (or mock provider) for structured JSON output
+- Call the configured AI provider (Anthropic Claude, or staging OpenAI-compatible/Groq) for structured JSON output
 - Validate output, retry once on schema failure, then escalate with `structured_output_validation_failed`
+- Transport/billing failures escalate with `ai_provider_unavailable` (no schema retry)
 - Merge multi-turn `extracted_slots` in application code (style changes invalidate stale quotes)
 - Enforce consolidated `shouldEscalate()` at 0.8 threshold + injection detection
 - Dispatch actions: clarify, price lookup, propose slots (max 3), create hold, deposit link
@@ -22,15 +23,19 @@ Owns AI receptionist orchestration (Ch.13): structured-output turns, escalation 
 
 ## Environment
 
-| Variable                               | Default                    | Purpose                             |
-| -------------------------------------- | -------------------------- | ----------------------------------- |
-| `ANTHROPIC_API_KEY`                    | —                          | Live Claude; dev mock when unset    |
-| `ANTHROPIC_MODEL`                      | `claude-sonnet-4-20250514` | Model id                            |
-| `AI_RECEPTIONIST_ENABLED`              | `true`                     | Kill switch — `false` escalates all |
-| `AI_CONFIDENCE_THRESHOLD`              | `0.8`                      | Escalate below this                 |
-| `AI_RECEPTIONIST_MAX_HISTORY_MESSAGES` | `12`                       | History cap per model call          |
-| `MESSAGING_RATE_LIMIT_MAX`             | `30`                       | Inbound SMS per phone per window    |
-| `MESSAGING_RATE_LIMIT_WINDOW_MS`       | `60000`                    | Rate-limit window                   |
+| Variable                               | Default                          | Purpose                                       |
+| -------------------------------------- | -------------------------------- | --------------------------------------------- |
+| `AI_PROVIDER`                          | `anthropic`                      | `openai_compatible` for Groq staging override |
+| `ANTHROPIC_API_KEY`                    | —                                | Live Claude; mock when unset (anthropic mode) |
+| `ANTHROPIC_MODEL`                      | `claude-sonnet-5`                | Anthropic model id                            |
+| `OPENAI_COMPAT_API_KEY`                | —                                | Groq/OpenAI-compatible key                    |
+| `OPENAI_COMPAT_BASE_URL`               | `https://api.groq.com/openai/v1` | Compatible chat completions base URL          |
+| `OPENAI_COMPAT_MODEL`                  | `llama-3.3-70b-versatile`        | Compatible model id                           |
+| `AI_RECEPTIONIST_ENABLED`              | `true`                           | Kill switch — `false` escalates all           |
+| `AI_CONFIDENCE_THRESHOLD`              | `0.8`                            | Escalate below this                           |
+| `AI_RECEPTIONIST_MAX_HISTORY_MESSAGES` | `12`                             | History cap per model call                    |
+| `MESSAGING_RATE_LIMIT_MAX`             | `30`                             | Inbound SMS per phone per window              |
+| `MESSAGING_RATE_LIMIT_WINDOW_MS`       | `60000`                          | Rate-limit window                             |
 
 ## Tests & evaluation
 

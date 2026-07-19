@@ -74,8 +74,22 @@ This creates `.env.staging` from `.env.staging.example` and generates:
 | `STRIPE_*`                                  | Stripe Dashboard **Test mode**       |
 | `TWILIO_*`                                  | Twilio Console                       |
 | `ANTHROPIC_API_KEY`                         | console.anthropic.com                |
+| `AI_PROVIDER` / `OPENAI_COMPAT_*`           | Optional Groq override (see below)   |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google Cloud (step 6)                |
 | `SENTRY_DSN`                                | sentry.io (optional but recommended) |
+
+**Founder staging override (Anthropic out of credits):** create a free key at [console.groq.com](https://console.groq.com), then:
+
+```bash
+fly secrets set \
+  AI_PROVIDER=openai_compatible \
+  OPENAI_COMPAT_API_KEY=gsk_... \
+  OPENAI_COMPAT_BASE_URL=https://api.groq.com/openai/v1 \
+  OPENAI_COMPAT_MODEL=llama-3.3-70b-versatile \
+  -a project-braids-api-staging
+```
+
+Production target remains Anthropic Claude (`AI_PROVIDER=anthropic`).
 
 **Web-only vars** (set in Vercel, not Fly):
 
