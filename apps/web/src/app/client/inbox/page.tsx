@@ -5,6 +5,7 @@ import Link from 'next/link';
 import type { ConversationSummary } from '@project-braids/shared-types/api';
 import { fetchClientConversations } from '@/features/messaging/api';
 import { formatDateTime } from '@/shared/lib/format';
+import { TOUCH_LINK_CLASS } from '@/shared/lib/touch-target';
 import { Card } from '@/shared/ui/card';
 import { CardSkeleton } from '@/shared/ui/skeleton';
 import { EmptyState } from '@/shared/ui/empty-state';
@@ -42,7 +43,10 @@ export default function ClientInboxPage() {
 
   return (
     <PageShell>
-      <PageHeader title="Messages" subtitle="SMS threads with stylists you have contacted." />
+      <PageHeader
+        title="Messages"
+        subtitle="SMS threads with stylists. Reply from your phone — AI and stylist replies land here too."
+      />
 
       <div className="mt-6 space-y-3" aria-live="polite">
         {conversationsQuery.isLoading ? (
@@ -51,10 +55,21 @@ export default function ClientInboxPage() {
             <CardSkeleton />
           </>
         ) : items.length === 0 ? (
-          <EmptyState
-            title="No conversations yet"
-            description="Text a stylist's booking number to start a thread — it will appear here."
-          />
+          <>
+            <EmptyState
+              title="No conversations yet"
+              description="Find a stylist, then tap Text AI receptionist to open SMS. Threads appear here after you text."
+            />
+            <Card className="space-y-2">
+              <p className="text-sm text-ink-muted">
+                Looking for someone to message? Browse the directory and use the SMS button on their
+                profile.
+              </p>
+              <Link href="/directory" className={TOUCH_LINK_CLASS}>
+                Find a braider →
+              </Link>
+            </Card>
+          </>
         ) : (
           items.map((conversation) => (
             <ConversationRow key={conversation.id} conversation={conversation} />

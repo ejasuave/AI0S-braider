@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
 import type { ConversationDetail } from '@project-braids/shared-types/api';
+import { TextSmsCta } from '@/features/messaging/text-sms-cta';
 import { apiFetchData } from '@/shared/lib/api-client';
 import { formatDateTime } from '@/shared/lib/format';
 import { Card } from '@/shared/ui/card';
@@ -38,11 +39,16 @@ export default function ClientConversationPage() {
     <PageShell>
       <PageHeader
         title={conversation?.stylistBusinessName ?? 'Conversation'}
-        subtitle="Reply by texting the stylist's booking number."
+        subtitle="Read-only web view — reply by SMS to continue the chat."
+        backHref="/client/inbox"
       />
 
-      <div className="mt-4">
+      <div className="mt-4 space-y-3">
         {conversation ? <StatusBadge label={conversation.status} tone="neutral" /> : null}
+        <TextSmsCta
+          smsBookingNumber={conversation?.smsBookingNumber}
+          stylistName={conversation?.stylistBusinessName}
+        />
       </div>
 
       <div className="mt-6 space-y-3">

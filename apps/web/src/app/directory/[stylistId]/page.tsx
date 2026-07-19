@@ -10,6 +10,7 @@ import { PageHeader, PageShell } from '@/shared/ui/page-shell';
 import { StylistAvatar, PortfolioGallery } from '@/shared/ui/portfolio-gallery';
 import { ServiceOfferingAccordion } from '@/shared/ui/service-offering-accordion';
 import { SaveStylistButton } from '@/features/client/save-stylist-button';
+import { TextSmsCta } from '@/features/messaging/text-sms-cta';
 import { Button } from '@/shared/ui/button';
 import Link from 'next/link';
 import { stylistBookingPath } from '@/shared/lib/booking-links';
@@ -71,6 +72,10 @@ export default function DirectoryStylistPage() {
                 </Link>
                 <SaveStylistButton stylistId={stylist.stylistId} fullWidth />
               </div>
+              <TextSmsCta
+                smsBookingNumber={stylist.smsBookingNumber}
+                stylistName={stylist.businessName}
+              />
             </div>
           </Card>
 

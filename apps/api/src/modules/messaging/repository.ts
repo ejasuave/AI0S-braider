@@ -15,7 +15,7 @@ const OPEN_STATUSES: ConversationStatus[] = ['active', 'escalated'];
 export type ConversationWithRelations = Conversation & {
   messages?: Message[];
   escalations?: Escalation[];
-  stylist?: { businessName: string };
+  stylist?: { businessName: string; smsBookingNumber?: string | null };
 };
 
 export class MessagingRepository {
@@ -155,7 +155,7 @@ export class MessagingRepository {
             orderBy: { createdAt: 'desc' },
             take: 1,
           },
-          stylist: { select: { businessName: true } },
+          stylist: { select: { businessName: true, smsBookingNumber: true } },
         },
       }),
       prisma.conversation.count({ where }),
@@ -173,7 +173,7 @@ export class MessagingRepository {
       include: {
         messages: { orderBy: { createdAt: 'asc' } },
         escalations: { orderBy: { createdAt: 'desc' } },
-        stylist: { select: { businessName: true } },
+        stylist: { select: { businessName: true, smsBookingNumber: true } },
       },
     });
   }

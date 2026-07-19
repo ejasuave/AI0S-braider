@@ -63,6 +63,7 @@ export class ProfileService {
     businessName: string;
     locationArea: string | null;
     photoUrl: string | null;
+    smsBookingNumber: string | null;
     portfolio: Array<{
       id: string;
       imageUrl: string;
@@ -192,6 +193,7 @@ export class ProfileService {
       businessName: profile.businessName,
       locationArea: profile.locationArea,
       photoUrl: profile.photoUrl,
+      smsBookingNumber: profile.smsBookingNumber,
       portfolio,
       venueOptions,
       homeVisitSurcharge: business?.homeVisitSurcharge
@@ -469,6 +471,7 @@ export class ProfileService {
       locationArea: profile.locationArea ?? '',
       bio: profile.bio,
       photoUrl: profile.photoUrl,
+      smsBookingNumber: profile.smsBookingNumber,
       portfolio,
       offerings: offerings.map((offering) => {
         const requirements = Array.isArray(offering.requirements)

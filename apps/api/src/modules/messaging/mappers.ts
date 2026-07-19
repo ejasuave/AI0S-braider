@@ -45,6 +45,7 @@ export function toConversationSummary(
   options: {
     clientPhoneNumber?: string;
     stylistBusinessName?: string;
+    smsBookingNumber?: string | null;
   } = {},
 ): ConversationSummary {
   const latest = conversation.messages[0];
@@ -56,6 +57,7 @@ export function toConversationSummary(
     clientId: conversation.clientId,
     clientPhoneNumber: options.clientPhoneNumber,
     stylistBusinessName: options.stylistBusinessName,
+    smsBookingNumber: options.smsBookingNumber,
     channel: conversation.channel,
     status: conversation.status,
     lastMessagePreview: latest?.content ?? null,
@@ -73,6 +75,7 @@ export function toConversationDetail(
   options: {
     clientPhoneNumber?: string;
     stylistBusinessName?: string;
+    smsBookingNumber?: string | null;
   } = {},
 ): ConversationDetail {
   const openEscalation = conversation.escalations.find((item) => item.resolvedAt === null) ?? null;

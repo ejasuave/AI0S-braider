@@ -161,6 +161,7 @@ export class MessagingService {
     const items = rows.map((row) =>
       toConversationSummary(row, {
         stylistBusinessName: row.stylist?.businessName ?? 'Stylist',
+        smsBookingNumber: row.stylist?.smsBookingNumber ?? null,
       }),
     );
 
@@ -209,7 +210,10 @@ export class MessagingService {
         messages: conversation.messages ?? [],
         escalations: conversation.escalations ?? [],
       },
-      { stylistBusinessName: conversation.stylist?.businessName ?? 'Stylist' },
+      {
+        stylistBusinessName: conversation.stylist?.businessName ?? 'Stylist',
+        smsBookingNumber: conversation.stylist?.smsBookingNumber ?? null,
+      },
     );
   }
 

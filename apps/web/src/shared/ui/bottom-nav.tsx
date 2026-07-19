@@ -27,6 +27,7 @@ const stylistItemMeta: Record<string, Omit<NavItem, 'href' | 'label'> & { label:
 const clientItems: NavItem[] = [
   { href: '/client', label: 'Home', icon: Home },
   { href: '/client/bookings', label: 'Bookings', icon: Calendar },
+  { href: '/client/inbox', label: 'Messages', icon: MessageSquare },
   { href: '/directory', label: 'Find', icon: Search },
 ];
 

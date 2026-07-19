@@ -1,6 +1,28 @@
 import twilio from 'twilio';
 import type { ApiEnv } from '@project-braids/shared-types/env';
+import { ApiError } from '../errors.js';
 import type { SmsMessage, SmsProvider } from './sms-provider.types.js';
+
+function mapTwilioSendError(error: unknown): ApiError {
+  const code =
+    typeof error === 'object' && error !== null && 'code' in error
+      ? Number((error as { code?: unknown }).code)
+      : undefined;
+  const message =
+    error instanceof Error ? error.message : 'Failed to send SMS via Twilio';
+
+  // Trial / geo / invalid destination — actionable client errors, not opaque 500s.
+  if (code === 21608 || code === 21408 || code === 21211 || code === 21614) {
+    return ApiError.validation(message);
+  }
+  if (code === 20003) {
+    return ApiError.serviceUnavailable(
+      'SMS provider authentication failed. Check TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN.',
+    );
+  }
+
+  return ApiError.serviceUnavailable(message);
+}
 
 export class TwilioSmsProvider implements SmsProvider {
   private readonly client: ReturnType<typeof twilio>;
@@ -15,12 +37,16 @@ export class TwilioSmsProvider implements SmsProvider {
   }
 
   async send(message: SmsMessage): Promise<{ providerMessageId?: string }> {
-    const result = await this.client.messages.create({
-      to: message.to,
-      from: message.from ?? this.defaultFrom,
-      body: message.body,
-    });
-    return { providerMessageId: result.sid };
+    try {
+      const result = await this.client.messages.create({
+        to: message.to,
+        from: message.from ?? this.defaultFrom,
+        body: message.body,
+      });
+      return { providerMessageId: result.sid };
+    } catch (error) {
+      throw mapTwilioSendError(error);
+    }
   }
 }
 

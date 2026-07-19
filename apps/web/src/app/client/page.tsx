@@ -85,12 +85,13 @@ export default function ClientHomePage() {
         </Card>
 
         <Card className="space-y-2">
-          <p className="text-sm font-medium text-ink">SMS conversations</p>
+          <p className="text-sm font-medium text-ink">Messages (SMS)</p>
           <p className="text-sm text-ink-muted">
-            Threads with stylists you have texted appear in your message inbox.
+            Chat with stylists via text — the AI receptionist replies by SMS. Open a stylist
+            profile and tap Text AI receptionist, then check Messages for the thread.
           </p>
           <Link href="/client/inbox" className={TOUCH_LINK_CLASS}>
-            Open inbox →
+            Open Messages →
           </Link>
         </Card>
 

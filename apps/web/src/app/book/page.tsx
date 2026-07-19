@@ -27,7 +27,7 @@ import { Textarea } from '@/shared/ui/textarea';
 import { PageHeader, PageShell } from '@/shared/ui/page-shell';
 import { StylistAvatar } from '@/shared/ui/portfolio-gallery';
 import { ServiceOfferingAccordion } from '@/shared/ui/service-offering-accordion';
-import { StatusBadge } from '@/shared/ui/status-badge';
+import { TextSmsCta } from '@/features/messaging/text-sms-cta';
 
 function useBookingPage(stylistId: string) {
   return useQuery({
@@ -80,6 +80,10 @@ function ServicePicker({
                 ) : null}
               </div>
             </Card>
+            <TextSmsCta
+              smsBookingNumber={page.smsBookingNumber}
+              stylistName={page.businessName}
+            />
             <p className="text-sm text-ink-muted">
               Select a style to see available times and hold your slot.
               {(page?.venueOptions?.length ?? 0) > 0
@@ -283,7 +287,11 @@ function ServiceBooking({
                 </ul>
               </div>
             ) : null}
-            <StatusBadge label="AI receptionist available via SMS" tone="ai" />
+            <TextSmsCta
+              smsBookingNumber={pageQuery.data?.smsBookingNumber}
+              stylistName={pageQuery.data?.businessName}
+              compact
+            />
             <Link href={stylistBookingPath(stylistId)} className="inline-block text-sm text-primary underline">
               Choose a different style with this stylist
             </Link>

@@ -149,6 +149,8 @@ export const publicBookingPageSchema = z.object({
   businessName: z.string(),
   locationArea: z.string().nullable(),
   photoUrl: z.string().url().nullable(),
+  /** Public SMS booking number for AI receptionist (null if stylist has not set one). */
+  smsBookingNumber: z.string().nullable(),
   /** Flat list of all portfolio images (compat + cover). Prefer offerings[].portfolio. */
   portfolio: z.array(publicPortfolioImageSchema),
   /** Venue options this stylist offers — client picks one when booking. */

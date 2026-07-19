@@ -31,6 +31,8 @@ export const directoryStylistDetailSchema = z.object({
   locationArea: z.string(),
   bio: z.string().nullable(),
   photoUrl: z.string().url().nullable(),
+  /** Public SMS booking number for AI receptionist (null if stylist has not set one). */
+  smsBookingNumber: z.string().nullable(),
   portfolio: z.array(publicPortfolioImageSchema),
   offerings: z.array(publicBookingOfferingSchema),
 });

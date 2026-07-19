@@ -47,6 +47,8 @@ export const conversationSummarySchema = z.object({
   clientId: z.string().uuid(),
   clientPhoneNumber: z.string().optional(),
   stylistBusinessName: z.string().optional(),
+  /** Present on client-facing threads so the app can deep-link to SMS. */
+  smsBookingNumber: z.string().nullable().optional(),
   channel: conversationChannelSchema,
   status: conversationStatusSchema,
   lastMessagePreview: z.string().nullable(),
