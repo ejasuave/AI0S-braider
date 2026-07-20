@@ -44,7 +44,10 @@ export const extractedSlotsSchema = z.object({
   lengthTier: optionalNonEmptyString,
   preferredDate: optionalNonEmptyString,
   selectedSlotStart: z.preprocess(emptyToUndefined, z.string().datetime().optional()),
-  selectedSlotIndex: z.preprocess(emptyToUndefined, z.number().int().min(1).max(9).optional()),
+  selectedSlotIndex: z.preprocess(
+    (value) => (value === null || value === '' || value === 0 ? undefined : value),
+    z.number().int().min(1).max(9).optional(),
+  ),
   serviceOfferingId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
   bookingId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
 });

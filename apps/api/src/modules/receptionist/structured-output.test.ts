@@ -63,4 +63,18 @@ describe('receptionistTurnOutputSchema', () => {
       expect(parsed.data.escalation_reason).toBeUndefined();
     }
   });
+
+  it('treats zero selectedSlotIndex as omitted', () => {
+    const parsed = receptionistTurnOutputSchema.safeParse({
+      intent: 'slot_selection',
+      extracted_slots: { selectedSlotIndex: 0 },
+      confidence: 0.9,
+      next_action: 'ask_clarification',
+      client_message: 'Which slot number would you like?',
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.extracted_slots.selectedSlotIndex).toBeUndefined();
+    }
+  });
 });

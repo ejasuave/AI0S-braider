@@ -47,7 +47,7 @@ export const RECEPTIONIST_TOOL_PARAMETERS = {
       ],
     },
     client_message: { type: 'string' },
-    escalation_reason: { type: 'string' },
+    // Omit optional escalation_reason — Groq rejects tool calls when the model returns null.
   },
   required: ['intent', 'extracted_slots', 'confidence', 'next_action', 'client_message'],
   additionalProperties: false,
