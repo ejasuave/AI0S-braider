@@ -35,6 +35,17 @@ function emptyToUndefined(value: unknown): unknown {
 
 const optionalNonEmptyString = z.preprocess(emptyToUndefined, z.string().trim().min(1).optional());
 
+export const BOOKING_STATUS_VALUES = [
+  'none',
+  'quoting',
+  'slots_offered',
+  'held',
+  'deposit_pending',
+  'confirmed',
+] as const;
+
+export type BookingStatusSlot = (typeof BOOKING_STATUS_VALUES)[number];
+
 export const extractedSlotsSchema = z.object({
   styleName: optionalNonEmptyString,
   sizeTier: optionalNonEmptyString,
@@ -47,6 +58,25 @@ export const extractedSlotsSchema = z.object({
   ),
   serviceOfferingId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
   bookingId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  clientName: optionalNonEmptyString,
+  addonNames: z.preprocess(
+    (value) => {
+      if (value === null || value === '' || value === undefined) return undefined;
+      return value;
+    },
+    z.array(z.string().trim().min(1).max(120)).max(5).optional(),
+  ),
+  quotedPrice: optionalNonEmptyString,
+  quotedDurationMinutes: z.preprocess(
+    (value) => (value === null || value === '' ? undefined : value),
+    z
+      .number()
+      .int()
+      .positive()
+      .max(24 * 60)
+      .optional(),
+  ),
+  bookingStatus: z.preprocess(emptyToUndefined, z.enum(BOOKING_STATUS_VALUES).optional()),
 });
 
 export type ExtractedSlots = z.infer<typeof extractedSlotsSchema>;
@@ -77,6 +107,9 @@ export const ESCALATION_REASONS = {
   smsOptOut: 'sms_opt_out',
   dispatchFailed: 'dispatch_failed',
   aiProviderUnavailable: 'ai_provider_unavailable',
+  clientFrustrated: 'client_frustrated',
+  repeatedClarificationFailure: 'repeated_clarification_failure',
+  clientRequestedHuman: 'client_requested_human',
 } as const;
 
 export type EscalationReason = (typeof ESCALATION_REASONS)[keyof typeof ESCALATION_REASONS];

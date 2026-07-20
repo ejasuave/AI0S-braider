@@ -75,6 +75,6 @@ Outbound SMS messages store `delivery_status` (`pending` → `sent` → `deliver
 
 Authenticated in-app web chat (above) is **not** the V2 widget.
 
-AI receptionist context (Ch.13) loads public booking offerings with **size/length tiers** (including Bum Length), structured **requirements**, active **add-ons**, and **business policy** (including remaining balance method). Vanity share links (`/stylist/{slug}/…`) resolve via profile slug APIs; UUID `/book?…` links remain valid.
+AI receptionist context (Ch.13) loads public booking offerings with **size/length tiers** (including Bum Length), structured **requirements**, active **add-ons**, **working hours**, and **business policy** (including remaining balance method). Session memory (merged slots + transcript) persists for the conversation; web chat recovers after refresh via `conversationId`. Vanity share links (`/stylist/{slug}/…`) resolve via profile slug APIs; UUID `/book?…` links remain valid.
 
 See `apps/api/src/modules/messaging/README.md` for implementation file map.

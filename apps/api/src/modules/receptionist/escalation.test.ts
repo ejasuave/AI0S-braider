@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { ReceptionistTurnOutput } from '@project-braids/shared-types/api';
 import { ESCALATION_REASONS } from '@project-braids/shared-types/api';
-import { detectPromptInjection, isAmbiguousSlotSelection, shouldEscalate } from './escalation.js';
+import {
+  detectClientFrustration,
+  detectClientRequestedHuman,
+  detectPromptInjection,
+  isAmbiguousSlotSelection,
+  shouldEscalate,
+} from './escalation.js';
 
 function turn(partial: Partial<ReceptionistTurnOutput>): ReceptionistTurnOutput {
   return {
@@ -65,12 +71,50 @@ describe('shouldEscalate', () => {
     expect(decision.reason).toBe(ESCALATION_REASONS.pricingLookupLowConfidence);
   });
 
+  it('escalates client frustration', () => {
+    const decision = shouldEscalate(turn({ confidence: 0.95 }), {
+      latestClientMessage: 'This is useless, waste of time',
+    });
+    expect(decision.escalate).toBe(true);
+    expect(decision.reason).toBe(ESCALATION_REASONS.clientFrustrated);
+  });
+
+  it('escalates explicit human requests', () => {
+    const decision = shouldEscalate(turn({ confidence: 0.95 }), {
+      latestClientMessage: 'Can I speak to a real person please?',
+    });
+    expect(decision.escalate).toBe(true);
+    expect(decision.reason).toBe(ESCALATION_REASONS.clientRequestedHuman);
+  });
+
+  it('escalates after repeated clarification failure', () => {
+    const decision = shouldEscalate(turn({ next_action: 'ask_clarification', confidence: 0.9 }), {
+      clarificationStreak: 3,
+    });
+    expect(decision.escalate).toBe(true);
+    expect(decision.reason).toBe(ESCALATION_REASONS.repeatedClarificationFailure);
+  });
+
   it('allows confident booking turns', () => {
     const decision = shouldEscalate(
       turn({ intent: 'new_booking', confidence: 0.92, next_action: 'ask_clarification' }),
-      { pricingConfidence: 0.95, threshold: 0.8 },
+      { pricingConfidence: 0.95, threshold: 0.8, clarificationStreak: 1 },
     );
     expect(decision.escalate).toBe(false);
+  });
+});
+
+describe('detectClientFrustration', () => {
+  it('flags common frustration phrases', () => {
+    expect(detectClientFrustration('this is useless')).toBe(true);
+    expect(detectClientFrustration('How much for knotless?')).toBe(false);
+  });
+});
+
+describe('detectClientRequestedHuman', () => {
+  it('flags handoff requests', () => {
+    expect(detectClientRequestedHuman('I want to talk to the stylist')).toBe(true);
+    expect(detectClientRequestedHuman('book me for saturday')).toBe(false);
   });
 });
 

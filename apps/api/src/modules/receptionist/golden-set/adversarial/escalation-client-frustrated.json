@@ -1,0 +1,6 @@
+{
+  "id": "escalation-client-frustrated",
+  "type": "adversarial",
+  "clientMessage": "This is useless — waste of time",
+  "expect": { "escalate": true, "reason": "client_frustrated" }
+}

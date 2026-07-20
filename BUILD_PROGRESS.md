@@ -177,16 +177,16 @@ Full Ch.16 (search index, availability ranking, scrape protection) remains Phase
 
 ### Chapter 13 deliverables (aligned to prompt library)
 
-| Prompt | Deliverable                                                                                           |
-| ------ | ----------------------------------------------------------------------------------------------------- |
-| 13.1   | `handleInboundMessage`, bounded history (`AI_RECEPTIONIST_MAX_HISTORY_MESSAGES`), timezone context    |
-| 13.2   | `receptionistTurnOutputSchema`, retry-then-`structured_output_validation_failed` escalate             |
-| 13.3   | Slot merge with style-change invalidation; one-question-at-a-time prompt; golden functional set       |
-| 13.4   | Deterministic `lookupPricing` + `getAvailability` (max 3 slots); `proposed_slots` on messages         |
-| 13.5   | Hold + deposit link; SLOT_UNAVAILABLE re-offer; ambiguous slot → escalate                             |
-| 13.6   | Consolidated `shouldEscalate()`; standard reason strings; escalation model metadata on DB             |
-| 13.7   | Injection detection + inbound rate limit; 10 adversarial fixtures; `AI_RECEPTIONIST_SECURITY.md`      |
-| 13.8   | Unified golden-set + `receptionist:evaluate`; sample-escalations CLI; `AI_RECEPTIONIST_EVALUATION.md` |
+| Prompt | Deliverable                                                                                             |
+| ------ | ------------------------------------------------------------------------------------------------------- |
+| 13.1   | `handleInboundMessage`, bounded history (`AI_RECEPTIONIST_MAX_HISTORY_MESSAGES`), timezone context      |
+| 13.2   | `receptionistTurnOutputSchema`, retry-then-`structured_output_validation_failed` escalate               |
+| 13.3   | Slot merge with style/tier-change invalidation; session memory; FAQ topic-switch; golden functional set |
+| 13.4   | Deterministic `lookupPricing` + `getAvailability` (max 3 slots); `proposed_slots` on messages           |
+| 13.5   | Hold + deposit link; SLOT_UNAVAILABLE re-offer; ambiguous slot → escalate                               |
+| 13.6   | Consolidated `shouldEscalate()`; frustration / human-request / clarification-streak; model metadata     |
+| 13.7   | Injection detection + inbound rate limit; adversarial fixtures incl. frustration; security doc          |
+| 13.8   | Unified golden-set + `receptionist:evaluate`; sample-escalations CLI; `AI_RECEPTIONIST_EVALUATION.md`   |
 
 ### Chapter 11 deliverables (aligned to prompt library)
 

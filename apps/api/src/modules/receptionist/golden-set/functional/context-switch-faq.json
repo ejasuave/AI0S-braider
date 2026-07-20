@@ -1,0 +1,64 @@
+{
+  "id": "context-switch-faq",
+  "type": "functional",
+  "description": "Topic switch to location/payment keeps style memory",
+  "turns": [
+    {
+      "mockOutput": {
+        "intent": "new_booking",
+        "extracted_slots": {
+          "styleName": "Boho Braids",
+          "quotedPrice": "150",
+          "bookingStatus": "quoting"
+        },
+        "confidence": 0.94,
+        "next_action": "confirm_style_price",
+        "client_message": "Boho Braids are £150."
+      },
+      "expectedMergedSlots": {
+        "styleName": "Boho Braids",
+        "quotedPrice": "150",
+        "bookingStatus": "quoting"
+      }
+    },
+    {
+      "mockOutput": {
+        "intent": "faq",
+        "extracted_slots": {
+          "styleName": "Boho Braids",
+          "quotedPrice": "150",
+          "bookingStatus": "quoting"
+        },
+        "confidence": 0.96,
+        "next_action": "answer_faq",
+        "client_message": "We're in Peckham — exact address comes after you confirm."
+      },
+      "expectedMergedSlots": {
+        "styleName": "Boho Braids",
+        "quotedPrice": "150",
+        "bookingStatus": "quoting"
+      },
+      "assertClientMessage": {
+        "mustNotContain": ["Thank you for your question"]
+      }
+    },
+    {
+      "mockOutput": {
+        "intent": "faq",
+        "extracted_slots": {
+          "styleName": "Boho Braids",
+          "quotedPrice": "150",
+          "bookingStatus": "quoting"
+        },
+        "confidence": 0.95,
+        "next_action": "answer_faq",
+        "client_message": "Yes — remaining balance can be paid by bank transfer."
+      },
+      "expectedMergedSlots": {
+        "styleName": "Boho Braids",
+        "quotedPrice": "150",
+        "bookingStatus": "quoting"
+      }
+    }
+  ]
+}

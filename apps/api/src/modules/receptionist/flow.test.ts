@@ -1,11 +1,36 @@
 import { describe, expect, it } from 'vitest';
-import type { ConversationTurnContext } from './context.js';
+import type { ConversationTurnContext, SessionMemory } from './context.js';
 import {
   advanceBookingFlow,
   composeHumanBookingReply,
   inferBookingPhase,
+  isNonBookingTopicTurn,
   parsePreferredDateFromText,
 } from './flow.js';
+
+function emptySessionMemory(overrides: Partial<SessionMemory> = {}): SessionMemory {
+  return {
+    clientName: null,
+    stylistBusinessName: 'Test',
+    styleName: null,
+    sizeTier: null,
+    lengthTier: null,
+    quotedPrice: null,
+    quotedDurationMinutes: null,
+    addonNames: [],
+    preferredDate: null,
+    selectedSlotIndex: null,
+    selectedSlotStart: null,
+    bookingId: null,
+    bookingStatus: 'none',
+    priceAlreadyQuoted: false,
+    lastAiNextAction: null,
+    clarificationStreak: 0,
+    idleGapMinutes: null,
+    channel: 'sms',
+    ...overrides,
+  };
+}
 
 function baseContext(overrides: Partial<ConversationTurnContext> = {}): ConversationTurnContext {
   return {
@@ -18,18 +43,25 @@ function baseContext(overrides: Partial<ConversationTurnContext> = {}): Conversa
     nowIso: '2026-07-11T09:00:00.000Z',
     messages: [],
     mergedSlots: {},
+    sessionMemory: emptySessionMemory(),
     stylistContext: {
       businessName: 'Test',
       locationArea: null,
+      workingHoursSummary: 'monday: 09:00–18:00',
       offerings: [],
       cancellationPolicy: null,
       depositPolicy: null,
       remainingBalanceMethod: 'cash_or_card',
       policyNotes: {
         cancellationWindowHours: 24,
+        cancellationPolicyText: null,
+        reschedulingPolicyText: null,
         depositPolicyText: null,
         childrenPolicyText: null,
         guestPolicyText: null,
+        refundPolicyText: null,
+        lateArrivalPolicyText: null,
+        noShowPolicyText: null,
       },
     },
     proposedSlots: [],
@@ -37,6 +69,7 @@ function baseContext(overrides: Partial<ConversationTurnContext> = {}): Conversa
     latestClientMessage: '',
     priceAlreadyQuoted: false,
     lastAiNextAction: null,
+    clarificationStreak: 0,
     ...overrides,
   };
 }
@@ -75,7 +108,7 @@ describe('advanceBookingFlow', () => {
     );
 
     expect(result.next_action).toBe('propose_slots');
-    expect(result.client_message).toMatch(/find open times|Of course/i);
+    expect(result.client_message).toMatch(/Finding open times|open times/i);
     expect(result.client_message).not.toMatch(/confirm pricing/i);
   });
 
@@ -90,7 +123,7 @@ describe('advanceBookingFlow', () => {
     );
 
     expect(result.next_action).toBe('confirm_style_price');
-    expect(result.client_message).toMatch(/costs|pricing/i);
+    expect(result.client_message).toMatch(/pricing|is:/i);
   });
 
   it('creates hold when client picks a proposed slot number', () => {
@@ -133,6 +166,60 @@ describe('advanceBookingFlow', () => {
     expect(result.next_action).toBe('propose_slots');
     expect(result.extracted_slots.styleName).toBe('Box braids');
   });
+
+  it('preserves FAQ model reply during an active booking thread', () => {
+    const faqOutput = {
+      intent: 'faq' as const,
+      extracted_slots: { styleName: 'Knotless braids', sizeTier: 'Large' },
+      confidence: 0.95,
+      next_action: 'answer_faq' as const,
+      client_message: "We're in Peckham — exact address comes after you confirm.",
+    };
+
+    const result = advanceBookingFlow(
+      faqOutput,
+      baseContext({
+        latestClientMessage: 'Actually, where are you located?',
+        priceAlreadyQuoted: true,
+        mergedSlots: { styleName: 'Knotless braids', sizeTier: 'Large', quotedPrice: '120' },
+      }),
+    );
+
+    expect(result.next_action).toBe('answer_faq');
+    expect(result.intent).toBe('faq');
+    expect(result.client_message).toContain('Peckham');
+    expect(result.extracted_slots.styleName).toBe('Knotless braids');
+  });
+});
+
+describe('isNonBookingTopicTurn', () => {
+  it('treats location and payment questions as non-booking', () => {
+    expect(
+      isNonBookingTopicTurn(
+        {
+          intent: 'faq',
+          extracted_slots: {},
+          confidence: 0.9,
+          next_action: 'answer_faq',
+          client_message: 'In Peckham',
+        },
+        'where are you located?',
+      ),
+    ).toBe(true);
+
+    expect(
+      isNonBookingTopicTurn(
+        {
+          intent: 'general',
+          extracted_slots: {},
+          confidence: 0.9,
+          next_action: 'answer_faq',
+          client_message: 'Yes, bank transfer',
+        },
+        'do you accept bank transfer?',
+      ),
+    ).toBe(true);
+  });
 });
 
 describe('inferBookingPhase', () => {
@@ -163,7 +250,7 @@ describe('composeHumanBookingReply', () => {
       { styleName: 'Box braids' },
     );
 
-    expect(reply).toMatch(/find open times|Of course/i);
+    expect(reply).toMatch(/Finding open times|open times/i);
     expect(reply).not.toMatch(/confirm pricing/i);
   });
 });

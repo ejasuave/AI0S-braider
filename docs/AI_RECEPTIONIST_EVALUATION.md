@@ -32,9 +32,17 @@ pnpm --filter @project-braids/api receptionist:evaluate
 
 1. Reproduce the production bug in a minimal transcript.
 2. Add a JSON fixture under `golden-set/functional/` or `golden-set/adversarial/`.
-3. Pair it with expected `mergedSlots`, escalation reason, or injection detection outcome.
+3. Pair it with expected `mergedSlots`, escalation reason, or injection/frustration detection outcome.
 4. Run `receptionist:evaluate` — the new case must pass before merge.
 5. If security-related, document the category in [AI_RECEPTIONIST_SECURITY.md](./AI_RECEPTIONIST_SECURITY.md).
+
+### Functional coverage (beyond booking)
+
+Fixtures include multi-turn size follow-ups (“medium ones”), context-switch FAQ (location/payment), add-ons + deposit FAQ, ambiguous third-party style clarification, and reschedule. Adversarial fixtures also cover client frustration heuristics (not only prompt injection).
+
+## Session persistence
+
+Web chat recovers after refresh via `GET /messaging/client/conversations/:id` (messages are DB-backed). Idle gaps ≥30 minutes are surfaced in receptionist session memory; `conversations.status = abandoned` is reserved for a future cleanup job (not implemented in MVP).
 
 ## Human-in-the-loop escalation sampling
 

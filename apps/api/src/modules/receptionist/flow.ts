@@ -6,6 +6,8 @@ const PRICE_INTENT_PATTERN = /\b(price|cost|how much|£|pound)/i;
 const AVAILABILITY_QUESTION_PATTERN =
   /\b(what days|which days|when are you|availability|available times|open slots|times available)\b/i;
 const SLOT_PICK_PATTERN = /(?:^|\s)([1-3])(?:\s|$)|option\s*([1-3])|number\s*([1-3])/i;
+const FAQ_TOPIC_PATTERN =
+  /\b(where|located|location|address|park|parking|hours?|open|closed|deposit|cancel|reschedul|policy|policies|requirement|bank transfer|card|cash|pay|payment|balance|review|direction|how long|take|duration|addon|add-on|recommend|face shape|maintenance)\b/i;
 
 const WEEKDAY_NAMES = [
   'sunday',
@@ -137,6 +139,31 @@ function clientAffirms(latest: string): boolean {
   );
 }
 
+/** FAQ / policy / payment / location — keep model copy; do not force booking progression. */
+export function isNonBookingTopicTurn(
+  output: ReceptionistTurnOutput,
+  latestClientMessage: string,
+): boolean {
+  if (output.intent === 'faq' || output.intent === 'reschedule') {
+    return true;
+  }
+  if (output.next_action === 'answer_faq') {
+    return true;
+  }
+  if (output.intent === 'general' && output.next_action === 'ask_clarification') {
+    return FAQ_TOPIC_PATTERN.test(latestClientMessage);
+  }
+  if (
+    output.next_action === 'ask_clarification' &&
+    FAQ_TOPIC_PATTERN.test(latestClientMessage) &&
+    !clientWantsToBook(latestClientMessage) &&
+    !PRICE_INTENT_PATTERN.test(latestClientMessage)
+  ) {
+    return true;
+  }
+  return false;
+}
+
 export function inferBookingPhase(
   context: ConversationTurnContext,
   slots: ExtractedSlots,
@@ -203,52 +230,50 @@ export function composeHumanBookingReply(
   switch (phase) {
     case 'need_style':
       if (PRICE_INTENT_PATTERN.test(latest)) {
-        return 'Happy to help with pricing — which braiding style are you thinking of?';
+        return 'Which style are you asking about?';
       }
-      return "I'd love to get you booked — what style are you after?";
+      return 'What style are you after?';
 
     case 'quote_price':
       if (preferredDate && styleName) {
-        return `${styleName} on ${formatDayLabel(preferredDate)} — here's the pricing:`;
+        return `${styleName} on ${formatDayLabel(preferredDate)} — pricing:`;
       }
       if (PRICE_INTENT_PATTERN.test(latest) && styleName) {
-        return `Sure — here's what ${styleName} costs:`;
+        return `${styleName} is:`;
       }
       if (styleName) {
-        return `Lovely — ${styleName}. Here's the pricing:`;
+        return `${styleName} — pricing:`;
       }
-      return 'Let me check pricing for you.';
+      return 'Checking pricing now.';
 
     case 'awaiting_day_or_book':
       if (preferredDate) {
-        return `I can check ${formatDayLabel(preferredDate)} — want me to send available times?`;
+        return `I can check ${formatDayLabel(preferredDate)} — want available times?`;
       }
-      return 'What day works for you? I can send times to pick from.';
+      return 'What day works? I can send times to pick from.';
 
     case 'propose_slots':
       if (AVAILABILITY_QUESTION_PATTERN.test(latest)) {
-        return styleName
-          ? `Good question — let me check what's open for ${styleName}.`
-          : 'Let me see which times are available.';
+        return styleName ? `Checking what's open for ${styleName}.` : 'Checking available times.';
       }
       if (slotIndex) {
-        return `Perfect — I'll reserve option ${slotIndex} for you.`;
+        return `Reserving option ${slotIndex} for you.`;
       }
       if (clientWantsToBook(latest) || clientAffirms(latest)) {
         return styleName
-          ? `Of course — let me find open times for ${styleName}.`
-          : 'On it — pulling up available times now.';
+          ? `Finding open times for ${styleName}.`
+          : 'Pulling up available times now.';
       }
       if (preferredDate) {
         return `Checking what's open on ${formatDayLabel(preferredDate)}.`;
       }
-      return 'Here are the next available times:';
+      return 'Next available times:';
 
     case 'prompt_slot_pick':
-      return "Just reply 1, 2, or 3 from the times above and I'll get you booked in.";
+      return 'Reply 1, 2, or 3 from the times above and I will book you in.';
 
     case 'confirm_slot':
-      return `Great — I'll book option ${slotIndex ?? 1} for you.`;
+      return `Booking option ${slotIndex ?? 1} for you.`;
 
     default:
       return '';
@@ -280,27 +305,64 @@ const NON_BOOKING_INTENTS = new Set<ReceptionistTurnOutput['intent']>([
   'out_of_scope',
   'prompt_injection',
   'reschedule',
+  'faq',
 ]);
 
 /**
  * Deterministic booking flow — overrides model output so the assistant advances
  * the conversation and replies to what the client actually said.
+ * FAQ / policy / topic-switch turns keep the model message and slots.
  */
 export function advanceBookingFlow(
   output: ReceptionistTurnOutput,
   context: ConversationTurnContext,
 ): ReceptionistTurnOutput {
-  if (output.next_action === 'escalate' || NON_BOOKING_INTENTS.has(output.intent)) {
+  if (output.next_action === 'escalate') {
     return output;
   }
 
   const slots = mergedSlots(context, output);
   const preferredDate = parsePreferredDateFromHistory(context);
-  const phase = inferBookingPhase(context, slots);
   const slotIndex = parseSelectedSlotIndex(context.latestClientMessage);
 
+  if (
+    NON_BOOKING_INTENTS.has(output.intent) ||
+    isNonBookingTopicTurn(output, context.latestClientMessage)
+  ) {
+    return {
+      ...output,
+      extracted_slots: {
+        ...slots,
+        ...(preferredDate && !slots.preferredDate ? { preferredDate } : {}),
+      },
+    };
+  }
+
+  const phase = inferBookingPhase(context, slots);
+
   if (phase === 'general') {
-    return output;
+    return {
+      ...output,
+      extracted_slots: slots,
+    };
+  }
+
+  // Slot pick / propose after explicit book request still advances even if model said answer_faq.
+  const forceBookingPhases = new Set<BookingPhase>([
+    'propose_slots',
+    'prompt_slot_pick',
+    'confirm_slot',
+  ]);
+  if (
+    !forceBookingPhases.has(phase) &&
+    (output.next_action === 'answer_faq' || output.intent === 'general') &&
+    FAQ_TOPIC_PATTERN.test(context.latestClientMessage) &&
+    !clientWantsToBook(context.latestClientMessage)
+  ) {
+    return {
+      ...output,
+      extracted_slots: slots,
+    };
   }
 
   const nextAction = phaseToNextAction(phase);
@@ -328,6 +390,9 @@ export function wasPriceAlreadyQuoted(
   mergedSlots: ExtractedSlots,
 ): boolean {
   if (mergedSlots.serviceOfferingId) {
+    return true;
+  }
+  if (mergedSlots.quotedPrice) {
     return true;
   }
 

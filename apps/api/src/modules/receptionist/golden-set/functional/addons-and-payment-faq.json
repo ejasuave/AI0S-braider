@@ -1,0 +1,51 @@
+{
+  "id": "addons-and-payment-faq",
+  "type": "functional",
+  "description": "Add-on selection and deposit/payment FAQ with retained style",
+  "turns": [
+    {
+      "mockOutput": {
+        "intent": "new_booking",
+        "extracted_slots": {
+          "styleName": "Knotless braids",
+          "sizeTier": "Medium",
+          "addonNames": ["Boho curls"],
+          "quotedPrice": "130",
+          "bookingStatus": "quoting"
+        },
+        "confidence": 0.93,
+        "next_action": "confirm_style_price",
+        "client_message": "Medium Knotless with Boho curls comes to £130."
+      },
+      "expectedMergedSlots": {
+        "styleName": "Knotless braids",
+        "sizeTier": "Medium",
+        "addonNames": ["Boho curls"],
+        "quotedPrice": "130",
+        "bookingStatus": "quoting"
+      }
+    },
+    {
+      "mockOutput": {
+        "intent": "faq",
+        "extracted_slots": {
+          "styleName": "Knotless braids",
+          "sizeTier": "Medium",
+          "addonNames": ["Boho curls"],
+          "quotedPrice": "130",
+          "bookingStatus": "quoting"
+        },
+        "confidence": 0.94,
+        "next_action": "answer_faq",
+        "client_message": "Deposit is 20% online; the rest can be cash or card on the day."
+      },
+      "expectedMergedSlots": {
+        "styleName": "Knotless braids",
+        "sizeTier": "Medium",
+        "addonNames": ["Boho curls"],
+        "quotedPrice": "130",
+        "bookingStatus": "quoting"
+      }
+    }
+  ]
+}

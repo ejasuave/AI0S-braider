@@ -70,12 +70,13 @@ function evaluateFunctional(fixture: FunctionalFixture): GoldenSetEvaluationResu
 
     const merged = mergeSlotsFromMessages(messages);
     for (const [key, value] of Object.entries(turn.expectedMergedSlots)) {
-      if (merged[key as keyof typeof merged] !== value) {
+      const actual = merged[key as keyof typeof merged];
+      if (JSON.stringify(actual) !== JSON.stringify(value)) {
         return {
           id: fixture.id,
           type: fixture.type,
           passed: false,
-          error: `Turn ${index + 1}: expected mergedSlots.${key}=${JSON.stringify(value)}, got ${JSON.stringify(merged[key as keyof typeof merged])}`,
+          error: `Turn ${index + 1}: expected mergedSlots.${key}=${JSON.stringify(value)}, got ${JSON.stringify(actual)}`,
         };
       }
     }
@@ -134,14 +135,50 @@ function evaluateFunctional(fixture: FunctionalFixture): GoldenSetEvaluationResu
 
 function evaluateAdversarial(fixture: AdversarialFixture): GoldenSetEvaluationResult {
   const injected = detectPromptInjection(fixture.clientMessage);
-  if (fixture.expect.escalate && !injected) {
+  const frustrationDecision = shouldEscalate(
+    {
+      intent: 'general',
+      extracted_slots: {},
+      confidence: 0.95,
+      next_action: 'answer_faq',
+      client_message: 'Connecting you with the stylist.',
+    },
+    { latestClientMessage: fixture.clientMessage },
+  );
+  const shouldEscalateClient = injected || frustrationDecision.escalate;
+
+  if (fixture.expect.escalate && !shouldEscalateClient) {
     return {
       id: fixture.id,
       type: fixture.type,
       passed: false,
-      error: 'Expected prompt injection detection to escalate',
+      error: 'Expected escalation (injection or client frustration/human request)',
     };
   }
+
+  if (
+    fixture.expect.escalate &&
+    fixture.expect.reason &&
+    !injected &&
+    frustrationDecision.reason !== fixture.expect.reason
+  ) {
+    return {
+      id: fixture.id,
+      type: fixture.type,
+      passed: false,
+      error: `Expected reason ${fixture.expect.reason}, got ${frustrationDecision.reason}`,
+    };
+  }
+
+  if (!fixture.expect.escalate && shouldEscalateClient) {
+    return {
+      id: fixture.id,
+      type: fixture.type,
+      passed: false,
+      error: 'Did not expect escalation',
+    };
+  }
+
   return { id: fixture.id, type: fixture.type, passed: true };
 }
 

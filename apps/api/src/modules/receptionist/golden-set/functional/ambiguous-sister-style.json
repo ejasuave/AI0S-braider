@@ -1,0 +1,21 @@
+{
+  "id": "ambiguous-sister-style",
+  "type": "functional",
+  "description": "Unknown third-party booking history asks for clarification instead of inventing",
+  "turns": [
+    {
+      "mockOutput": {
+        "intent": "general",
+        "extracted_slots": {},
+        "confidence": 0.9,
+        "next_action": "ask_clarification",
+        "client_message": "I don't have your sister's booking history — what style was it, or can you send a photo?"
+      },
+      "expectedMergedSlots": {},
+      "assertClientMessage": {
+        "maxQuestionMarks": 1,
+        "mustNotContain": ["I'd be happy to help", "As an AI"]
+      }
+    }
+  ]
+}

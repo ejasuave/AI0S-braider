@@ -13,18 +13,88 @@ export type EscalationDispatchContext = {
   structuredOutputValidationFailed?: boolean;
   ambiguousSlotSelection?: boolean;
   customStyleUnresolvable?: boolean;
+  clarificationStreak?: number;
+  latestClientMessage?: string;
 };
+
+/** Consecutive clarifications with no slot progress before escalating. */
+export const CLARIFICATION_STREAK_LIMIT = 3;
+
+const HUMAN_REQUEST_PATTERN =
+  /\b(speak (to|with) (a |the )?(human|person|stylist|someone)|talk to (a |the )?(human|person|stylist|someone)|real person|actual person|human please|connect me (to|with)|hand ?me off|transfer me)\b/i;
+
+const FRUSTRATION_PHRASES = [
+  'this is useless',
+  'this is ridiculous',
+  'you are useless',
+  "you're useless",
+  'waste of time',
+  'so frustrating',
+  "doesn't help",
+  'does not help',
+  'not helping',
+  'stupid bot',
+  'useless bot',
+  'give up',
+  'forget it',
+];
+
+export function detectClientRequestedHuman(message: string): boolean {
+  return HUMAN_REQUEST_PATTERN.test(message);
+}
+
+export function detectClientFrustration(message: string): boolean {
+  const normalized = message.toLowerCase();
+  if (FRUSTRATION_PHRASES.some((phrase) => normalized.includes(phrase))) {
+    return true;
+  }
+  // Heavy caps + bangs often signal frustration in short SMS/chat.
+  const letters = message.replace(/[^a-zA-Z]/g, '');
+  if (letters.length >= 12) {
+    const upper = letters.replace(/[^A-Z]/g, '').length;
+    if (upper / letters.length >= 0.75 && (message.match(/!/g) ?? []).length >= 2) {
+      return true;
+    }
+  }
+  return false;
+}
 
 export function shouldEscalate(
   output: ReceptionistTurnOutput,
   context: EscalationDispatchContext = {},
 ): EscalationDecision {
   const threshold = context.threshold ?? getEnv().AI_CONFIDENCE_THRESHOLD;
+  const latest = context.latestClientMessage ?? '';
 
   if (context.structuredOutputValidationFailed) {
     return {
       escalate: true,
       reason: ESCALATION_REASONS.structuredOutputValidationFailed,
+    };
+  }
+
+  if (latest && detectClientRequestedHuman(latest)) {
+    return {
+      escalate: true,
+      reason: ESCALATION_REASONS.clientRequestedHuman,
+    };
+  }
+
+  if (latest && detectClientFrustration(latest)) {
+    return {
+      escalate: true,
+      reason: ESCALATION_REASONS.clientFrustrated,
+    };
+  }
+
+  if (
+    context.clarificationStreak !== undefined &&
+    context.clarificationStreak >= CLARIFICATION_STREAK_LIMIT &&
+    output.next_action === 'ask_clarification'
+  ) {
+    return {
+      escalate: true,
+      reason: ESCALATION_REASONS.repeatedClarificationFailure,
     };
   }
 

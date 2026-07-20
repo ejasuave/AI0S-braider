@@ -181,6 +181,8 @@ export class ReceptionistService {
       pricingConfidence,
       ambiguousSlotSelection,
       customStyleUnresolvable,
+      clarificationStreak: context.clarificationStreak,
+      latestClientMessage: context.latestClientMessage,
     });
 
     if (escalation.escalate) {

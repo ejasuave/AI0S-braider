@@ -1,0 +1,54 @@
+{
+  "id": "multi-turn-memory-size-followup",
+  "type": "functional",
+  "description": "Remembers Knotless braids when client asks about medium ones after price/duration",
+  "turns": [
+    {
+      "mockOutput": {
+        "intent": "new_booking",
+        "extracted_slots": {
+          "styleName": "Knotless braids",
+          "sizeTier": "Large",
+          "quotedPrice": "120",
+          "quotedDurationMinutes": 240,
+          "bookingStatus": "quoting"
+        },
+        "confidence": 0.95,
+        "next_action": "confirm_style_price",
+        "client_message": "Large Knotless Braids are £120 and take about 4 hours."
+      },
+      "expectedMergedSlots": {
+        "styleName": "Knotless braids",
+        "sizeTier": "Large",
+        "quotedPrice": "120",
+        "quotedDurationMinutes": 240,
+        "bookingStatus": "quoting"
+      },
+      "assertClientMessage": {
+        "mustNotContain": ["I'd be happy to help", "As an AI"]
+      }
+    },
+    {
+      "mockOutput": {
+        "intent": "new_booking",
+        "extracted_slots": {
+          "styleName": "Knotless braids",
+          "sizeTier": "Medium",
+          "quotedPrice": "100",
+          "quotedDurationMinutes": 210,
+          "bookingStatus": "quoting"
+        },
+        "confidence": 0.93,
+        "next_action": "confirm_style_price",
+        "client_message": "Medium Knotless Braids are £100, usually around 3.5 hours."
+      },
+      "expectedMergedSlots": {
+        "styleName": "Knotless braids",
+        "sizeTier": "Medium",
+        "quotedPrice": "100",
+        "quotedDurationMinutes": 210,
+        "bookingStatus": "quoting"
+      }
+    }
+  ]
+}

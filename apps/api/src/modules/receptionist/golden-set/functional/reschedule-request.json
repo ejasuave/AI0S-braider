@@ -1,0 +1,28 @@
+{
+  "id": "reschedule-request",
+  "type": "functional",
+  "description": "Reschedule intent keeps booking id and asks one clarifying question",
+  "turns": [
+    {
+      "mockOutput": {
+        "intent": "reschedule",
+        "extracted_slots": {
+          "bookingId": "33333333-3333-4333-8333-333333333333",
+          "bookingStatus": "confirmed",
+          "styleName": "Cornrows"
+        },
+        "confidence": 0.91,
+        "next_action": "ask_clarification",
+        "client_message": "Sure — what day would you like to move your Cornrows appointment to?"
+      },
+      "expectedMergedSlots": {
+        "bookingId": "33333333-3333-4333-8333-333333333333",
+        "bookingStatus": "confirmed",
+        "styleName": "Cornrows"
+      },
+      "assertClientMessage": {
+        "maxQuestionMarks": 1
+      }
+    }
+  ]
+}
