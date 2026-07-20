@@ -7,6 +7,7 @@ import { Users } from 'lucide-react';
 import {
   BUSINESS_STAFF_ROLE_LABELS,
   BUSINESS_STAFF_ROLES,
+  STAFF_ROLE_PERMISSION_PRESETS,
   type BusinessStaff,
   type BusinessStaffRole,
 } from '@project-braids/shared-types/api';
@@ -80,6 +81,7 @@ export default function StylistStaffPage() {
         json: {
           email: email.trim(),
           role,
+          permissions: STAFF_ROLE_PERMISSION_PRESETS[role],
           ...(displayName.trim() ? { displayName: displayName.trim() } : {}),
         },
       });
