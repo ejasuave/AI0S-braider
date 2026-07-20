@@ -7,7 +7,7 @@ import { useAuth } from '@/features/auth/auth-context';
 import { getWebEnv } from '@/env';
 import { isStagingWebSurface } from '@project-braids/shared-types/env';
 import { apiFetchData, getApiErrorMessage } from '@/shared/lib/api-client';
-import { clearPostAuthNext, resolvePostAuthRedirect } from '@/shared/lib/auth-redirect';
+import { clearPostAuthNext, getPostAuthNext, resolvePostAuthRedirect } from '@/shared/lib/auth-redirect';
 import { getPendingOtp, type PendingOtp } from '@/shared/lib/auth-storage';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
@@ -17,6 +17,11 @@ import { FormError } from '@/shared/ui/form-error';
 function shouldShowDevOtp(): boolean {
   if (process.env.NODE_ENV !== 'production') return true;
   return isStagingWebSurface(getWebEnv());
+}
+
+function isTeamInviteFlow(): boolean {
+  const next = getPostAuthNext();
+  return Boolean(next?.startsWith('/invite/'));
 }
 
 export default function VerifyOtpPage() {
@@ -103,19 +108,25 @@ export default function VerifyOtpPage() {
     }
   }
 
+  const teamInvite = isTeamInviteFlow();
+
   return (
     <div className="space-y-6">
       <div className="space-y-2 text-center">
-        <h1 className="font-display text-3xl font-semibold text-ink">Verify your phone</h1>
-        <p className="text-sm text-ink-muted">Enter the 6-digit code for {pending.phoneNumber}.</p>
+        <h1 className="font-display text-3xl font-semibold text-ink">
+          {teamInvite ? 'Verify to join the team' : 'Verify your phone'}
+        </h1>
+        <p className="text-sm text-ink-muted">
+          {teamInvite
+            ? `Enter the 6-digit code for ${pending.phoneNumber}, then accept your invitation.`
+            : `Enter the 6-digit code for ${pending.phoneNumber}.`}
+        </p>
       </div>
 
       {showDevOtp ? (
         <Card className="space-y-2 border-ai/30 bg-ai/5">
           <p className="text-sm font-medium text-ink">Staging / local testing</p>
-          <p className="text-sm text-ink-muted">
-            SMS OTP is disabled here. Use the code below:
-          </p>
+          <p className="text-sm text-ink-muted">SMS OTP is disabled here. Use the code below:</p>
           {devCode ? (
             <p className="font-mono text-2xl font-semibold tracking-widest text-ai">{devCode}</p>
           ) : (
@@ -148,20 +159,19 @@ export default function VerifyOtpPage() {
       </Card>
 
       <p className="text-center text-sm text-ink-muted">
-        {pending.role === 'client' ? (
-          <>
-            Wrong number?{' '}
-            <Link href="/login/client" className="font-medium text-primary hover:underline">
-              Try again
-            </Link>
-          </>
-        ) : (
-          <>
-            <Link href="/login" className="font-medium text-primary hover:underline">
-              Stylist sign in
-            </Link>
-          </>
-        )}
+        Wrong number?{' '}
+        <Link
+          href={
+            teamInvite
+              ? `/login/team${getPostAuthNext() ? `?next=${encodeURIComponent(getPostAuthNext()!)}` : ''}`
+              : pending.role === 'client'
+                ? '/login/client'
+                : '/login'
+          }
+          className="font-medium text-primary hover:underline"
+        >
+          Try again
+        </Link>
       </p>
     </div>
   );

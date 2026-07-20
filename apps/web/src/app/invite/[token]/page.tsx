@@ -47,10 +47,10 @@ export default function AcceptStaffInvitePage() {
   });
 
   const nextParam = encodeURIComponent(`/invite/${token}`);
-  // New team members normally use phone OTP (client registration → staff after accept).
-  const phoneLoginHref = `/login/client?next=${nextParam}`;
+  // Phone OTP for invitees — team-labelled sign-in (not client booking login).
+  const phoneLoginHref = `/login/team?next=${nextParam}`;
   const passwordLoginHref = `/login?next=${nextParam}`;
-  const registerHref = `/register/client?next=${nextParam}`;
+  const registerHref = `/login/team?next=${nextParam}`;
 
   if (!token) {
     return (
@@ -73,8 +73,8 @@ export default function AcceptStaffInvitePage() {
         ) : !auth.user ? (
           <>
             <p className="text-sm text-ink-muted">
-              Use a mobile number to join (recommended). You&apos;ll get a verification code on the
-              next screen.
+              Sign in with your mobile number to join this team. You&apos;ll enter a verification
+              code on the next screen.
             </p>
             <Link
               href={phoneLoginHref}
@@ -83,9 +83,9 @@ export default function AcceptStaffInvitePage() {
               Continue with mobile number
             </Link>
             <p className="text-center text-sm text-ink-muted">
-              New number?{' '}
+              First time?{' '}
               <Link href={registerHref} className="text-primary hover:underline">
-                Create an account
+                Use the same mobile sign-in
               </Link>
             </p>
             <p className="pt-2 text-center text-xs text-ink-muted">
