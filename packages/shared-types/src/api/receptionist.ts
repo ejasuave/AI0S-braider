@@ -33,10 +33,7 @@ function emptyToUndefined(value: unknown): unknown {
   return value;
 }
 
-const optionalNonEmptyString = z.preprocess(
-  emptyToUndefined,
-  z.string().trim().min(1).optional(),
-);
+const optionalNonEmptyString = z.preprocess(emptyToUndefined, z.string().trim().min(1).optional());
 
 export const extractedSlotsSchema = z.object({
   styleName: optionalNonEmptyString,

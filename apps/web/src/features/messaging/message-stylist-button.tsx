@@ -54,7 +54,12 @@ export function MessageStylistButton({
   }
 
   const button = (
-    <Button type="button" fullWidth={fullWidth} disabled={pending} onClick={() => void handleMessage()}>
+    <Button
+      type="button"
+      fullWidth={fullWidth}
+      disabled={pending}
+      onClick={() => void handleMessage()}
+    >
       {pending ? 'Opening chat…' : 'Message AI receptionist'}
     </Button>
   );

@@ -85,7 +85,9 @@ export const remainingBalanceMethodLabel: Record<RemainingBalanceMethod, string>
 };
 
 /** True when the client may pay the remaining balance online via card/Stripe. */
-export function remainingBalanceAllowsOnlineCard(method: RemainingBalanceMethod | null | undefined): boolean {
+export function remainingBalanceAllowsOnlineCard(
+  method: RemainingBalanceMethod | null | undefined,
+): boolean {
   if (!method) return true;
   return (
     method === 'card' ||

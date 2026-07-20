@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  formatDurationLabel,
-  minutesToParts,
-  partsToMinutes,
-} from './service-catalogs.js';
+import { formatDurationLabel, minutesToParts, partsToMinutes } from './service-catalogs.js';
 import { buildServiceSharePathFromOffering, slugify } from './slug.js';
 
 describe('duration helpers', () => {

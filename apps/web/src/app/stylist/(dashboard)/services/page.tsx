@@ -310,10 +310,7 @@ export default function StylistServicesPage() {
                     {service.active ? 'Deactivate' : 'Activate'}
                   </Button>
                 </div>
-                <ServiceEditorPanel
-                  service={service}
-                  categories={categoriesQuery.data ?? []}
-                />
+                <ServiceEditorPanel service={service} categories={categoriesQuery.data ?? []} />
               </Card>
             ))}
           </div>

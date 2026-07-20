@@ -19,7 +19,8 @@ import { advanceBookingFlow } from './flow.js';
 const log = createLogger().child({ module: 'receptionist' });
 
 function isAiProviderTransportError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  const message =
+    error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
   return (
     message.includes('ai provider request failed') ||
     message.includes('credit balance') ||
@@ -111,10 +112,7 @@ export class ReceptionistService {
           { conversationId, err: firstError },
           'Receptionist AI provider unavailable; escalating',
         );
-        await escalateWithModelContext(
-          conversationId,
-          ESCALATION_REASONS.aiProviderUnavailable,
-        );
+        await escalateWithModelContext(conversationId, ESCALATION_REASONS.aiProviderUnavailable);
         return { status: 'escalated', reason: ESCALATION_REASONS.aiProviderUnavailable };
       }
 
@@ -133,10 +131,7 @@ export class ReceptionistService {
             { conversationId, err: retryError },
             'Receptionist AI provider unavailable on retry; escalating',
           );
-          await escalateWithModelContext(
-            conversationId,
-            ESCALATION_REASONS.aiProviderUnavailable,
-          );
+          await escalateWithModelContext(conversationId, ESCALATION_REASONS.aiProviderUnavailable);
           return { status: 'escalated', reason: ESCALATION_REASONS.aiProviderUnavailable };
         }
 

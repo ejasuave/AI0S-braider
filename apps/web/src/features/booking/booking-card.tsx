@@ -42,9 +42,7 @@ export function BookingCard({
             {showStylist && stylistLabel ? (
               <p className="font-medium text-ink">{stylistLabel}</p>
             ) : null}
-            {showStylist && styleLabel ? (
-              <p className="text-sm text-ink">{styleLabel}</p>
-            ) : null}
+            {showStylist && styleLabel ? <p className="text-sm text-ink">{styleLabel}</p> : null}
             <p
               className={`font-medium text-ink ${
                 (showClient && clientLabel) || (showStylist && stylistLabel) ? 'text-sm' : ''

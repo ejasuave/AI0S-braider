@@ -17,13 +17,7 @@ export function RequireAuth({
   role?: 'stylist' | 'client';
 }) {
   const auth = useAuth();
-  const {
-    isLoading,
-    isAuthenticated,
-    isStylist,
-    isClient,
-    refreshMe,
-  } = auth;
+  const { isLoading, isAuthenticated, isStylist, isClient, refreshMe } = auth;
   const router = useRouter();
   const refreshAttemptedRef = useRef(false);
   const [loadingTimedOut, setLoadingTimedOut] = useState(false);
@@ -70,16 +64,7 @@ export function RequireAuth({
     if (role === 'client' && !isClient) {
       router.replace('/stylist');
     }
-  }, [
-    isAuthenticated,
-    isClient,
-    isLoading,
-    isStylist,
-    loadingTimedOut,
-    refreshMe,
-    role,
-    router,
-  ]);
+  }, [isAuthenticated, isClient, isLoading, isStylist, loadingTimedOut, refreshMe, role, router]);
 
   if (isLoading && !loadingTimedOut) {
     return (

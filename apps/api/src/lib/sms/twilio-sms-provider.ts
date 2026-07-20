@@ -8,8 +8,7 @@ function mapTwilioSendError(error: unknown): ApiError {
     typeof error === 'object' && error !== null && 'code' in error
       ? Number((error as { code?: unknown }).code)
       : undefined;
-  const message =
-    error instanceof Error ? error.message : 'Failed to send SMS via Twilio';
+  const message = error instanceof Error ? error.message : 'Failed to send SMS via Twilio';
 
   // Trial / geo / invalid destination — actionable client errors, not opaque 500s.
   if (code === 21608 || code === 21408 || code === 21211 || code === 21614) {

@@ -18,7 +18,12 @@ import { profileService } from '../profile/service.js';
 import { getBusinessPolicyByStylistId, resolveDepositPolicy } from '../stylist-profile/policy.js';
 import { parseRequirements, requirementTexts } from '../stylist-profile/requirements.js';
 import { expireStaleHolds, findConflictingBookingIds } from './conflict.js';
-import { calculateBalanceAmount, calculateBookingEndTime, calculateDepositAmount, toBooking } from './mappers.js';
+import {
+  calculateBalanceAmount,
+  calculateBookingEndTime,
+  calculateDepositAmount,
+  toBooking,
+} from './mappers.js';
 import { evaluateCancellationDeposit, evaluateNoShowDeposit } from './policy.js';
 import { transitionBookingStatus } from './state-machine.js';
 import { slotMatchesAvailability } from '../calendar/availability.js';
@@ -82,9 +87,7 @@ type CreateBookingInput = {
   policiesAcknowledgedAt?: Date | null;
 };
 
-async function loadClientPhones(
-  clientIds: Array<string | null>,
-): Promise<Map<string, string>> {
+async function loadClientPhones(clientIds: Array<string | null>): Promise<Map<string, string>> {
   const ids = [...new Set(clientIds.filter((id): id is string => Boolean(id)))];
   if (ids.length === 0) return new Map();
   const users = await prisma.user.findMany({
@@ -111,11 +114,7 @@ async function loadClientBookingLabels(
 > {
   const stylistIds = [...new Set(bookings.map((b) => b.stylistId))];
   const serviceIds = [
-    ...new Set(
-      bookings
-        .map((b) => b.serviceOfferingId)
-        .filter((id): id is string => Boolean(id)),
-    ),
+    ...new Set(bookings.map((b) => b.serviceOfferingId).filter((id): id is string => Boolean(id))),
   ];
 
   const [stylists, offerings] = await Promise.all([
@@ -772,10 +771,7 @@ export class BookingService {
     if (booking.depositStatus !== 'paid') {
       throw new ApiError('CONFLICT', 'Deposit must be paid before settling the balance', 409);
     }
-    if (
-      booking.balanceStatus === 'paid_online' ||
-      booking.balanceStatus === 'paid_in_person'
-    ) {
+    if (booking.balanceStatus === 'paid_online' || booking.balanceStatus === 'paid_in_person') {
       return toBooking(booking);
     }
     const remaining = calculateBalanceAmount(

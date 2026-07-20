@@ -553,7 +553,11 @@ export class PaymentService {
       throw new ApiError('CONFLICT', 'Balance can only be paid for confirmed bookings', 409);
     }
     if (booking.depositStatus !== 'paid') {
-      throw new ApiError('CONFLICT', 'Deposit must be paid before paying the remaining balance', 409);
+      throw new ApiError(
+        'CONFLICT',
+        'Deposit must be paid before paying the remaining balance',
+        409,
+      );
     }
     if (booking.balanceStatus === 'paid_online' || booking.balanceStatus === 'paid_in_person') {
       throw new ApiError('CONFLICT', 'Balance has already been paid for this booking', 409);
@@ -847,9 +851,7 @@ export class PaymentService {
           where: { id: bookingId },
           data: {
             depositStatus: 'forfeited',
-            ...(balancePayment
-              ? { balanceStatus: 'not_due' as const, balancePaidAt: null }
-              : {}),
+            ...(balancePayment ? { balanceStatus: 'not_due' as const, balancePaidAt: null } : {}),
           },
         });
         return depositResult;
@@ -913,9 +915,7 @@ export class PaymentService {
         where: { id: bookingId },
         data: {
           depositStatus: 'refunded',
-          ...(balancePayment
-            ? { balanceStatus: 'not_due' as const, balancePaidAt: null }
-            : {}),
+          ...(balancePayment ? { balanceStatus: 'not_due' as const, balancePaidAt: null } : {}),
         },
       });
       return depositResult;

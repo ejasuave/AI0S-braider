@@ -18,11 +18,7 @@ function isStagingWebSurface(env: WebEnv): boolean {
   const display = env.NEXT_PUBLIC_PLATFORM_DISPLAY_NAME;
   const apiUrl = env.NEXT_PUBLIC_API_URL;
   const sentryEnv = env.SENTRY_ENVIRONMENT?.toLowerCase();
-  return (
-    display.includes('(Staging)') ||
-    apiUrl.includes('staging') ||
-    sentryEnv === 'staging'
-  );
+  return display.includes('(Staging)') || apiUrl.includes('staging') || sentryEnv === 'staging';
 }
 
 /**

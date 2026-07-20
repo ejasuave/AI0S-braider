@@ -66,15 +66,17 @@ export const bookingSchema = z.object({
   /** What the stylist should expect to keep for this booking at current payment state. */
   stylistExpectedTotal: z.string(),
   addons: z.array(bookingAddonSnapshotSchema).default([]),
-  remainingBalanceMethod: z.enum([
-    'cash',
-    'card',
-    'bank_transfer',
-    'cash_or_card',
-    'cash_or_bank_transfer',
-    'card_or_bank_transfer',
-    'any',
-  ]).nullable(),
+  remainingBalanceMethod: z
+    .enum([
+      'cash',
+      'card',
+      'bank_transfer',
+      'cash_or_card',
+      'cash_or_bank_transfer',
+      'card_or_bank_transfer',
+      'any',
+    ])
+    .nullable(),
   requirementsAcknowledgedAt: z.string().datetime().nullable(),
   policiesAcknowledgedAt: z.string().datetime().nullable(),
   /** Client history — stylist display name (joined, not snapshotted). */

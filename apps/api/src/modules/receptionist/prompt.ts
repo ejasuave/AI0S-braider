@@ -23,9 +23,9 @@ export function buildSystemPrompt(context: ConversationTurnContext): string {
     .join('\n');
 
   const balanceMethod = context.stylistContext.remainingBalanceMethod
-    ? remainingBalanceMethodLabel[
+    ? (remainingBalanceMethodLabel[
         context.stylistContext.remainingBalanceMethod as keyof typeof remainingBalanceMethodLabel
-      ] ?? context.stylistContext.remainingBalanceMethod
+      ] ?? context.stylistContext.remainingBalanceMethod)
     : 'not specified';
 
   return `You are the AI receptionist for ${context.stylistContext.businessName}, a UK hair braiding stylist.

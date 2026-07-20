@@ -175,8 +175,7 @@ export function ServiceEditorPanel({ service, categories }: Props) {
   }
 
   const addons = [...(service.addons ?? [])].sort((a, b) => a.displayOrder - b.displayOrder);
-  const addonBusy =
-    createAddonMutation.isPending || updateAddonMutation.isPending;
+  const addonBusy = createAddonMutation.isPending || updateAddonMutation.isPending;
 
   return (
     <div className="space-y-3 border-t border-border pt-3">

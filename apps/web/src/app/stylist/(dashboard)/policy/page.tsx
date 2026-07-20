@@ -36,9 +36,9 @@ export default function StylistPolicyPage() {
   const [cancellationWindowHours, setCancellationWindowHours] = useState('24');
   const [remainingBalanceMethod, setRemainingBalanceMethod] =
     useState<RemainingBalanceMethod>('cash_or_card');
-  const [noShowFeeType, setNoShowFeeType] = useState<
-    'forfeit_deposit' | 'flat_fee' | 'no_fee'
-  >('forfeit_deposit');
+  const [noShowFeeType, setNoShowFeeType] = useState<'forfeit_deposit' | 'flat_fee' | 'no_fee'>(
+    'forfeit_deposit',
+  );
   const [texts, setTexts] = useState<Record<PolicyTextKey, string>>({
     cancellationPolicyText: '',
     reschedulingPolicyText: '',
@@ -190,9 +190,7 @@ export default function StylistPolicyPage() {
                   key={field.key}
                   label={field.label}
                   value={texts[field.key]}
-                  onChange={(e) =>
-                    setTexts((prev) => ({ ...prev, [field.key]: e.target.value }))
-                  }
+                  onChange={(e) => setTexts((prev) => ({ ...prev, [field.key]: e.target.value }))}
                   rows={3}
                 />
               ))}

@@ -9,10 +9,7 @@ describe('requirements normalization', () => {
   it('parses structured items', () => {
     expect(
       parseRequirements([{ text: 'Bring hair', catalogKey: 'bring_own_hair' }, { text: 'Custom' }]),
-    ).toEqual([
-      { text: 'Bring hair', catalogKey: 'bring_own_hair' },
-      { text: 'Custom' },
-    ]);
+    ).toEqual([{ text: 'Bring hair', catalogKey: 'bring_own_hair' }, { text: 'Custom' }]);
   });
 
   it('serializes mixed inputs', () => {

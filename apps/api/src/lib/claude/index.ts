@@ -1,8 +1,5 @@
 import { getEnv } from '../../config/env.js';
-import {
-  isClaudeConfigured,
-  createAnthropicClaudeProvider,
-} from './anthropic-claude-provider.js';
+import { isClaudeConfigured, createAnthropicClaudeProvider } from './anthropic-claude-provider.js';
 import type { ClaudeProvider } from './claude-provider.types.js';
 import { getMockClaudeProvider } from './mock-claude-provider.js';
 import {

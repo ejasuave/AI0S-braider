@@ -1,4 +1,8 @@
-import type { DepositDisposition, NotificationType, RemainingBalanceMethod } from '@project-braids/shared-types/api';
+import type {
+  DepositDisposition,
+  NotificationType,
+  RemainingBalanceMethod,
+} from '@project-braids/shared-types/api';
 import { remainingBalanceMethodLabel } from '@project-braids/shared-types/api';
 import { formatSlotLabel } from '../../lib/scheduling/format-datetime.js';
 import { depositDispositionLabel } from './preference-gating.js';
@@ -46,9 +50,7 @@ export function formatVenueLineForNotification(input: {
   return 'At stylist location.';
 }
 
-function remainingBalanceLabel(
-  method: RemainingBalanceMethod | null | undefined,
-): string | null {
+function remainingBalanceLabel(method: RemainingBalanceMethod | null | undefined): string | null {
   if (!method) return null;
   return remainingBalanceMethodLabel[method] ?? null;
 }

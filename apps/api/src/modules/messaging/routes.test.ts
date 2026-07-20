@@ -319,7 +319,9 @@ describe('messaging routes', () => {
     await app.close();
   });
 
-  it('starts an in-app web conversation, runs AI reply, and does not send SMS', async ({ skip }) => {
+  it('starts an in-app web conversation, runs AI reply, and does not send SMS', async ({
+    skip,
+  }) => {
     if (!databaseAvailable) skip();
     const app = await buildApp();
     await registerAndLoginStylist(app);

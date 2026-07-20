@@ -317,9 +317,7 @@ function ClientBookingDetailContent() {
         invalidateBookingQueries();
         return;
       }
-      setCheckoutError(
-        getApiErrorMessage(err, 'Payment succeeded but sync failed. Retrying…'),
-      );
+      setCheckoutError(getApiErrorMessage(err, 'Payment succeeded but sync failed. Retrying…'));
       invalidateBookingQueries();
     }
   }, [invalidateBookingQueries, syncBalanceMutation]);
@@ -429,10 +427,11 @@ function ClientBookingDetailContent() {
                         ? 'Stylist location'
                         : 'Address'}
                   </dt>
-                  <dd className="font-medium text-ink whitespace-pre-wrap">{booking.venueAddress}</dd>
+                  <dd className="font-medium text-ink whitespace-pre-wrap">
+                    {booking.venueAddress}
+                  </dd>
                 </div>
-              ) : booking.serviceVenueMode === 'stylist_location' &&
-                booking.status === 'held' ? (
+              ) : booking.serviceVenueMode === 'stylist_location' && booking.status === 'held' ? (
                 <div>
                   <dt className="text-ink-muted">Stylist location</dt>
                   <dd className="font-medium text-ink-muted">
@@ -673,7 +672,6 @@ function ClientBookingDetailContent() {
     </PageShell>
   );
 }
-
 
 export default function ClientBookingDetailPage() {
   return (

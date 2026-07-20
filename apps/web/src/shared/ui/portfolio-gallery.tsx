@@ -49,7 +49,11 @@ export function StylistAvatar({
   const src = resolveMediaUrl(photoUrl ?? null);
   const [failed, setFailed] = useState(false);
   const sizeClass =
-    size === 'lg' ? 'h-20 w-20 text-2xl' : size === 'sm' ? 'h-12 w-12 text-sm' : 'h-14 w-14 text-lg';
+    size === 'lg'
+      ? 'h-20 w-20 text-2xl'
+      : size === 'sm'
+        ? 'h-12 w-12 text-sm'
+        : 'h-14 w-14 text-lg';
   const initial = name.trim().charAt(0).toUpperCase() || '?';
 
   useEffect(() => {

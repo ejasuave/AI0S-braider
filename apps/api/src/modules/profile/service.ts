@@ -556,9 +556,7 @@ export class ProfileService {
         length: slugify(offering.lengthTier || 'standard'),
       };
       return (
-        segments.style === styleSlug &&
-        segments.size === sizeSlug &&
-        segments.length === lengthSlug
+        segments.style === styleSlug && segments.size === sizeSlug && segments.length === lengthSlug
       );
     });
 
@@ -586,7 +584,9 @@ export class ProfileService {
     const profile = await getStylistProfileById(stylistId);
     if (profile.publicSlug) return profile.publicSlug;
 
-    const base = slugify(preferredName || profile.businessName || `stylist-${stylistId.slice(0, 8)}`);
+    const base = slugify(
+      preferredName || profile.businessName || `stylist-${stylistId.slice(0, 8)}`,
+    );
     let candidate = base || `stylist-${stylistId.slice(0, 8)}`;
     let suffix = 0;
     while (true) {

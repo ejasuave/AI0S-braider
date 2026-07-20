@@ -133,8 +133,7 @@ export class StylistProfileService {
       throw ApiError.notFound('Business not found');
     }
 
-    const offersStylistLocation =
-      input.offersStylistLocation ?? existing.offersStylistLocation;
+    const offersStylistLocation = input.offersStylistLocation ?? existing.offersStylistLocation;
     const offersComeToClient = input.offersComeToClient ?? existing.offersComeToClient;
     const offersRemote = input.offersRemote ?? existing.offersRemote;
 
@@ -336,7 +335,9 @@ export class StylistProfileService {
     }
     for (const id of input.orderedIds) {
       if (!itemIds.has(id)) {
-        throw ApiError.validation('orderedIds contains an image that does not belong to this service');
+        throw ApiError.validation(
+          'orderedIds contains an image that does not belong to this service',
+        );
       }
     }
 
@@ -446,7 +447,9 @@ export class StylistProfileService {
     }
 
     if (existing.photoStorageKey && existing.photoStorageKey !== input.storageKey) {
-      await getStorageProvider().delete(existing.photoStorageKey).catch(() => {});
+      await getStorageProvider()
+        .delete(existing.photoStorageKey)
+        .catch(() => {});
     }
 
     const updated = await prisma.stylistProfile.update({
@@ -471,7 +474,9 @@ export class StylistProfileService {
     }
 
     if (existing.photoStorageKey) {
-      await getStorageProvider().delete(existing.photoStorageKey).catch(() => {});
+      await getStorageProvider()
+        .delete(existing.photoStorageKey)
+        .catch(() => {});
     }
 
     await prisma.stylistProfile.update({
@@ -767,7 +772,9 @@ export class StylistProfileService {
       input.orderedIds.length !== existingIds.size ||
       input.orderedIds.some((id) => !existingIds.has(id))
     ) {
-      throw ApiError.validation('orderedIds must include every add-on for this service exactly once');
+      throw ApiError.validation(
+        'orderedIds must include every add-on for this service exactly once',
+      );
     }
     await prisma.$transaction(
       input.orderedIds.map((id, index) =>

@@ -41,8 +41,7 @@ export function SaveStylistButton({ stylistId, fullWidth, className }: Props) {
   });
 
   const removeMutation = useMutation({
-    mutationFn: () =>
-      apiFetchData(`/clients/me/saved-stylists/${stylistId}`, { method: 'DELETE' }),
+    mutationFn: () => apiFetchData(`/clients/me/saved-stylists/${stylistId}`, { method: 'DELETE' }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['client', 'saved-stylists'] });
       setError(null);

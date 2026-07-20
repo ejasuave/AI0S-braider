@@ -14,12 +14,7 @@ type Props = {
   required?: boolean;
 };
 
-export function DurationPicker({
-  label = 'Duration',
-  valueMinutes,
-  onChange,
-  required,
-}: Props) {
+export function DurationPicker({ label = 'Duration', valueMinutes, onChange, required }: Props) {
   const { hours, minutes } = minutesToParts(valueMinutes);
   const minuteOptions = DURATION_MINUTE_STEPS.includes(
     minutes as (typeof DURATION_MINUTE_STEPS)[number],

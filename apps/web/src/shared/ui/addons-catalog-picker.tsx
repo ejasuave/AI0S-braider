@@ -9,10 +9,9 @@ import { Input } from '@/shared/ui/input';
 
 type Props = {
   existingAddons: Array<
-    Pick<
-      ServiceAddon,
-      'id' | 'name' | 'price' | 'active' | 'description' | 'displayOrder'
-    > & { catalogKey?: string | null }
+    Pick<ServiceAddon, 'id' | 'name' | 'price' | 'active' | 'description' | 'displayOrder'> & {
+      catalogKey?: string | null;
+    }
   >;
   onEnableCatalog: (input: {
     catalogKey: string;
@@ -41,9 +40,7 @@ export function AddonsCatalogPicker({
     const initial: Record<string, string> = {};
     for (const entry of ADDONS_CATALOG) {
       const existing = existingAddons.find((a) => a.catalogKey === entry.key);
-      initial[entry.key] = existing
-        ? String(Number(existing.price))
-        : String(entry.defaultPrice);
+      initial[entry.key] = existing ? String(Number(existing.price)) : String(entry.defaultPrice);
     }
     return initial;
   });
@@ -221,7 +218,13 @@ export function AddonsCatalogPicker({
           value={customDescription}
           onChange={(e) => setCustomDescription(e.target.value)}
         />
-        <Button type="button" variant="secondary" fullWidth disabled={busy} onClick={() => void saveCustom()}>
+        <Button
+          type="button"
+          variant="secondary"
+          fullWidth
+          disabled={busy}
+          onClick={() => void saveCustom()}
+        >
           Add custom add-on
         </Button>
       </div>

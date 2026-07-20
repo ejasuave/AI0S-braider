@@ -6,3 +6,7 @@
 # Reviewed pre-beta: data is copied into payment_accounts in the same file and
 # no deployed environment existed before this migration chain.
 prisma/migrations/20260711150000_ch9_payments_full/migration.sql
+
+# 20260714170000_venue_multi_offer: DROP COLUMN service_venue_mode after expand to
+# offers_* flags — already applied; reviewed as completed contract step.
+prisma/migrations/20260714170000_venue_multi_offer/migration.sql

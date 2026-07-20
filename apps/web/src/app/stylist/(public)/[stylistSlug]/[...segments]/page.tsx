@@ -38,10 +38,9 @@ export default function StylistVanitySharePage() {
   const bookingPageQuery = useQuery({
     queryKey: ['booking-page-by-slug', stylistSlug],
     queryFn: () =>
-      apiFetchData<{ stylistId: string }>(
-        `/profile/stylists/by-slug/${stylistSlug}/booking-page`,
-        { auth: false },
-      ),
+      apiFetchData<{ stylistId: string }>(`/profile/stylists/by-slug/${stylistSlug}/booking-page`, {
+        auth: false,
+      }),
     enabled: Boolean(stylistSlug) && !canResolve,
     retry: false,
   });

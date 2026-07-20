@@ -426,25 +426,19 @@ export const createBusinessServiceRequestSchema = z
   });
 
 /** Empty / whitespace-only strings from HTML forms → null for nullable tier fields. */
-const optionalNullableTierSchema = z.preprocess(
-  (value) => {
-    if (value === undefined) return undefined;
-    if (value === null) return null;
-    if (typeof value === 'string' && value.trim() === '') return null;
-    return value;
-  },
-  z.string().trim().min(1).max(60).nullable().optional(),
-);
+const optionalNullableTierSchema = z.preprocess((value) => {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (typeof value === 'string' && value.trim() === '') return null;
+  return value;
+}, z.string().trim().min(1).max(60).nullable().optional());
 
-const optionalNullableDescriptionSchema = z.preprocess(
-  (value) => {
-    if (value === undefined) return undefined;
-    if (value === null) return null;
-    if (typeof value === 'string' && value.trim() === '') return null;
-    return value;
-  },
-  z.string().trim().max(2000).nullable().optional(),
-);
+const optionalNullableDescriptionSchema = z.preprocess((value) => {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (typeof value === 'string' && value.trim() === '') return null;
+  return value;
+}, z.string().trim().max(2000).nullable().optional());
 
 const businessServiceFieldsSchema = z.object({
   styleCategoryId: z.string().uuid().nullable().optional(),

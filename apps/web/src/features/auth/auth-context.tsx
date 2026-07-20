@@ -256,10 +256,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Only block the UI before we know if a stored token can resolve a user.
     // Once we have sessionUser (from login/OTP) or /auth/me data, never spin forever.
     const waitingForStoredSession =
-      hasToken &&
-      !user &&
-      !meQuery.isError &&
-      (meQuery.isPending || !meQuery.isFetched);
+      hasToken && !user && !meQuery.isError && (meQuery.isPending || !meQuery.isFetched);
 
     return {
       user,

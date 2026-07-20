@@ -68,8 +68,7 @@ export default function StylistBookingDetailPage() {
     actionMutation.error || markBalancePaidMutation.error
       ? getApiErrorMessage(actionMutation.error ?? markBalancePaidMutation.error)
       : null;
-  const balanceDue =
-    booking?.balanceStatus === 'due' && Number(booking.remainingToPay) > 0;
+  const balanceDue = booking?.balanceStatus === 'due' && Number(booking.remainingToPay) > 0;
 
   return (
     <PageShell>
@@ -91,9 +90,7 @@ export default function StylistBookingDetailPage() {
               <div>
                 <dt className="text-ink-muted">Client</dt>
                 <dd className="font-medium text-ink">
-                  {booking.clientDisplayName?.trim() ||
-                    booking.clientPhoneNumber ||
-                    'Not provided'}
+                  {booking.clientDisplayName?.trim() || booking.clientPhoneNumber || 'Not provided'}
                 </dd>
               </div>
               {booking.clientPhoneNumber ? (
@@ -119,7 +116,9 @@ export default function StylistBookingDetailPage() {
                       ? 'Client address'
                       : 'Workplace address'}
                   </dt>
-                  <dd className="font-medium text-ink whitespace-pre-wrap">{booking.venueAddress}</dd>
+                  <dd className="font-medium text-ink whitespace-pre-wrap">
+                    {booking.venueAddress}
+                  </dd>
                 </div>
               ) : null}
               {Number(booking.homeVisitSurcharge) > 0 ? (

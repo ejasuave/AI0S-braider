@@ -16,10 +16,7 @@ import { apiFetchData, getApiErrorMessage } from '@/shared/lib/api-client';
 import { serviceBookingPath, stylistBookingPath } from '@/shared/lib/booking-links';
 import { formatDateTime, formatMoney } from '@/shared/lib/format';
 import { serviceVenueModeLabel } from '@/shared/lib/venue';
-import {
-  calculateBookingPriceSummary,
-  remainingBalanceMethodLabel,
-} from '@/shared/lib/pricing';
+import { calculateBookingPriceSummary, remainingBalanceMethodLabel } from '@/shared/lib/pricing';
 import { formatDurationLabel } from '@project-braids/shared-types/api';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
@@ -81,10 +78,7 @@ function ServicePicker({
                 ) : null}
               </div>
             </Card>
-            <MessageStylistButton
-              stylistId={stylistId}
-              stylistName={page.businessName}
-            />
+            <MessageStylistButton stylistId={stylistId} stylistName={page.businessName} />
             <p className="text-sm text-ink-muted">
               Select a style to see available times and hold your slot.
               {(page?.venueOptions?.length ?? 0) > 0
@@ -163,9 +157,7 @@ function ServiceBooking({
         basePrice: Number(offering.basePrice),
         addonPrices: selectedAddonPrices,
         homeVisitSurcharge:
-          venueMode === 'come_to_client' && homeVisitSurcharge
-            ? Number(homeVisitSurcharge)
-            : 0,
+          venueMode === 'come_to_client' && homeVisitSurcharge ? Number(homeVisitSurcharge) : 0,
         depositType,
         depositValue,
       })
@@ -312,7 +304,10 @@ function ServiceBooking({
               stylistName={pageQuery.data?.businessName}
               compact
             />
-            <Link href={stylistBookingPath(stylistId)} className="inline-block text-sm text-primary underline">
+            <Link
+              href={stylistBookingPath(stylistId)}
+              className="inline-block text-sm text-primary underline"
+            >
               Choose a different style with this stylist
             </Link>
           </Card>

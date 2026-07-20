@@ -28,10 +28,7 @@ export type BookingMapOptions = {
   serviceCategoryName?: string | null;
 };
 
-function shouldRevealVenueAddress(
-  booking: DbBooking,
-  audience: 'stylist' | 'client',
-): boolean {
+function shouldRevealVenueAddress(booking: DbBooking, audience: 'stylist' | 'client'): boolean {
   if (audience === 'stylist') return true;
   if (booking.serviceVenueMode === 'come_to_client') return true;
   if (booking.serviceVenueMode === 'remote') return false;
@@ -52,7 +49,9 @@ export function parseAddonsSnapshot(value: Prisma.JsonValue | null): BookingAddo
     if (
       typeof row.serviceAddonId === 'string' &&
       typeof row.name === 'string' &&
-      (typeof row.description === 'string' || row.description === null || row.description === undefined) &&
+      (typeof row.description === 'string' ||
+        row.description === null ||
+        row.description === undefined) &&
       (typeof row.price === 'string' || typeof row.price === 'number')
     ) {
       result.push({
@@ -76,8 +75,7 @@ export function deriveMoneySummary(booking: DbBooking): {
   const deposit = Number(booking.depositAmount);
   const balanceAmount = calculateBalanceAmount(agreed, deposit);
 
-  const depositCounted =
-    booking.depositStatus === 'paid' || booking.depositStatus === 'forfeited';
+  const depositCounted = booking.depositStatus === 'paid' || booking.depositStatus === 'forfeited';
   const balanceCounted =
     booking.balanceStatus === 'paid_online' || booking.balanceStatus === 'paid_in_person';
 
@@ -91,7 +89,8 @@ export function deriveMoneySummary(booking: DbBooking): {
   let stylistExpected = paid;
   if (booking.status === 'cancelled' || booking.status === 'no_show') {
     if (booking.depositStatus === 'refunded') {
-      stylistExpected = balanceCounted && booking.balanceStatus === 'paid_in_person' ? balanceAmount : 0;
+      stylistExpected =
+        balanceCounted && booking.balanceStatus === 'paid_in_person' ? balanceAmount : 0;
       // online balance refunds are processed with full_refund — treat as not kept
       if (booking.balanceStatus === 'paid_online') {
         stylistExpected = 0;
@@ -118,9 +117,7 @@ export function toBooking(booking: DbBooking, options?: BookingMapOptions): Book
     booking.source === 'ai_agent' &&
     booking.stylistApprovedAt === null;
 
-  const venueAddress = shouldRevealVenueAddress(booking, audience)
-    ? booking.venueAddress
-    : null;
+  const venueAddress = shouldRevealVenueAddress(booking, audience) ? booking.venueAddress : null;
 
   const moneySummary = deriveMoneySummary(booking);
 
@@ -142,9 +139,7 @@ export function toBooking(booking: DbBooking, options?: BookingMapOptions): Book
     venueAddress,
     homeVisitSurcharge: booking.homeVisitSurcharge.toString(),
     clientDisplayName: booking.clientDisplayName,
-    ...(audience === 'stylist'
-      ? { clientPhoneNumber: options?.clientPhoneNumber ?? null }
-      : {}),
+    ...(audience === 'stylist' ? { clientPhoneNumber: options?.clientPhoneNumber ?? null } : {}),
     balanceStatus: booking.balanceStatus as BalanceStatus,
     balancePaidAt: booking.balancePaidAt ? toIso(booking.balancePaidAt) : null,
     ...moneySummary,
@@ -162,9 +157,7 @@ export function toBooking(booking: DbBooking, options?: BookingMapOptions): Book
     ...(options?.serviceStyleName !== undefined
       ? { serviceStyleName: options.serviceStyleName }
       : {}),
-    ...(options?.serviceSizeTier !== undefined
-      ? { serviceSizeTier: options.serviceSizeTier }
-      : {}),
+    ...(options?.serviceSizeTier !== undefined ? { serviceSizeTier: options.serviceSizeTier } : {}),
     ...(options?.serviceLengthTier !== undefined
       ? { serviceLengthTier: options.serviceLengthTier }
       : {}),

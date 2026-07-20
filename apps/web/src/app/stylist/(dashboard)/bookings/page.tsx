@@ -210,7 +210,11 @@ export default function StylistBookingsPage() {
           ) : (
             dayBookings.map((booking) => (
               <div key={booking.id} className="space-y-1">
-                <BookingCard booking={booking} href={`/stylist/bookings/${booking.id}`} showClient />
+                <BookingCard
+                  booking={booking}
+                  href={`/stylist/bookings/${booking.id}`}
+                  showClient
+                />
                 {booking.pendingStylistApproval ? (
                   <StatusBadge label="Pending approval" tone="warning" />
                 ) : null}

@@ -552,11 +552,7 @@ export class MessagingService {
     }
 
     if (conversation.channel !== 'web') {
-      throw new ApiError(
-        'FORBIDDEN',
-        'This conversation is not an in-app chat thread',
-        403,
-      );
+      throw new ApiError('FORBIDDEN', 'This conversation is not an in-app chat thread', 403);
     }
 
     if (!ACTIVE_STATUSES.has(conversation.status)) {

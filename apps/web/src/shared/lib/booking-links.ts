@@ -34,4 +34,3 @@ export {
   servicePathSegments,
   slugify,
 } from '@project-braids/shared-types/api';
-

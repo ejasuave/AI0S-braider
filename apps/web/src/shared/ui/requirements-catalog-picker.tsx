@@ -11,9 +11,7 @@ type Props = {
   onChange: (next: ServiceRequirementItem[]) => void;
 };
 
-function normalizeItems(
-  items: Array<string | ServiceRequirementItem>,
-): ServiceRequirementItem[] {
+function normalizeItems(items: Array<string | ServiceRequirementItem>): ServiceRequirementItem[] {
   return items.map((item) => (typeof item === 'string' ? { text: item } : item));
 }
 
