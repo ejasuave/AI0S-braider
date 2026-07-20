@@ -3,7 +3,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import type {
+  ServiceAddon,
   ServiceOffering,
+  ServiceRequirementItem,
   StyleCategory,
   StylistProfile,
 } from '@project-braids/shared-types/api';
@@ -18,6 +20,7 @@ import {
   stylistBookingUrl,
 } from '@/shared/lib/booking-links';
 import { formatMoney } from '@/shared/lib/format';
+import { AddonsCatalogPicker } from '@/shared/ui/addons-catalog-picker';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { DurationPicker } from '@/shared/ui/duration-picker';
@@ -25,7 +28,31 @@ import { EmptyState } from '@/shared/ui/empty-state';
 import { HierarchicalCategorySelect } from '@/shared/ui/hierarchical-category-select';
 import { Input } from '@/shared/ui/input';
 import { PageHeader, PageShell, SectionTitle } from '@/shared/ui/page-shell';
+import { RequirementsCatalogPicker } from '@/shared/ui/requirements-catalog-picker';
 import { StatusBadge } from '@/shared/ui/status-badge';
+
+type DraftAddon = {
+  id: string;
+  name: string;
+  price: string;
+  active: boolean;
+  description: string | null;
+  displayOrder: number;
+  catalogKey: string | null;
+};
+
+function emptyFormState() {
+  return {
+    styleCategoryId: '',
+    customStyleName: '',
+    sizeTier: '',
+    lengthTier: '',
+    basePrice: '',
+    durationMinutes: 120,
+    requirements: [] as ServiceRequirementItem[],
+    draftAddons: [] as DraftAddon[],
+  };
+}
 
 export default function StylistServicesPage() {
   const auth = useAuth();
@@ -37,9 +64,12 @@ export default function StylistServicesPage() {
   const [lengthTier, setLengthTier] = useState('');
   const [basePrice, setBasePrice] = useState('');
   const [durationMinutes, setDurationMinutes] = useState(120);
+  const [requirements, setRequirements] = useState<ServiceRequirementItem[]>([]);
+  const [draftAddons, setDraftAddons] = useState<DraftAddon[]>([]);
   const [formError, setFormError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [copiedMainLink, setCopiedMainLink] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const categoriesQuery = useQuery({
     queryKey: ['style-categories'],
@@ -59,6 +89,19 @@ export default function StylistServicesPage() {
   const selectedCategory = categoriesQuery.data?.find((c) => c.id === styleCategoryId);
   const stylistId = auth.stylistId ?? servicesQuery.data?.[0]?.stylistId ?? '';
   const publicSlug = profileQuery.data?.publicSlug ?? null;
+
+  function resetForm() {
+    const next = emptyFormState();
+    setStyleCategoryId(next.styleCategoryId);
+    setCustomStyleName(next.customStyleName);
+    setSizeTier(next.sizeTier);
+    setLengthTier(next.lengthTier);
+    setBasePrice(next.basePrice);
+    setDurationMinutes(next.durationMinutes);
+    setRequirements(next.requirements);
+    setDraftAddons(next.draftAddons);
+    setFormError(null);
+  }
 
   function mainBookingLink(): string {
     return stylistId ? stylistBookingUrl(stylistId) : '';
@@ -102,30 +145,6 @@ export default function StylistServicesPage() {
     }
   }
 
-  const createMutation = useMutation({
-    mutationFn: () =>
-      apiFetchData<ServiceOffering>('/businesses/me/services', {
-        method: 'POST',
-        json: {
-          ...(styleCategoryId ? { styleCategoryId } : { customStyleName: customStyleName.trim() }),
-          sizeTier: sizeTier || null,
-          lengthTier: lengthTier || null,
-          basePrice: Number(basePrice),
-          estimatedDurationMinutes: durationMinutes,
-        },
-      }),
-    onSuccess: () => {
-      setShowForm(false);
-      setStyleCategoryId('');
-      setCustomStyleName('');
-      setSizeTier('');
-      setLengthTier('');
-      setBasePrice('');
-      setDurationMinutes(120);
-      void queryClient.invalidateQueries({ queryKey: ['business', 'services'] });
-    },
-  });
-
   const toggleMutation = useMutation({
     mutationFn: ({ id, active }: { id: string; active: boolean }) =>
       apiFetchData<ServiceOffering>(`/businesses/me/services/${id}`, {
@@ -150,10 +169,45 @@ export default function StylistServicesPage() {
       setFormError('Duration must be greater than zero.');
       return;
     }
+    const price = Number(basePrice);
+    if (!Number.isFinite(price) || price <= 0) {
+      setFormError('Enter a valid base price greater than 0.');
+      return;
+    }
+
+    setSaving(true);
     try {
-      await createMutation.mutateAsync();
+      const offering = await apiFetchData<ServiceOffering>('/businesses/me/services', {
+        method: 'POST',
+        json: {
+          ...(styleCategoryId ? { styleCategoryId } : { customStyleName: customStyleName.trim() }),
+          sizeTier: sizeTier || null,
+          lengthTier: lengthTier || null,
+          basePrice: price,
+          estimatedDurationMinutes: durationMinutes,
+          requirements,
+        },
+      });
+
+      for (const addon of draftAddons.filter((item) => item.active)) {
+        await apiFetchData<ServiceAddon>(`/businesses/me/services/${offering.id}/addons`, {
+          method: 'POST',
+          json: {
+            name: addon.name,
+            price: Number(addon.price),
+            description: addon.description,
+            catalogKey: addon.catalogKey,
+          },
+        });
+      }
+
+      setShowForm(false);
+      resetForm();
+      void queryClient.invalidateQueries({ queryKey: ['business', 'services'] });
     } catch (err) {
       setFormError(getApiErrorMessage(err));
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -180,7 +234,13 @@ export default function StylistServicesPage() {
           </Card>
         ) : null}
 
-        <Button fullWidth onClick={() => setShowForm((v) => !v)}>
+        <Button
+          fullWidth
+          onClick={() => {
+            if (showForm) resetForm();
+            setShowForm((v) => !v);
+          }}
+        >
           {showForm ? 'Cancel' : 'Add service'}
         </Button>
 
@@ -254,9 +314,69 @@ export default function StylistServicesPage() {
                 onChange={setDurationMinutes}
                 required
               />
+
+              <div className="border-t border-border pt-4">
+                <RequirementsCatalogPicker value={requirements} onChange={setRequirements} />
+              </div>
+
+              <div className="border-t border-border pt-4">
+                <AddonsCatalogPicker
+                  existingAddons={draftAddons}
+                  busy={saving}
+                  onEnableCatalog={({ catalogKey, name, price }) => {
+                    setDraftAddons((prev) => {
+                      if (prev.some((addon) => addon.catalogKey === catalogKey)) return prev;
+                      return [
+                        ...prev,
+                        {
+                          id: `draft-catalog-${catalogKey}`,
+                          name,
+                          price: String(price),
+                          active: true,
+                          description: null,
+                          displayOrder: prev.length,
+                          catalogKey,
+                        },
+                      ];
+                    });
+                  }}
+                  onUpdatePrice={(addonId, price) => {
+                    setDraftAddons((prev) =>
+                      prev.map((addon) =>
+                        addon.id === addonId ? { ...addon, price: String(price) } : addon,
+                      ),
+                    );
+                  }}
+                  onToggleActive={(addonId, active) => {
+                    if (!active) {
+                      setDraftAddons((prev) => prev.filter((addon) => addon.id !== addonId));
+                      return;
+                    }
+                    setDraftAddons((prev) =>
+                      prev.map((addon) => (addon.id === addonId ? { ...addon, active } : addon)),
+                    );
+                  }}
+                  onCreateCustom={({ name, price, description }) => {
+                    const id = `draft-custom-${Date.now()}`;
+                    setDraftAddons((prev) => [
+                      ...prev,
+                      {
+                        id,
+                        name,
+                        price: String(price),
+                        active: true,
+                        description,
+                        displayOrder: prev.length,
+                        catalogKey: null,
+                      },
+                    ]);
+                  }}
+                />
+              </div>
+
               {formError ? <p className="text-sm text-error">{formError}</p> : null}
-              <Button type="submit" fullWidth disabled={createMutation.isPending}>
-                {createMutation.isPending ? 'Saving…' : 'Save service'}
+              <Button type="submit" fullWidth disabled={saving}>
+                {saving ? 'Saving…' : 'Save service'}
               </Button>
             </form>
           </Card>
