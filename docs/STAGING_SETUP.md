@@ -286,6 +286,8 @@ On staging URLs (not localhost):
 
 - [ ] Stylist signup + email login
 - [ ] Profile, services, hours, policy filled in
+- [ ] **Team** → invite staff by email → accept via `/invite/{token}` → phone OTP on `/login/team` (not client sign-in) → staff lands on `/stylist`
+- [ ] Returning staff: `/login` → **Team member phone sign in** → OTP → `/stylist` (no email password)
 - [ ] **Pay** → Stripe Connect onboarding (test mode)
 - [ ] **Calendar** → Connect Google Calendar
 - [ ] Copy booking link → client books → test card `4242 4242 4242 4242` → booking **confirmed**

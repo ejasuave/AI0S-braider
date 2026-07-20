@@ -68,7 +68,7 @@ Before implementing any item below:
 
 - `UserRole.stylist_staff`, `BusinessStaff`, `StylistMembership` — `prisma/schema.prisma`
 - Permission guards — `apps/api/src/modules/roles/`, `docs/PERMISSIONS.md`
-- **Phase 1 invite hardening (2026-07-20):** secure token invites (7-day expiry), Resend email provider, Team role presets (manager/stylist/receptionist), deactivate/remove UI — still **one bookable calendar per business** (staff are dashboard helpers, not separate chairs)
+- **Phase 1 invite hardening (2026-07-20):** secure token invites (7-day expiry), Resend email provider, Team role presets (manager/stylist/receptionist), deactivate/remove UI, staff phone sign-in at `/login/team` (no email password) — still **one bookable calendar per business** (staff are dashboard helpers, not separate chairs). See [PERMISSIONS.md](./PERMISSIONS.md).
 
 **Likely touch points (audit before building):**
 

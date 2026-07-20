@@ -1,6 +1,6 @@
 # Permissions — Project Braids
 
-**Status:** Chapter 4 complete (prompts 4.1–4.4) + Phase 1 invite hardening (2026-07-20)  
+**Status:** Chapter 4 complete (prompts 4.1–4.4) + Phase 1 invite hardening + team phone sign-in (2026-07-20)  
 **Last updated:** 2026-07-20
 
 ## Roles
@@ -42,7 +42,7 @@ Staff rows are **inactive** when `accepted_at` is null, `removed_at` is set, or 
 2. API creates `business_staff` with hashed `invite_token_hash` and `invite_expires_at` (7 days)
 3. Transactional email via **Resend** (`RESEND_API_KEY`) — HTML + plain text with Accept link `${WEB_APP_URL}/invite/{token}`
 4. Invitee opens `/invite/{token}`, signs in if needed, `POST /api/v1/staff/invitations/accept` with `{ token }`
-5. Token cleared on accept; reuse and expiry are rejected
+5. Token cleared on accept; reuse and expiry are rejected; user role becomes `stylist_staff`
 
 **Dev/test:** without `RESEND_API_KEY`, email logs to the API console (`ConsoleEmailProvider`).  
 **Staging/production:** inviting by email **requires** `RESEND_API_KEY` (fail closed — no silent success). Optional `EMAIL_FROM`.
@@ -50,6 +50,20 @@ Staff rows are **inactive** when `accepted_at` is null, `removed_at` is set, or 
 Also: `POST .../staff/:id/resend`, `POST .../staff/:id/deactivate`, `PATCH` role/displayName, `DELETE` soft-remove.
 
 Legacy `POST /staff/invitations/:invitationId/accept` remains for older tests/links.
+
+### Web sign-in paths (do not mix these up)
+
+| Who                       | Route           | How they authenticate                                         |
+| ------------------------- | --------------- | ------------------------------------------------------------- |
+| Business owner            | `/login`        | Email + password from stylist registration                    |
+| Invited / returning staff | `/login/team`   | Phone OTP (same mobile used for the invite) — **no password** |
+| Booking clients           | `/login/client` | Phone OTP                                                     |
+
+Invite accept UI links to `/login/team?next=/invite/{token}` (not client sign-in). Stylist `/login` surfaces a **Team member phone sign in** callout for staff who land on the owner form by mistake.
+
+After OTP verify, redirect uses the **account role** (`stylist_staff` → `/stylist`, `client` → `/client` or stored `next`), not the pending OTP “client” registration path.
+
+Staff do not receive an email/password account in Phase 1. Owners keep email login; staff keep phone OTP.
 
 ## Route guards
 

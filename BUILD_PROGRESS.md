@@ -10,31 +10,31 @@
 
 Mobile-first Next.js app at `apps/web` — tokens from `reference/design/visual-identity-and-ux.md`.
 
-| Route                                     | Purpose                                                                  |
-| ----------------------------------------- | ------------------------------------------------------------------------ |
-| `/`                                       | Landing — stylist / client entry                                         |
-| `/login`, `/register/*`, `/verify`        | Auth (email+password stylists; phone OTP all)                            |
-| `/stylist`                                | Dashboard — **escalations first**, today's bookings, shortcuts           |
-| `/stylist/bookings`                       | Week calendar + approval toggle + pending holds (Ch.17.2)                |
-| `/stylist/reviews`                        | Reviews stub (Ch.10 backend; full UI later)                              |
-| `/stylist/calendar`                       | Google sync, buffer, **conflict resolve** (Ch.17.2)                      |
-| `/client/profile`                         | Display name + email (Ch.17.4)                                           |
-| `/client/saved-stylists`                  | Saved favourites + remove (Ch.17.4)                                      |
-| `/client/bookings`                        | Upcoming / past / cancelled filters (Ch.17.4)                            |
-| `/stylist/inbox`                          | Escalated + all SMS conversations                                        |
-| `/stylist/staff`                          | Team — invite by role, resend, deactivate, remove (secure email invites) |
-| `/stylist/services`                       | Structured pricing taxonomy (Ch.6.4)                                     |
-| `/stylist/portfolio`                      | Portfolio upload via pre-signed URLs (Ch.6.2)                            |
-| `/stylist/hours`                          | Working hours configuration (Ch.6.6)                                     |
-| `/stylist/policy`                         | Deposit and cancellation policy (Ch.6.5)                                 |
-| `/stylist/profile`                        | Business profile + onboarding (Ch.6.1)                                   |
-| `/client`                                 | Client home, bookings, inbox link, **sign out**                          |
-| `/client/inbox`, `/client/inbox/[id]`     | Client SMS conversation history (Ch.11.1)                                |
-| `/client/notifications`                   | Reminder + marketing preferences (Ch.5.4 / Ch.12)                        |
-| `/directory`, `/directory/[stylistId]`    | **Beta** public stylist search (opt-in)                                  |
-| `/book?stylistId=&serviceOfferingId=`     | Public booking link → hold → deposit                                     |
-| `/stylist/{slug}/{style}/{size}/{length}` | Vanity share path → redirects to `/book?…` (UUID links still work)       |
-| `/status`                                 | API / DB health (dev)                                                    |
+| Route                                                                  | Purpose                                                                                         |
+| ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `/`                                                                    | Landing — stylist / client entry                                                                |
+| `/login`, `/login/team`, `/login/client`, `/verify`, `/invite/[token]` | Auth — owners email+password; staff phone OTP (`/login/team`); clients phone OTP; invite accept |
+| `/stylist`                                                             | Dashboard — **escalations first**, today's bookings, shortcuts                                  |
+| `/stylist/bookings`                                                    | Week calendar + approval toggle + pending holds (Ch.17.2)                                       |
+| `/stylist/reviews`                                                     | Reviews stub (Ch.10 backend; full UI later)                                                     |
+| `/stylist/calendar`                                                    | Google sync, buffer, **conflict resolve** (Ch.17.2)                                             |
+| `/client/profile`                                                      | Display name + email (Ch.17.4)                                                                  |
+| `/client/saved-stylists`                                               | Saved favourites + remove (Ch.17.4)                                                             |
+| `/client/bookings`                                                     | Upcoming / past / cancelled filters (Ch.17.4)                                                   |
+| `/stylist/inbox`                                                       | Escalated + all SMS conversations                                                               |
+| `/stylist/staff`                                                       | Team — invite by role, resend, deactivate, remove (secure email invites)                        |
+| `/stylist/services`                                                    | Structured pricing taxonomy (Ch.6.4)                                                            |
+| `/stylist/portfolio`                                                   | Portfolio upload via pre-signed URLs (Ch.6.2)                                                   |
+| `/stylist/hours`                                                       | Working hours configuration (Ch.6.6)                                                            |
+| `/stylist/policy`                                                      | Deposit and cancellation policy (Ch.6.5)                                                        |
+| `/stylist/profile`                                                     | Business profile + onboarding (Ch.6.1)                                                          |
+| `/client`                                                              | Client home, bookings, inbox link, **sign out**                                                 |
+| `/client/inbox`, `/client/inbox/[id]`                                  | Client SMS conversation history (Ch.11.1)                                                       |
+| `/client/notifications`                                                | Reminder + marketing preferences (Ch.5.4 / Ch.12)                                               |
+| `/directory`, `/directory/[stylistId]`                                 | **Beta** public stylist search (opt-in)                                                         |
+| `/book?stylistId=&serviceOfferingId=`                                  | Public booking link → hold → deposit                                                            |
+| `/stylist/{slug}/{style}/{size}/{length}`                              | Vanity share path → redirects to `/book?…` (UUID links still work)                              |
+| `/status`                                                              | API / DB health (dev)                                                                           |
 
 ---
 

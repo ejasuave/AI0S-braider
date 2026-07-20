@@ -25,4 +25,4 @@ Owns business entities, staff permissions, route guards, and admin impersonation
 
 Verification probes: `GET /api/v1/access/stylist-only`
 
-Invites use hashed tokens (7-day expiry) and Resend when `RESEND_API_KEY` is set. See [docs/PERMISSIONS.md](../../../../docs/PERMISSIONS.md) and [docs/SECURITY.md](../../../../docs/SECURITY.md).
+Invites use hashed tokens (7-day expiry) and Resend when `RESEND_API_KEY` is set. Web accept: `/invite/{token}`; staff authenticate with phone OTP at `/login/team` (owners use email/password at `/login`). See [docs/PERMISSIONS.md](../../../../docs/PERMISSIONS.md) and [docs/SECURITY.md](../../../../docs/SECURITY.md).

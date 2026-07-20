@@ -10,15 +10,15 @@ Responsive layout pass across core `apps/web` flows. Issues found at 375px conte
 
 ## Flows audited
 
-| Flow                   | Routes / components                                          | Status       |
-| ---------------------- | ------------------------------------------------------------ | ------------ |
-| Stylist onboarding     | `/register/stylist`, `/stylist/profile`, `/stylist/services` | Fixed        |
-| Stylist dashboard      | `/stylist`, `/stylist/bookings`, `week-calendar.tsx`         | Fixed        |
-| Escalation inbox       | `/stylist/inbox`, `/stylist/inbox/[id]`                      | Fixed        |
-| Public directory       | `/directory`, `/directory/[stylistId]`                       | Fixed        |
-| Client booking         | `/book`, `/client/*`                                         | Fixed        |
-| Auth                   | `/login`, `/login/client`, `/verify`                         | Fixed        |
-| Embeddable chat widget | Ch.11.4                                                      | **N/A — V2** |
+| Flow                   | Routes / components                                                    | Status       |
+| ---------------------- | ---------------------------------------------------------------------- | ------------ |
+| Stylist onboarding     | `/register/stylist`, `/stylist/profile`, `/stylist/services`           | Fixed        |
+| Stylist dashboard      | `/stylist`, `/stylist/bookings`, `week-calendar.tsx`                   | Fixed        |
+| Escalation inbox       | `/stylist/inbox`, `/stylist/inbox/[id]`                                | Fixed        |
+| Public directory       | `/directory`, `/directory/[stylistId]`                                 | Fixed        |
+| Client booking         | `/book`, `/client/*`                                                   | Fixed        |
+| Auth                   | `/login`, `/login/team`, `/login/client`, `/verify`, `/invite/[token]` | Fixed        |
+| Embeddable chat widget | Ch.11.4                                                                | **N/A — V2** |
 
 ## Issues found and fixes
 

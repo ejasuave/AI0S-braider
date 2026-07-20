@@ -28,6 +28,7 @@ Exceeded limits return `RATE_LIMITED` (429) with `Retry-After` header and `detai
 - Max **5 verify attempts** per code
 - Replay of consumed code → `CONFLICT` with `details.reason: OTP_ALREADY_CONSUMED`
 - Client accounts created **only after successful OTP verify** (not on `/register/client`)
+- Invited `stylist_staff` authenticate with the same phone OTP path (`/login/team`); they do not get a password in Phase 1 — see [PERMISSIONS.md](./PERMISSIONS.md)
 
 ---
 
