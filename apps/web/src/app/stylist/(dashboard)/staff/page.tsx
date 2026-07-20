@@ -81,7 +81,7 @@ export default function StylistStaffPage() {
         json: {
           email: email.trim(),
           role,
-          permissions: STAFF_ROLE_PERMISSION_PRESETS[role],
+          permissions: { ...STAFF_ROLE_PERMISSION_PRESETS[role] },
           ...(displayName.trim() ? { displayName: displayName.trim() } : {}),
         },
       });
@@ -229,7 +229,10 @@ export default function StylistStaffPage() {
                                 () =>
                                   apiFetchData(`/businesses/${businessId}/staff/${member.id}`, {
                                     method: 'PATCH',
-                                    json: { role: nextRole },
+                                    json: {
+                                      role: nextRole,
+                                      permissions: { ...STAFF_ROLE_PERMISSION_PRESETS[nextRole] },
+                                    },
                                   }).then(() => undefined),
                                 'Role updated.',
                               );

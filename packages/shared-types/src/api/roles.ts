@@ -100,9 +100,13 @@ export const staffInviteRequestSchema = z
     phoneNumber: e164PhoneSchema.optional(),
     role: businessStaffRoleSchema.default('stylist'),
     displayName: z.string().trim().min(1).max(120).optional(),
-    /** Optional override; defaults to role preset when omitted. */
+    /** Defaults to role preset when omitted (API also normalizes before parse). */
     permissions: businessStaffPermissionsSchema.optional(),
   })
+  .transform((data) => ({
+    ...data,
+    permissions: data.permissions ?? STAFF_ROLE_PERMISSION_PRESETS[data.role],
+  }))
   .refine((data) => data.email ?? data.phoneNumber, {
     message: 'Email or phone number is required',
   });

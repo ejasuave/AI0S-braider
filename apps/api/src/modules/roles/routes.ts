@@ -1,11 +1,14 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import {
+  BUSINESS_STAFF_ROLES,
+  STAFF_ROLE_PERMISSION_PRESETS,
   impersonationStartRequestSchema,
   staffAcceptInvitationRequestSchema,
   staffInviteRequestSchema,
   staffUpdatePermissionsSchema,
   staffUpdateRequestSchema,
+  type BusinessStaffRole,
 } from '@project-braids/shared-types/api';
 import { sendData } from '../../lib/http.js';
 import { authenticate, type AuthenticatedRequest } from '../identity/middleware.js';
@@ -15,6 +18,21 @@ import { impersonationService } from './impersonation.service.js';
 
 function inviterDisplayName(auth: AuthenticatedRequest['auth']): string {
   return auth.user.email?.split('@')[0] || auth.user.phoneNumber || 'A team member';
+}
+
+/** Ensure invite bodies always carry permission flags (role preset when omitted). */
+function normalizeStaffInviteBody(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return raw;
+  const body = { ...(raw as Record<string, unknown>) };
+  const roleValue = typeof body.role === 'string' ? body.role : 'stylist';
+  const role = (BUSINESS_STAFF_ROLES as readonly string[]).includes(roleValue)
+    ? (roleValue as BusinessStaffRole)
+    : 'stylist';
+  body.role = role;
+  if (body.permissions == null) {
+    body.permissions = STAFF_ROLE_PERMISSION_PRESETS[role];
+  }
+  return body;
 }
 
 export const rolesRoutes: FastifyPluginAsync = async (app) => {
@@ -49,7 +67,7 @@ export const rolesRoutes: FastifyPluginAsync = async (app) => {
     async (request, reply) => {
       const auth = (request as AuthenticatedRequest).auth;
       const { businessId } = request.params as { businessId: string };
-      const body = staffInviteRequestSchema.parse(request.body);
+      const body = staffInviteRequestSchema.parse(normalizeStaffInviteBody(request.body));
       const invitation = await staffService.inviteStaff({
         businessId,
         email: body.email,
