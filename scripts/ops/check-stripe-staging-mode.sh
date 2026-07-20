@@ -48,7 +48,7 @@ if [[ -n "$OPS_TOKEN" ]]; then
   if [[ -z "$body" ]]; then
     bad "GET ops-status failed"
   else
-    mode="$(printf '%s' "$body" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("stripeMode","missing"))' 2>/dev/null || echo missing)"
+    mode="$(printf '%s' "$body" | python3 -c 'import sys,json; d=json.load(sys.stdin); print((d.get("data") or d).get("stripeMode","missing"))' 2>/dev/null || echo missing)"
     if [[ "$mode" == "test" ]]; then
       ok "ops-status stripeMode=test"
     elif [[ "$mode" == "missing" ]]; then
@@ -73,20 +73,52 @@ if [[ -n "$WEB_URL" ]]; then
     chunk="$(python3 - "$tmp_html" <<'PY'
 import re, sys
 html = open(sys.argv[1]).read()
-m = re.findall(r'/_next/static/chunks/app/layout-[^"]+\.js', html)
-print(m[0] if m else "")
+# Prefer app layout chunk; fall back to any /_next/static chunk that may inline public env.
+candidates = re.findall(r'/_next/static/chunks/[^"]+\.js', html)
+preferred = [c for c in candidates if 'layout-' in c or '/app/' in c]
+ordered = preferred + [c for c in candidates if c not in preferred]
+print(ordered[0] if ordered else "")
 PY
 )"
     rm -f "$tmp_html"
     if [[ -z "$chunk" ]]; then
-      bad "Could not locate app layout chunk on $WEB_URL"
+      bad "Could not locate Next static chunk on $WEB_URL"
     else
       curl -sf "${WEB_URL}${chunk}" >"$tmp_js" || true
-      modes="$(python3 - "$tmp_js" <<'PY'
-import re, sys
+      # Also scan a few other chunks if the first has no Stripe key (Next may split env)
+      modes="$(python3 - "$tmp_js" "$WEB_URL" <<'PY'
+import re, sys, urllib.request
 body = open(sys.argv[1]).read()
-has_test = bool(re.search(r'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:\s*"pk_test_', body))
-has_live = bool(re.search(r'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:\s*"pk_live_', body))
+web = sys.argv[2]
+patterns_test = [
+    r'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:\s*"pk_test_',
+    r'pk_test_[A-Za-z0-9]+',
+]
+patterns_live = [
+    r'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:\s*"pk_live_',
+    r'pk_live_[A-Za-z0-9]+',
+]
+def scan(text: str):
+    has_test = any(re.search(p, text) for p in patterns_test)
+    has_live = any(re.search(p, text) for p in patterns_live)
+    return has_test, has_live
+has_test, has_live = scan(body)
+if not has_test and not has_live:
+    try:
+        html = urllib.request.urlopen(web + '/', timeout=20).read().decode('utf-8', 'ignore')
+    except Exception:
+        html = ''
+    chunks = re.findall(r'(/_next/static/chunks/[^"]+\.js)', html)
+    for path in chunks[:12]:
+        try:
+            text = urllib.request.urlopen(web + path, timeout=20).read().decode('utf-8', 'ignore')
+        except Exception:
+            continue
+        t, l = scan(text)
+        has_test = has_test or t
+        has_live = has_live or l
+        if has_test or has_live:
+            break
 print("test" if has_test else "no-test", "live" if has_live else "no-live")
 PY
 )"

@@ -1,16 +1,18 @@
 # Background Jobs — Project Braids
 
 **Chapter:** 2.5  
-**Last updated:** 2026-07-11
+**Last updated:** 2026-07-20
 
 ## Overview
 
 Asynchronous work uses **BullMQ** on Redis (`REDIS_URL`). The API enqueues jobs; a **separate worker process** consumes them.
 
-| Process    | Entry                    | Command                  |
-| ---------- | ------------------------ | ------------------------ |
-| API server | `apps/api/src/server.ts` | `pnpm dev` (api package) |
-| Worker     | `apps/api/src/worker.ts` | `pnpm worker:dev`        |
+| Process    | Entry                    | Command / host                                 |
+| ---------- | ------------------------ | ---------------------------------------------- |
+| API server | `apps/api/src/server.ts` | `pnpm dev` (api package) / Fly `*-api-staging` |
+| Worker     | `apps/api/src/worker.ts` | `pnpm worker:dev` / Fly `*-worker-staging`     |
+
+Staging worker: `fly deploy --config fly.worker.staging.toml -a project-braids-worker-staging`. If Upstash hits its free-tier command limit, stop the worker until Redis is healthy again — see [STAGING_SETUP.md](./STAGING_SETUP.md) §2. Auth and invite flows do not depend on the worker.
 
 ## Shared queue module
 

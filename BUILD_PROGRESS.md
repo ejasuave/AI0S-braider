@@ -240,7 +240,7 @@ Service & booking improvements from pilot stylist feedback (not a numbered chapt
 - Enriched public booking payload + AI receptionist context (policy, requirements, add-ons)
 - AI receptionist conversational upgrade: session memory, FAQ topic switch, tone rules, frustration/human-request/clarification-streak escalation ([apps/api/src/modules/receptionist/README.md](apps/api/src/modules/receptionist/README.md))
 
-**Next:** Staging deploy + external wiring (Stripe/Twilio/Google webhooks) per [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) § Production readiness, then pilot onboarding.
+**Next:** Keep staging Redis (Upstash) within plan limits and worker running for background jobs; finish pilot checklist in [docs/STAGING_SETUP.md](docs/STAGING_SETUP.md) §11.
 
 ### Pre-pilot local gates (2026-07-12)
 
@@ -254,6 +254,15 @@ Service & booking improvements from pilot stylist feedback (not a numbered chapt
 | `pnpm ops:check-migrations` | Pass — Ch.9 drop reviewed + allowlisted                         |
 | Kill-switch drill (local)   | `killSwitchActive` flips with `AI_RECEPTIONIST_ENABLED`         |
 | Google Calendar sync        | Live mode verified end to end (connect + ops-status hang fixed) |
+
+### Staging ops notes (2026-07-20)
+
+| Item              | Notes                                                                                                            |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Staff auth        | Owners: `/login` email+password. Staff: `/login/team` phone OTP — see [docs/PERMISSIONS.md](docs/PERMISSIONS.md) |
+| GitHub Fly Deploy | `FLY_API_TOKEN` rotated; `.github/workflows/fly-deploy.yml` deploys API on `main`                                |
+| Worker            | Manual deploy; stop while Upstash free-tier command cap is hit                                                   |
+| Upstash           | `max requests limit exceeded` blocks BullMQ — upgrade plan, then start worker                                    |
 
 ## Architectural decisions
 
@@ -279,6 +288,6 @@ calendar reconciliation job (Ch.8.4), refund/forfeiture on cancel (Ch.9.3).
 
 ## Blockers
 
-| Item | Status |
-| ---- | ------ |
-| —    | —      |
+| Item                                | Status                                                                 |
+| ----------------------------------- | ---------------------------------------------------------------------- |
+| Upstash Redis free-tier command cap | Blocks worker / BullMQ until plan upgrade or reset — API auth still OK |

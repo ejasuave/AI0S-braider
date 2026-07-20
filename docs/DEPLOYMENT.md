@@ -25,11 +25,16 @@ Copy `.env.staging.example` / `.env.production.example` — never share `DATABAS
 
 ## CI/CD (23.1)
 
-| Workflow                | When                         | Purpose                                               |
-| ----------------------- | ---------------------------- | ----------------------------------------------------- |
-| `ci.yml`                | PR + push to `main`          | Lint, format, typecheck, test, build, migration check |
-| `deploy-staging.yml`    | Push to `main`               | Full verify + Docker build + staging deploy gate      |
-| `deploy-production.yml` | Manual (`workflow_dispatch`) | Requires typing `deploy` to confirm                   |
+| Workflow                | When                         | Purpose                                                              |
+| ----------------------- | ---------------------------- | -------------------------------------------------------------------- |
+| `ci.yml`                | PR + push to `main`          | Lint, format, typecheck, test, build, migration check                |
+| `deploy-staging.yml`    | Push to `main`               | Full verify + Docker build + staging deploy gate (docs only for Fly) |
+| `fly-deploy.yml`        | Push to `main`               | Deploys **API** to `project-braids-api-staging` via `FLY_API_TOKEN`  |
+| `deploy-production.yml` | Manual (`workflow_dispatch`) | Requires typing `deploy` to confirm                                  |
+
+**Worker** is not auto-deployed by `fly-deploy.yml` — deploy manually with `fly deploy --config fly.worker.staging.toml -a project-braids-worker-staging`. Keep API and worker `REDIS_URL` in sync.
+
+**Upstash free-tier:** if Redis returns `max requests limit exceeded`, stop the worker until the plan is upgraded (see [STAGING_SETUP.md](./STAGING_SETUP.md) §2). Login and staff invites still work without Redis.
 
 ### First-time platform setup
 
@@ -43,11 +48,12 @@ Copy `.env.staging.example` / `.env.production.example` — never share `DATABAS
 **API + Worker (Fly.io)**
 
 1. `fly apps create project-braids-api-staging` (and worker app)
-2. Copy `infrastructure/fly/api.toml` — set `app` name
+2. Use root configs `fly.api.staging.toml` / `fly.worker.staging.toml` (not legacy `infrastructure/fly/*.toml` names alone)
 3. `fly secrets import < .env.staging` (never commit secrets)
    - Staff invite emails need `RESEND_API_KEY` (+ optional `EMAIL_FROM`); staging/production fail closed without it — see [STAGING_SETUP.md](./STAGING_SETUP.md)
-4. `fly deploy --config infrastructure/fly/api.toml`
-5. Repeat for worker with `infrastructure/fly/worker.toml`
+4. `fly deploy --config fly.api.staging.toml -a project-braids-api-staging`
+5. Repeat for worker: `fly deploy --config fly.worker.staging.toml -a project-braids-worker-staging`
+6. Set GitHub secret `FLY_API_TOKEN` (`fly tokens create deploy -a project-braids-api-staging`) so `.github/workflows/fly-deploy.yml` can deploy the API on push to `main`
 
 ## Deploy sequence
 

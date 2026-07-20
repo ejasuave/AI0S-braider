@@ -47,7 +47,22 @@ pnpm db:seed   # optional — style categories for /book dropdown
 1. [console.upstash.com](https://console.upstash.com) → **Create database** (region close to Fly `lhr`).
 2. Copy the **Redis URL** (`rediss://…`) → `REDIS_URL` in `.env.staging`.
 
-Required for BullMQ (notifications, hold expiry, calendar reconcile).
+Required for BullMQ (notifications, hold expiry, calendar reconcile). Auth/login and invite accept use Postgres and do **not** require Redis.
+
+**Free-tier command cap:** if logs show `ERR max requests limit exceeded`, upgrade the plan or wait for the monthly reset. While capped, **stop the Fly worker** so it does not keep polling Redis:
+
+```bash
+fly machines stop <worker-machine-id> -a project-braids-worker-staging
+```
+
+After upgrading the **same** database (no URL change):
+
+```bash
+fly machines start <worker-machine-id> -a project-braids-worker-staging
+fly logs -a project-braids-worker-staging   # should not show max-requests errors
+```
+
+If you create a **new** Redis database, set `REDIS_URL` on both `project-braids-api-staging` and `project-braids-worker-staging`, restart the API, then start the worker.
 
 ---
 
@@ -309,6 +324,9 @@ On staging URLs (not localhost):
 | Calendar mock mode on staging                  | `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` missing on Fly                                                                                   |
 | Deposits blocked                               | Stylist must finish Stripe Connect (`isPaymentReady`)                                                                                        |
 | SMS not received                               | Twilio webhook URL + UK number; check Fly logs                                                                                               |
+| `ERR max requests limit exceeded` (Upstash)    | Free-tier Redis command cap — upgrade plan or new DB; stop worker while capped; see §2 Upstash                                               |
+| Background jobs not running                    | Worker app stopped or Redis down — `fly status -a project-braids-worker-staging`; start machine after Redis is healthy                       |
+| GitHub **Fly Deploy** unauthorized             | Rotate `FLY_API_TOKEN` repo secret (`fly tokens create deploy -a project-braids-api-staging`) — workflow: `.github/workflows/fly-deploy.yml` |
 
 ---
 
