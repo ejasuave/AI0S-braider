@@ -65,19 +65,20 @@ This creates `.env.staging` from `.env.staging.example` and generates:
 
 **Edit `.env.staging`** and fill in every `…` placeholder:
 
-| Variable                                    | Where to get it                           |
-| ------------------------------------------- | ----------------------------------------- |
-| `DATABASE_URL`                              | Supabase (step 1)                         |
-| `REDIS_URL`                                 | Upstash (step 2)                          |
-| `CORS_ORIGIN` / `WEB_APP_URL`               | Your Vercel web URL                       |
-| `API_PUBLIC_URL`                            | Your Fly API URL                          |
-| `STRIPE_*`                                  | Stripe Dashboard **Test mode**            |
-| `TWILIO_*`                                  | Twilio Console                            |
-| `RESEND_API_KEY` / `EMAIL_FROM`             | Resend (required for staff invite emails) |
-| `ANTHROPIC_API_KEY`                         | console.anthropic.com                     |
-| `AI_PROVIDER` / `OPENAI_COMPAT_*`           | Optional Groq override (see below)        |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google Cloud (step 6)                     |
-| `SENTRY_DSN`                                | sentry.io (optional but recommended)      |
+| Variable                                    | Where to get it                                                                           |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                              | Supabase (step 1)                                                                         |
+| `REDIS_URL`                                 | Upstash (step 2)                                                                          |
+| `CORS_ORIGIN` / `WEB_APP_URL`               | Your Vercel web URL                                                                       |
+| `API_PUBLIC_URL`                            | Your Fly API URL                                                                          |
+| `STRIPE_*`                                  | Stripe Dashboard **Test mode**                                                            |
+| `TWILIO_*`                                  | Twilio Console                                                                            |
+| `RESEND_API_KEY` / `EMAIL_FROM`             | Resend (required for staff invite emails)                                                 |
+| `OTP_DELIVERY`                              | Optional. Default on staging: on-screen OTP (`console`). Set `sms` to restore Twilio OTP. |
+| `ANTHROPIC_API_KEY`                         | console.anthropic.com                                                                     |
+| `AI_PROVIDER` / `OPENAI_COMPAT_*`           | Optional Groq override (see below)                                                        |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google Cloud (step 6)                                                                     |
+| `SENTRY_DSN`                                | sentry.io (optional but recommended)                                                      |
 
 **Founder staging override (Anthropic out of credits):** create a free key at [console.groq.com](https://console.groq.com), then:
 

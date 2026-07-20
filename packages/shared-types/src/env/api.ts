@@ -40,6 +40,12 @@ export const apiEnvSchema = z.object({
   TWILIO_ACCOUNT_SID: z.string().optional(),
   TWILIO_AUTH_TOKEN: z.string().optional(),
   TWILIO_PHONE_NUMBER: z.string().optional(),
+  /**
+   * Founder staging override: `console` shows OTP on the verify screen (no SMS).
+   * Default: console for development/test/staging; SMS (Twilio) for production.
+   * Set `OTP_DELIVERY=sms` on staging to restore real SMS OTPs.
+   */
+  OTP_DELIVERY: z.enum(['sms', 'console']).optional(),
   API_PUBLIC_URL: z.string().url().default('http://localhost:3001'),
   MESSAGING_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(30),
   MESSAGING_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
@@ -74,4 +80,11 @@ export type ApiEnv = z.infer<typeof apiEnvSchema>;
 
 export function parseApiEnv(input: Record<string, string | undefined>): ApiEnv {
   return apiEnvSchema.parse(input);
+}
+
+/** Whether auth OTP should be captured for on-screen display (no real SMS). */
+export function shouldDeliverOtpViaConsole(env: Pick<ApiEnv, 'NODE_ENV' | 'OTP_DELIVERY'>): boolean {
+  if (env.OTP_DELIVERY === 'console') return true;
+  if (env.OTP_DELIVERY === 'sms') return false;
+  return env.NODE_ENV === 'development' || env.NODE_ENV === 'test' || env.NODE_ENV === 'staging';
 }

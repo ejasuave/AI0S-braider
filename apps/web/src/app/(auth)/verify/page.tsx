@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/features/auth/auth-context';
+import { getWebEnv } from '@/env';
+import { isStagingWebSurface } from '@project-braids/shared-types/env';
 import { apiFetchData, getApiErrorMessage } from '@/shared/lib/api-client';
 import { clearPostAuthNext, resolvePostAuthRedirect } from '@/shared/lib/auth-redirect';
 import { getPendingOtp, type PendingOtp } from '@/shared/lib/auth-storage';
@@ -11,6 +13,11 @@ import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { Card } from '@/shared/ui/card';
 import { FormError } from '@/shared/ui/form-error';
+
+function shouldShowDevOtp(): boolean {
+  if (process.env.NODE_ENV !== 'production') return true;
+  return isStagingWebSurface(getWebEnv());
+}
 
 export default function VerifyOtpPage() {
   const auth = useAuth();
@@ -21,6 +28,7 @@ export default function VerifyOtpPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [resent, setResent] = useState(false);
+  const showDevOtp = shouldShowDevOtp();
 
   useEffect(() => {
     const stored = getPendingOtp();
@@ -32,7 +40,7 @@ export default function VerifyOtpPage() {
   }, [router]);
 
   useEffect(() => {
-    if (process.env.NODE_ENV === 'production' || !pending) return;
+    if (!showDevOtp || !pending) return;
 
     async function fetchDevCode() {
       try {
@@ -49,7 +57,7 @@ export default function VerifyOtpPage() {
     void fetchDevCode();
     const interval = setInterval(() => void fetchDevCode(), 2000);
     return () => clearInterval(interval);
-  }, [pending]);
+  }, [pending, showDevOtp]);
 
   if (!pending) {
     return <div className="text-center text-sm text-ink-muted">Loading…</div>;
@@ -102,16 +110,16 @@ export default function VerifyOtpPage() {
         <p className="text-sm text-ink-muted">Enter the 6-digit code for {pending.phoneNumber}.</p>
       </div>
 
-      {process.env.NODE_ENV !== 'production' ? (
+      {showDevOtp ? (
         <Card className="space-y-2 border-ai/30 bg-ai/5">
-          <p className="text-sm font-medium text-ink">Local development</p>
+          <p className="text-sm font-medium text-ink">Staging / local testing</p>
           <p className="text-sm text-ink-muted">
-            SMS is not sent to real phones in dev. Use the code below:
+            SMS OTP is disabled here. Use the code below:
           </p>
           {devCode ? (
             <p className="font-mono text-2xl font-semibold tracking-widest text-ai">{devCode}</p>
           ) : (
-            <p className="text-sm text-ink-muted">Waiting for code… (check API terminal)</p>
+            <p className="text-sm text-ink-muted">Waiting for code…</p>
           )}
         </Card>
       ) : null}

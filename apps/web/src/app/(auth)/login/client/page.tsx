@@ -74,8 +74,9 @@ function ClientLoginForm() {
         <p className="text-sm text-ink-muted">
           Enter your mobile number — we&apos;ll text you a code to continue booking.
         </p>
-        {process.env.NODE_ENV !== 'production' ? (
-          <p className="text-xs text-ai">Local dev: codes appear on the next screen, not by SMS.</p>
+        {process.env.NODE_ENV !== 'production' ||
+        process.env.NEXT_PUBLIC_PLATFORM_DISPLAY_NAME?.includes('(Staging)') ? (
+          <p className="text-xs text-ai">Staging/local: codes appear on the next screen, not by SMS.</p>
         ) : null}
       </div>
 

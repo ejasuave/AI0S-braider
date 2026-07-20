@@ -14,7 +14,7 @@ export const webEnvSchema = z.object({
 
 export type WebEnv = z.infer<typeof webEnvSchema>;
 
-function isStagingWebSurface(env: WebEnv): boolean {
+export function isStagingWebSurface(env: WebEnv): boolean {
   const display = env.NEXT_PUBLIC_PLATFORM_DISPLAY_NAME;
   const apiUrl = env.NEXT_PUBLIC_API_URL;
   const sentryEnv = env.SENTRY_ENVIRONMENT?.toLowerCase();

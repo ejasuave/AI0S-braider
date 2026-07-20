@@ -3,8 +3,9 @@ import type { OtpPurpose, UserRole } from '@prisma/client';
 import { prisma } from '../../lib/db.js';
 import { ApiError } from '../../lib/errors.js';
 import { getEnv } from '../../config/env.js';
-import { getSmsProvider } from '../../lib/sms/sms-provider.js';
+import { getSmsProvider, ConsoleSmsProvider } from '../../lib/sms/sms-provider.js';
 import { getEmailProvider } from '../../lib/email/email-provider.js';
+import { shouldDeliverOtpViaConsole } from '@project-braids/shared-types/env';
 import {
   assertRateLimit,
   buildRateLimitKey,
@@ -210,11 +211,17 @@ export class IdentityService {
     });
 
     const env = getEnv();
-
-    await getSmsProvider().send({
+    const otpMessage = {
       to: input.phoneNumber,
       body: `Your ${env.PLATFORM_DISPLAY_NAME} verification code is ${code}. It expires in 5 minutes.`,
-    });
+    };
+
+    // Staging/dev: capture OTP for on-screen verify UI (no Twilio SMS). Messaging SMS unchanged.
+    if (shouldDeliverOtpViaConsole(env)) {
+      await new ConsoleSmsProvider().send(otpMessage);
+    } else {
+      await getSmsProvider().send(otpMessage);
+    }
 
     return { expiresInSeconds: 300 };
   }
