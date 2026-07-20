@@ -167,7 +167,10 @@ function LoginForm() {
 
       <p className="text-center text-sm text-ink-muted">
         Booking as a client?{' '}
-        <Link href="/login/client" className={TOUCH_LINK_CLASS}>
+        <Link
+          href={next ? `/login/client?next=${encodeURIComponent(next)}` : '/login/client'}
+          className={TOUCH_LINK_CLASS}
+        >
           Client sign in
         </Link>
       </p>

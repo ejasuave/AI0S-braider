@@ -3,7 +3,10 @@
 import Link from 'next/link';
 import { Calendar, Image, MessageSquare, Scissors, Shield, Star, User, Users } from 'lucide-react';
 import { SignOutButton } from '@/features/auth/sign-out-button';
-import { useStylistPermissions } from '@/features/dashboard/use-stylist-permissions';
+import {
+  useIsBusinessStaff,
+  useStylistPermissions,
+} from '@/features/dashboard/use-stylist-permissions';
 import { Card } from '@/shared/ui/card';
 import { PageHeader, PageShell } from '@/shared/ui/page-shell';
 import { TOUCH_LINK_CLASS } from '@/shared/lib/touch-target';
@@ -83,11 +86,25 @@ const moreLinks: MoreLink[] = [
 
 export default function StylistMorePage() {
   const permissions = useStylistPermissions();
+  const isStaff = useIsBusinessStaff();
   const visibleLinks = moreLinks.filter((link) => !link.permission || permissions[link.permission]);
 
   return (
     <PageShell>
-      <PageHeader title="More" subtitle="Services, profile, and account settings." />
+      <PageHeader
+        title="More"
+        subtitle={
+          isStaff
+            ? 'Settings available for your team role.'
+            : 'Services, profile, and account settings.'
+        }
+      />
+
+      {isStaff ? (
+        <p className="mt-4 text-sm text-ink-muted">
+          Hidden items need a Manager role (or owner). Full multi-staff chairs are planned for V3.
+        </p>
+      ) : null}
 
       <div className="mt-6 space-y-3">
         {visibleLinks.map(({ href, label, description, icon: Icon }) => (

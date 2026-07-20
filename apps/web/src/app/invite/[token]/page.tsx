@@ -47,8 +47,9 @@ export default function AcceptStaffInvitePage() {
   });
 
   const nextParam = encodeURIComponent(`/invite/${token}`);
-  const clientLoginHref = `/login/client?next=${nextParam}`;
-  const stylistLoginHref = `/login?next=${nextParam}`;
+  // New team members normally use phone OTP (client registration → staff after accept).
+  const phoneLoginHref = `/login/client?next=${nextParam}`;
+  const passwordLoginHref = `/login?next=${nextParam}`;
   const registerHref = `/register/client?next=${nextParam}`;
 
   if (!token) {
@@ -72,24 +73,25 @@ export default function AcceptStaffInvitePage() {
         ) : !auth.user ? (
           <>
             <p className="text-sm text-ink-muted">
-              Sign in with the account that should join this team, then accept the invitation.
+              Use a mobile number to join (recommended). You&apos;ll get a verification code on the
+              next screen.
             </p>
             <Link
-              href={clientLoginHref}
+              href={phoneLoginHref}
               className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-white"
             >
-              Sign in with mobile number
-            </Link>
-            <Link
-              href={stylistLoginHref}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-ink"
-            >
-              Sign in with email &amp; password
+              Continue with mobile number
             </Link>
             <p className="text-center text-sm text-ink-muted">
-              New here?{' '}
+              New number?{' '}
               <Link href={registerHref} className="text-primary hover:underline">
                 Create an account
+              </Link>
+            </p>
+            <p className="pt-2 text-center text-xs text-ink-muted">
+              Already have a stylist email &amp; password?{' '}
+              <Link href={passwordLoginHref} className="font-medium text-primary hover:underline">
+                Sign in here
               </Link>
             </p>
           </>

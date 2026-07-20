@@ -15,9 +15,11 @@ import { Card } from '@/shared/ui/card';
 import { CardSkeleton } from '@/shared/ui/skeleton';
 import { PageHeader, PageShell } from '@/shared/ui/page-shell';
 import { StatusBadge } from '@/shared/ui/status-badge';
+import { useIsBusinessStaff } from '@/features/dashboard/use-stylist-permissions';
 
 export default function StylistDashboardPage() {
   const auth = useAuth();
+  const isStaff = useIsBusinessStaff();
   const escalatedCountQuery = useEscalationCount();
   const escalatedCount = escalatedCountQuery.data ?? 0;
 
@@ -51,7 +53,26 @@ export default function StylistDashboardPage() {
 
   return (
     <PageShell>
-      <PageHeader title={businessName} subtitle="Your business finally has a front desk." />
+      <PageHeader
+        title={businessName}
+        subtitle={
+          isStaff
+            ? 'Team access — you share this business calendar and inbox with the owner.'
+            : 'Your business finally has a front desk.'
+        }
+      />
+
+      {isStaff ? (
+        <Card className="mt-4 space-y-1 border-primary/20 bg-primary/5">
+          <p className="text-sm font-medium text-ink">Team member</p>
+          <p className="text-sm text-ink-muted">
+            You&apos;re linked to <span className="font-medium text-ink">{businessName}</span>. What
+            you can open depends on the role you were invited with (bookings for Stylist /
+            Receptionist; more for Manager). Separate staff calendars and client-facing chairs come
+            later (multi-staff V3).
+          </p>
+        </Card>
+      ) : null}
 
       <div className="mt-6 space-y-4" aria-live="polite" aria-atomic="false">
         {escalatedCount > 0 ? (
