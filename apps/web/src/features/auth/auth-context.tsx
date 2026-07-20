@@ -47,7 +47,10 @@ type AuthContextValue = {
     email: string;
     password: string;
   }) => Promise<void>;
-  registerClient: (input: { phoneNumber: string }) => Promise<void>;
+  registerClient: (input: {
+    phoneNumber: string;
+    audience?: 'client' | 'team';
+  }) => Promise<void>;
   verifyOtp: (input: {
     phoneNumber: string;
     code: string;
@@ -185,18 +188,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
-  const registerClient = useCallback(async (input: { phoneNumber: string }) => {
-    const result = await apiFetchData<RegisterResponse>('/auth/register/client', {
-      auth: false,
-      method: 'POST',
-      json: input,
-    });
-    setPendingOtp({
-      phoneNumber: input.phoneNumber,
-      purpose: result.otpPurpose,
-      role: 'client',
-    });
-  }, []);
+  const registerClient = useCallback(
+    async (input: { phoneNumber: string; audience?: 'client' | 'team' }) => {
+      const result = await apiFetchData<RegisterResponse>('/auth/register/client', {
+        auth: false,
+        method: 'POST',
+        json: { phoneNumber: input.phoneNumber },
+      });
+      setPendingOtp({
+        phoneNumber: input.phoneNumber,
+        purpose: result.otpPurpose,
+        role: 'client',
+        audience: input.audience ?? 'client',
+      });
+    },
+    [],
+  );
 
   const verifyOtp = useCallback(
     async (input: { phoneNumber: string; code: string; purpose: OtpPurpose }) => {

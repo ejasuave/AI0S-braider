@@ -91,7 +91,7 @@ function LoginForm() {
         );
       } else if (err instanceof ApiClientError && err.status === 401) {
         setError(
-          'Invalid email or password. Use the exact email and password from registration, after completing phone verification.',
+          'Invalid email or password. Owners: use the email from registration. Invited team members: use Team member phone sign in below — you do not have a password.',
         );
       } else if (err instanceof ApiClientError && err.status === 503) {
         setError(
@@ -123,7 +123,7 @@ function LoginForm() {
       <div className="space-y-2 text-center">
         <h1 className="font-display text-2xl font-semibold text-ink md:text-3xl">Welcome back</h1>
         <p className="text-sm text-ink-muted">
-          Stylist sign-in — use the email and password from registration.
+          Business owners: email and password from registration.
         </p>
       </div>
 
@@ -150,6 +150,19 @@ function LoginForm() {
             {loading ? 'Signing in…' : 'Sign in'}
           </Button>
         </form>
+      </Card>
+
+      <Card className="space-y-2 border-primary/20 bg-primary/5">
+        <p className="text-sm font-medium text-ink">Joined via team invite?</p>
+        <p className="text-sm text-ink-muted">
+          Staff accounts use phone sign-in — you do not have an email password.
+        </p>
+        <Link
+          href={next ? `/login/team?next=${encodeURIComponent(next)}` : '/login/team'}
+          className={`${TOUCH_LINK_CLASS} font-medium text-primary`}
+        >
+          Team member phone sign in →
+        </Link>
       </Card>
 
       <p className="text-center text-sm text-ink-muted">

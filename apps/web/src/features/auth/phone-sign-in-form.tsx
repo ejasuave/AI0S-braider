@@ -23,12 +23,14 @@ function audienceCopy(audience: PhoneSignInAudience, next: string | null) {
   if (audience === 'team') {
     return {
       title: 'Team member sign in',
-      subtitle: 'Enter your mobile number to accept a staff invitation or open the team dashboard.',
-      backHref: next && next.startsWith('/') ? next : '/',
-      backLabel: '← Back',
-      createLabel: 'New here? Use the same form — we’ll create your account with this number.',
+      subtitle:
+        'Invited staff sign in with the mobile number used for your invite — no email password needed.',
+      backHref: next && next.startsWith('/') ? next : '/login',
+      backLabel: '← Stylist sign in',
+      createLabel:
+        'New invite? Use this number, then open your invite link to join the team dashboard.',
       altHref: next ? `/login?next=${encodeURIComponent(next)}` : '/login',
-      altLabel: 'Sign in with email & password',
+      altLabel: 'Business owner? Sign in with email & password',
     };
   }
   return {
@@ -95,7 +97,7 @@ function PhoneSignInForm({ audience }: PhoneSignInFormProps) {
 
     try {
       // Phone OTP accounts start as client; accepting a team invite upgrades to stylist_staff.
-      await auth.registerClient({ phoneNumber: normalizedPhone });
+      await auth.registerClient({ phoneNumber: normalizedPhone, audience });
       window.location.assign('/verify');
     } catch (err) {
       setError(getApiErrorMessage(err, 'Could not send sign-in code'));
@@ -150,7 +152,7 @@ function PhoneSignInForm({ audience }: PhoneSignInFormProps) {
       )}
 
       <p className="text-center text-sm text-ink-muted">
-        {audience === 'team' ? 'Already have email access? ' : 'Are you a stylist? '}
+        {audience === 'team' ? 'Business owner? ' : 'Are you a stylist? '}
         <Link href={copy.altHref} className="font-medium text-primary hover:underline">
           {copy.altLabel}
         </Link>

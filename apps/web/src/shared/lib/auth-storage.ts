@@ -16,10 +16,14 @@ export function clearAccessToken(): void {
   sessionStorage.removeItem(ACCESS_TOKEN_KEY);
 }
 
+export type PendingOtpAudience = 'client' | 'team' | 'stylist';
+
 export type PendingOtp = {
   phoneNumber: string;
   purpose: OtpPurpose;
   role: 'stylist' | 'client';
+  /** Where the user started OTP — used for copy/links, not final redirect. */
+  audience?: PendingOtpAudience;
 };
 
 const PENDING_OTP_KEY = 'pb_pending_otp';

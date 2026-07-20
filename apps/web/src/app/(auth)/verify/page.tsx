@@ -24,6 +24,18 @@ function isTeamInviteFlow(): boolean {
   return Boolean(next?.startsWith('/invite/'));
 }
 
+function tryAgainHref(pending: PendingOtp): string {
+  const next = getPostAuthNext();
+  const nextQuery = next ? `?next=${encodeURIComponent(next)}` : '';
+  if (pending.audience === 'team' || isTeamInviteFlow()) {
+    return `/login/team${nextQuery}`;
+  }
+  if (pending.role === 'client') {
+    return `/login/client${nextQuery}`;
+  }
+  return '/login';
+}
+
 export default function VerifyOtpPage() {
   const auth = useAuth();
   const router = useRouter();
@@ -74,15 +86,16 @@ export default function VerifyOtpPage() {
     setError(null);
     setLoading(true);
     try {
-      await auth.verifyOtp({
+      const user = await auth.verifyOtp({
         phoneNumber: pending.phoneNumber,
         code,
         purpose: pending.purpose,
       });
-      const redirectTo =
-        pending.role === 'client'
-          ? resolvePostAuthRedirect('client')
-          : resolvePostAuthRedirect('stylist');
+      // Phone OTP always starts pending as "client"; use the real account role after verify
+      // so stylist_staff land on /stylist, not /client.
+      const redirectTo = resolvePostAuthRedirect(
+        user.role === 'client' ? 'client' : 'stylist',
+      );
       clearPostAuthNext();
       window.location.assign(redirectTo);
     } catch (err) {
@@ -108,13 +121,18 @@ export default function VerifyOtpPage() {
     }
   }
 
+  const teamFlow = pending.audience === 'team' || isTeamInviteFlow();
   const teamInvite = isTeamInviteFlow();
 
   return (
     <div className="space-y-6">
       <div className="space-y-2 text-center">
         <h1 className="font-display text-3xl font-semibold text-ink">
-          {teamInvite ? 'Verify to join the team' : 'Verify your phone'}
+          {teamInvite
+            ? 'Verify to join the team'
+            : teamFlow
+              ? 'Verify team sign-in'
+              : 'Verify your phone'}
         </h1>
         <p className="text-sm text-ink-muted">
           {teamInvite
@@ -160,16 +178,7 @@ export default function VerifyOtpPage() {
 
       <p className="text-center text-sm text-ink-muted">
         Wrong number?{' '}
-        <Link
-          href={
-            teamInvite
-              ? `/login/team${getPostAuthNext() ? `?next=${encodeURIComponent(getPostAuthNext()!)}` : ''}`
-              : pending.role === 'client'
-                ? '/login/client'
-                : '/login'
-          }
-          className="font-medium text-primary hover:underline"
-        >
+        <Link href={tryAgainHref(pending)} className="font-medium text-primary hover:underline">
           Try again
         </Link>
       </p>
