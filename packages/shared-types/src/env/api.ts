@@ -65,6 +65,9 @@ export const apiEnvSchema = z.object({
   APP_VERSION: z.string().default('0.0.0'),
   DEPLOY_ENV: z.enum(['development', 'test', 'staging', 'production']).optional(),
   OPS_BEARER_TOKEN: z.string().min(16).optional(),
+  /** When set, staff invites (and other transactional email) send via Resend. */
+  RESEND_API_KEY: z.string().min(1).optional(),
+  EMAIL_FROM: z.string().email().optional(),
 });
 
 export type ApiEnv = z.infer<typeof apiEnvSchema>;

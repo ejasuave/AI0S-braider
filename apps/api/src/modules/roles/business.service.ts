@@ -48,6 +48,7 @@ export class BusinessService {
           userId,
           acceptedAt: { not: null },
           removedAt: null,
+          deactivatedAt: null,
         },
         select: { businessId: true },
       });
@@ -72,6 +73,7 @@ export class BusinessService {
         userId,
         acceptedAt: { not: null },
         removedAt: null,
+        deactivatedAt: null,
       },
     });
   }

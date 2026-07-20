@@ -23,6 +23,7 @@ export async function resolveStylistId(userId: string, role: UserRole): Promise<
         userId,
         acceptedAt: { not: null },
         removedAt: null,
+        deactivatedAt: null,
       },
       include: { business: true },
     });

@@ -66,8 +66,9 @@ Before implementing any item below:
 
 **Foundation already in codebase:**
 
-- `UserRole.stylist_staff`, `StylistMembership` — `prisma/schema.prisma` (Ch.4.3 deferred)
-- Permission guards — `apps/api/src/modules/identity/guards.ts`, `docs/PERMISSIONS.md`
+- `UserRole.stylist_staff`, `BusinessStaff`, `StylistMembership` — `prisma/schema.prisma`
+- Permission guards — `apps/api/src/modules/roles/`, `docs/PERMISSIONS.md`
+- **Phase 1 invite hardening (2026-07-20):** secure token invites (7-day expiry), Resend email provider, Team role presets (manager/stylist/receptionist), deactivate/remove UI — still **one bookable calendar per business** (staff are dashboard helpers, not separate chairs)
 
 **Likely touch points (audit before building):**
 
@@ -79,7 +80,7 @@ Before implementing any item below:
 | Ch.16/17 directory & dashboard | One listing per stylist profile            |
 | Beta `/directory`              | Opt-in per `StylistProfile`                |
 
-**Approach:** Own mini build-order (structure approval → per-staff availability → AI staff resolution → salon directory type). **No schema rewrite** if `StylistMembership` model suffices.
+**Approach:** Own mini build-order (structure approval → per-staff availability → AI staff resolution → salon directory type). **No schema rewrite** if extending `BusinessStaff` / membership models suffices.
 
 ---
 

@@ -1,7 +1,7 @@
 # Permissions — Project Braids
 
-**Status:** Chapter 4 complete (prompts 4.1–4.4)  
-**Last updated:** 2026-07-11
+**Status:** Chapter 4 complete (prompts 4.1–4.4) + Phase 1 invite hardening (2026-07-20)  
+**Last updated:** 2026-07-20
 
 ## Roles
 
@@ -14,18 +14,42 @@
 
 Coarse roles live on `users.role`. Fine-grained flags live on `business_staff.permissions` (JSONB).
 
+Team **labels** on `business_staff.role` (`manager` | `stylist` | `receptionist`) map to permission presets. **Owner is not inviteable** — they remain `stylist_owner`.
+
+| Team role    | Bookings | Pricing | Profile | Payouts | Staff |
+| ------------ | -------- | ------- | ------- | ------- | ----- |
+| Manager      | yes      | yes     | yes     | no      | yes   |
+| Stylist      | yes      | no      | no      | no      | no    |
+| Receptionist | yes      | no      | no      | no      | no    |
+
 ## Business permission flags (Ch.4.1)
 
 | Flag                  | Purpose                            |
 | --------------------- | ---------------------------------- |
 | `can_manage_bookings` | Booking list/actions               |
 | `can_manage_pricing`  | Service offerings and pricing      |
+| `can_manage_profile`  | Business profile edits             |
 | `can_view_payouts`    | Stripe Connect / payout visibility |
 | `can_manage_staff`    | Invite, update, remove staff       |
 
 `stylist_owner` implicitly has all flags for their business (no `business_staff` row required).
 
-Staff rows are **inactive** when `accepted_at` is null or `removed_at` is set — permissions JSON is ignored in those cases.
+Staff rows are **inactive** when `accepted_at` is null, `removed_at` is set, or `deactivated_at` is set — permissions JSON is ignored in those cases.
+
+## Staff invitation flow (Phase 1)
+
+1. Owner/manager `POST /api/v1/businesses/:businessId/staff/invite` with `{ email, role }`
+2. API creates `business_staff` with hashed `invite_token_hash` and `invite_expires_at` (7 days)
+3. Transactional email via **Resend** (`RESEND_API_KEY`) — HTML + plain text with Accept link `${WEB_APP_URL}/invite/{token}`
+4. Invitee opens `/invite/{token}`, signs in if needed, `POST /api/v1/staff/invitations/accept` with `{ token }`
+5. Token cleared on accept; reuse and expiry are rejected
+
+**Dev/test:** without `RESEND_API_KEY`, email logs to the API console (`ConsoleEmailProvider`).  
+**Staging/production:** inviting by email **requires** `RESEND_API_KEY` (fail closed — no silent success). Optional `EMAIL_FROM`.
+
+Also: `POST .../staff/:id/resend`, `POST .../staff/:id/deactivate`, `PATCH` role/displayName, `DELETE` soft-remove.
+
+Legacy `POST /staff/invitations/:invitationId/accept` remains for older tests/links.
 
 ## Route guards
 
@@ -64,12 +88,6 @@ app.get(
 | `GET /api/v1/access/stylist-only`            | `requireRole('stylist_owner', 'stylist_staff')`    |
 | `GET /api/v1/businesses/:id/permission-demo` | `requireBusinessPermission('can_manage_bookings')` |
 
-## Staff management API (Ch.4.3)
-
-Full lifecycle: invite → accept → patch permissions → soft-remove (`removed_at`).
-
-Invitation notifications reuse Ch.3 `SmsProvider` / `EmailProvider`.
-
 ## Admin impersonation (Ch.4.4)
 
 - `POST /api/v1/admin/impersonate/:targetUserId` — 5-minute scoped access token (`imp` claim)
@@ -78,4 +96,4 @@ Invitation notifications reuse Ch.3 `SmsProvider` / `EmailProvider`.
 
 ## Tenant scoping rule
 
-Stylist-owned data must filter by `auth.stylistId`. Business permission routes use `businessId` from params or `auth.businessId`.
+Staff share the owner's `stylistId` for dashboard access. **Bookable multi-stylist chairs** remain V3 ([FUTURE_FEATURES.md](./FUTURE_FEATURES.md) §25.2).

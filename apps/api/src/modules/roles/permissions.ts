@@ -14,14 +14,17 @@ export function parseStaffPermissions(value: unknown): BusinessStaffPermissions 
 }
 
 export function isStaffMembershipActive(
-  staff: Pick<BusinessStaff, 'acceptedAt' | 'removedAt'>,
+  staff: Pick<BusinessStaff, 'acceptedAt' | 'removedAt' | 'deactivatedAt'>,
 ): boolean {
-  return staff.acceptedAt !== null && staff.removedAt === null;
+  return staff.acceptedAt !== null && staff.removedAt === null && staff.deactivatedAt === null;
 }
 
-/** Ch.4.1 — removed or pending staff have no active permissions. */
+/** Ch.4.1 — removed, deactivated, or pending staff have no active permissions. */
 export function staffHasPermission(
-  staff: Pick<BusinessStaff, 'permissions' | 'acceptedAt' | 'removedAt'> | null | undefined,
+  staff:
+    | Pick<BusinessStaff, 'permissions' | 'acceptedAt' | 'removedAt' | 'deactivatedAt'>
+    | null
+    | undefined,
   flag: BusinessPermissionFlag,
 ): boolean {
   if (!staff || !isStaffMembershipActive(staff)) {

@@ -30,6 +30,7 @@ export async function resolvePermissionsForUser(
       userId,
       acceptedAt: { not: null },
       removedAt: null,
+      deactivatedAt: null,
     },
     select: { permissions: true },
   });

@@ -151,16 +151,29 @@ model Business {
   @@map("businesses")
 }
 
+enum BusinessStaffRole {
+  manager
+  stylist
+  receptionist
+
+  @@map("business_staff_role")
+}
+
 model BusinessStaff {
-  id           String    @id @default(uuid()) @db.Uuid
-  businessId   String    @map("business_id") @db.Uuid
-  userId       String?   @map("user_id") @db.Uuid
-  inviteeEmail String?   @map("invitee_email")
-  inviteePhone String?   @map("invitee_phone")
-  permissions  Json
-  invitedAt    DateTime  @default(now()) @map("invited_at") @db.Timestamptz(6)
-  acceptedAt   DateTime? @map("accepted_at") @db.Timestamptz(6)
-  removedAt    DateTime? @map("removed_at") @db.Timestamptz(6)
+  id               String            @id @default(uuid()) @db.Uuid
+  businessId       String            @map("business_id") @db.Uuid
+  userId           String?           @map("user_id") @db.Uuid
+  inviteeEmail     String?           @map("invitee_email")
+  inviteePhone     String?           @map("invitee_phone")
+  displayName      String?           @map("display_name")
+  role             BusinessStaffRole @default(stylist)
+  permissions      Json
+  inviteTokenHash  String?           @unique @map("invite_token_hash")
+  inviteExpiresAt  DateTime?         @map("invite_expires_at") @db.Timestamptz(6)
+  invitedAt        DateTime          @default(now()) @map("invited_at") @db.Timestamptz(6)
+  acceptedAt       DateTime?         @map("accepted_at") @db.Timestamptz(6)
+  deactivatedAt    DateTime?         @map("deactivated_at") @db.Timestamptz(6)
+  removedAt        DateTime?         @map("removed_at") @db.Timestamptz(6)
 
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
   user     User?    @relation(fields: [userId], references: [id], onDelete: SetNull)

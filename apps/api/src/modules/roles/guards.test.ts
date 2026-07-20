@@ -1,9 +1,15 @@
-import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../../app.js';
 import { prisma } from '../../lib/db.js';
+import {
+  CapturingEmailProvider,
+  setEmailProvider,
+  resetEmailProviderForTests,
+} from '../../lib/email/email-provider.js';
 import { signAccessToken } from '../identity/tokens.js';
 import { signImpersonationAccessToken } from './impersonation.service.js';
 import { businessService } from './business.service.js';
+import { hashInviteToken } from './staff.service.js';
 
 const owner = {
   id: '11111111-1111-1111-1111-111111111111',
@@ -34,6 +40,7 @@ const admin = {
 };
 
 let databaseAvailable = false;
+let emailCapture: CapturingEmailProvider;
 
 async function bearer(userId: string, role: string): Promise<string> {
   const { token } = await signAccessToken({
@@ -54,7 +61,13 @@ describe('roles guards and staff lifecycle', () => {
     }
   });
 
+  beforeEach(() => {
+    emailCapture = new CapturingEmailProvider();
+    setEmailProvider(emailCapture);
+  });
+
   afterEach(async () => {
+    resetEmailProviderForTests();
     if (!databaseAvailable) return;
     await prisma.businessStaff.deleteMany();
     await prisma.business.deleteMany();
@@ -147,6 +160,7 @@ describe('roles guards and staff lifecycle', () => {
         permissions: {
           can_manage_bookings: true,
           can_manage_pricing: false,
+          can_manage_profile: false,
           can_view_payouts: false,
           can_manage_staff: false,
         },
@@ -194,6 +208,7 @@ describe('roles guards and staff lifecycle', () => {
         permissions: {
           can_manage_bookings: true,
           can_manage_pricing: false,
+          can_manage_profile: false,
           can_view_payouts: false,
           can_manage_staff: false,
         },
@@ -213,7 +228,7 @@ describe('roles guards and staff lifecycle', () => {
     await app.close();
   });
 
-  it('runs staff invite → accept → remove lifecycle', async ({ skip }) => {
+  it('runs staff invite → email → accept by token → remove lifecycle', async ({ skip }) => {
     if (!databaseAvailable) skip();
     const businessId = await seedOwnerWithBusiness();
 
@@ -235,23 +250,28 @@ describe('roles guards and staff lifecycle', () => {
       headers: { authorization: await bearer(owner.id, owner.role) },
       payload: {
         email: staffUser.email,
-        permissions: {
-          can_manage_bookings: true,
-          can_manage_pricing: false,
-          can_view_payouts: false,
-          can_manage_staff: false,
-        },
+        role: 'stylist',
       },
     });
     expect(invite.statusCode).toBe(201);
+    expect(emailCapture.sent).toHaveLength(1);
+    expect(emailCapture.sent[0]?.html).toContain('Accept Invitation');
+    const acceptUrl = emailCapture.sent[0]?.body.match(/http[^\s]+\/invite\/([^\s]+)/)?.[0];
+    expect(acceptUrl).toBeTruthy();
+    const token = acceptUrl!.split('/invite/')[1]!;
+
     const invitationId = invite.json().data.invitation.id as string;
+    const row = await prisma.businessStaff.findUnique({ where: { id: invitationId } });
+    expect(row?.inviteTokenHash).toBe(hashInviteToken(token));
 
     const accept = await app.inject({
       method: 'POST',
-      url: `/api/v1/staff/invitations/${invitationId}/accept`,
+      url: `/api/v1/staff/invitations/accept`,
       headers: { authorization: await bearer(staffUser.id, 'client') },
+      payload: { token },
     });
     expect(accept.statusCode).toBe(200);
+    expect(accept.json().data.staff.status).toBe('active');
 
     const allowed = await app.inject({
       method: 'GET',
@@ -261,6 +281,8 @@ describe('roles guards and staff lifecycle', () => {
     expect(allowed.statusCode).toBe(200);
 
     const staffRow = await prisma.businessStaff.findUnique({ where: { id: invitationId } });
+    expect(staffRow?.inviteTokenHash).toBeNull();
+
     const remove = await app.inject({
       method: 'DELETE',
       url: `/api/v1/businesses/${businessId}/staff/${staffRow!.id}`,

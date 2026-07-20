@@ -45,6 +45,7 @@ Copy `.env.staging.example` / `.env.production.example` — never share `DATABAS
 1. `fly apps create project-braids-api-staging` (and worker app)
 2. Copy `infrastructure/fly/api.toml` — set `app` name
 3. `fly secrets import < .env.staging` (never commit secrets)
+   - Staff invite emails need `RESEND_API_KEY` (+ optional `EMAIL_FROM`); staging/production fail closed without it — see [STAGING_SETUP.md](./STAGING_SETUP.md)
 4. `fly deploy --config infrastructure/fly/api.toml`
 5. Repeat for worker with `infrastructure/fly/worker.toml`
 
