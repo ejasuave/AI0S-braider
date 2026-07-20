@@ -68,7 +68,7 @@ export const rolesRoutes: FastifyPluginAsync = async (app) => {
       const auth = (request as AuthenticatedRequest).auth;
       const { businessId } = request.params as { businessId: string };
       const body = staffInviteRequestSchema.parse(normalizeStaffInviteBody(request.body));
-      const invitation = await staffService.inviteStaff({
+      const result = await staffService.inviteStaff({
         businessId,
         email: body.email,
         phoneNumber: body.phoneNumber,
@@ -77,7 +77,7 @@ export const rolesRoutes: FastifyPluginAsync = async (app) => {
         permissions: body.permissions,
         inviterName: inviterDisplayName(auth),
       });
-      sendData(reply, { invitation }, 201);
+      sendData(reply, result, 201);
     },
   );
 
@@ -87,12 +87,12 @@ export const rolesRoutes: FastifyPluginAsync = async (app) => {
     async (request, reply) => {
       const auth = (request as AuthenticatedRequest).auth;
       const { businessId, staffId } = request.params as { businessId: string; staffId: string };
-      const invitation = await staffService.resendInvite({
+      const result = await staffService.resendInvite({
         businessId,
         staffId,
         inviterName: inviterDisplayName(auth),
       });
-      sendData(reply, { invitation });
+      sendData(reply, result);
     },
   );
 

@@ -47,6 +47,7 @@ export default function StylistStaffPage() {
   const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [acceptUrl, setAcceptUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [actionId, setActionId] = useState<string | null>(null);
 
@@ -74,9 +75,13 @@ export default function StylistStaffPage() {
     if (!businessId) return;
     setError(null);
     setSuccess(null);
+    setAcceptUrl(null);
     setLoading(true);
     try {
-      await apiFetchData(`/businesses/${businessId}/staff/invite`, {
+      const result = await apiFetchData<{
+        invitation: BusinessStaff;
+        acceptUrl: string;
+      }>(`/businesses/${businessId}/staff/invite`, {
         method: 'POST',
         json: {
           email: email.trim(),
@@ -87,7 +92,10 @@ export default function StylistStaffPage() {
       });
       setEmail('');
       setDisplayName('');
-      setSuccess('Invitation sent. They will receive an email with a secure accept link.');
+      setAcceptUrl(result.acceptUrl);
+      setSuccess(
+        'Invitation created. If the email does not arrive (Resend test mode / spam), use the link below.',
+      );
       await refreshStaff();
     } catch (err) {
       setError(getApiErrorMessage(err, 'Could not send invitation'));
@@ -96,12 +104,18 @@ export default function StylistStaffPage() {
     }
   }
 
-  async function runAction(staffId: string, action: () => Promise<void>, okMessage: string) {
+  async function runAction(
+    staffId: string,
+    action: () => Promise<string | void>,
+    okMessage: string,
+  ) {
     setError(null);
     setSuccess(null);
+    setAcceptUrl(null);
     setActionId(staffId);
     try {
-      await action();
+      const maybeUrl = await action();
+      if (typeof maybeUrl === 'string') setAcceptUrl(maybeUrl);
       setSuccess(okMessage);
       await refreshStaff();
     } catch (err) {
@@ -162,6 +176,20 @@ export default function StylistStaffPage() {
             </p>
             {error ? <FormError message={error} /> : null}
             {success ? <p className="text-sm text-ink-muted">{success}</p> : null}
+            {acceptUrl ? (
+              <div className="space-y-2 rounded-md border border-border bg-surface-raised p-3">
+                <p className="text-xs font-medium text-ink">Accept link</p>
+                <p className="break-all text-xs text-ink-muted">{acceptUrl}</p>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  fullWidth
+                  onClick={() => void navigator.clipboard.writeText(acceptUrl)}
+                >
+                  Copy link
+                </Button>
+              </div>
+            ) : null}
             <Button type="submit" fullWidth disabled={loading || !businessId}>
               {loading ? 'Sending…' : 'Invite staff'}
             </Button>
@@ -203,11 +231,11 @@ export default function StylistStaffPage() {
                           void runAction(
                             member.id,
                             () =>
-                              apiFetchData(
+                              apiFetchData<{ acceptUrl: string }>(
                                 `/businesses/${businessId}/staff/${member.id}/resend`,
                                 { method: 'POST' },
-                              ).then(() => undefined),
-                            'Invitation resent.',
+                              ).then((data) => data.acceptUrl),
+                            'Invitation resent — use the link below if email is delayed.',
                           )
                         }
                       >

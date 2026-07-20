@@ -94,6 +94,14 @@ export const businessStaffSchema = z.object({
 
 export type BusinessStaff = z.infer<typeof businessStaffSchema>;
 
+/** Invite/resend response includes a one-time accept URL (token is not stored in plaintext). */
+export const staffInviteResultSchema = z.object({
+  invitation: businessStaffSchema,
+  acceptUrl: z.string().url(),
+});
+
+export type StaffInviteResult = z.infer<typeof staffInviteResultSchema>;
+
 export const staffInviteRequestSchema = z
   .object({
     email: z.string().email().optional(),

@@ -46,9 +46,18 @@ export class ResendEmailProvider implements EmailProvider {
       }),
     });
 
+    const detail = await response.text().catch(() => '');
     if (!response.ok) {
-      const detail = await response.text().catch(() => '');
       throw new Error(`Resend email failed (${response.status}): ${detail || response.statusText}`);
+    }
+
+    try {
+      const parsed = JSON.parse(detail) as { id?: string };
+      if (parsed.id) {
+        console.info(`[email] resend accepted id=${parsed.id} to=${message.to}`);
+      }
+    } catch {
+      // non-JSON success body — ignore
     }
   }
 }

@@ -256,8 +256,10 @@ describe('roles guards and staff lifecycle', () => {
     expect(invite.statusCode).toBe(201);
     expect(emailCapture.sent).toHaveLength(1);
     expect(emailCapture.sent[0]?.html).toContain('Accept Invitation');
+    const acceptUrlFromApi = invite.json().data.acceptUrl as string;
+    expect(acceptUrlFromApi).toContain('/invite/');
     const acceptUrl = emailCapture.sent[0]?.body.match(/http[^\s]+\/invite\/([^\s]+)/)?.[0];
-    expect(acceptUrl).toBeTruthy();
+    expect(acceptUrl).toBe(acceptUrlFromApi);
     const token = acceptUrl!.split('/invite/')[1]!;
 
     const invitationId = invite.json().data.invitation.id as string;

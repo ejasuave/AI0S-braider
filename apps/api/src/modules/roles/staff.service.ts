@@ -120,7 +120,7 @@ export class StaffService {
       );
     }
 
-    return toBusinessStaffDto(invitation);
+    return { invitation: toBusinessStaffDto(invitation), acceptUrl };
   }
 
   async resendInvite(input: {
@@ -193,7 +193,7 @@ export class StaffService {
       );
     }
 
-    return toBusinessStaffDto(updated);
+    return { invitation: toBusinessStaffDto(updated), acceptUrl };
   }
 
   async acceptInvitationByToken(input: {
