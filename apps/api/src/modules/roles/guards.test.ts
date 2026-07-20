@@ -302,6 +302,47 @@ describe('roles guards and staff lifecycle', () => {
     await app.close();
   });
 
+  it('allows phone-auth user to accept an email invite when account has no email', async ({
+    skip,
+  }) => {
+    if (!databaseAvailable) skip();
+    const businessId = await seedOwnerWithBusiness();
+
+    await prisma.user.create({
+      data: {
+        id: staffUser.id,
+        role: 'client',
+        phoneNumber: staffUser.phone,
+        email: null,
+        phoneVerifiedAt: new Date(),
+      },
+    });
+
+    const app = await buildApp();
+    const invite = await app.inject({
+      method: 'POST',
+      url: `/api/v1/businesses/${businessId}/staff/invite`,
+      headers: { authorization: await bearer(owner.id, owner.role) },
+      payload: { email: staffUser.email, role: 'receptionist' },
+    });
+    expect(invite.statusCode).toBe(201);
+    const token = (invite.json().data.acceptUrl as string).split('/invite/')[1]!;
+
+    const accept = await app.inject({
+      method: 'POST',
+      url: `/api/v1/staff/invitations/accept`,
+      headers: { authorization: await bearer(staffUser.id, 'client') },
+      payload: { token },
+    });
+    expect(accept.statusCode).toBe(200);
+
+    const user = await prisma.user.findUnique({ where: { id: staffUser.id } });
+    expect(user?.role).toBe('stylist_staff');
+    expect(user?.email).toBe(staffUser.email.toLowerCase());
+
+    await app.close();
+  });
+
   it('rejects impersonation token on sensitive payout route', async ({ skip }) => {
     if (!databaseAvailable) skip();
     await seedOwnerWithBusiness();

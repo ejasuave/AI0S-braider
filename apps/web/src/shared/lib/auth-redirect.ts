@@ -24,9 +24,13 @@ export function resolvePostAuthRedirect(
   role: 'client' | 'stylist',
   next?: string | null,
 ): '/client' | '/stylist' | string {
-  if (role === 'client') {
-    const stored = next ?? getPostAuthNext();
-    if (stored && isSafeNextPath(stored)) {
+  const stored = next ?? getPostAuthNext();
+  if (stored && isSafeNextPath(stored)) {
+    // Invite accept (and similar) should win for any role after auth.
+    if (stored.startsWith('/invite/')) {
+      return stored;
+    }
+    if (role === 'client') {
       return stored;
     }
   }

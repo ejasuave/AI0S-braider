@@ -1,11 +1,17 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useAuth, getPostAuthPath } from '@/features/auth/auth-context';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useAuth } from '@/features/auth/auth-context';
 import { getWebEnv } from '@/env';
 import { ApiClientError, getApiErrorMessage } from '@/shared/lib/api-client';
+import {
+  clearPostAuthNext,
+  getPostAuthNext,
+  resolvePostAuthRedirect,
+  setPostAuthNext,
+} from '@/shared/lib/auth-redirect';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { Card } from '@/shared/ui/card';
@@ -15,9 +21,10 @@ import { TOUCH_LINK_CLASS } from '@/shared/lib/touch-target';
 /** Never leave the button on “Signing in…” if a fetch hangs without aborting. */
 const LOGIN_UI_FAILSAFE_MS = 15_000;
 
-export default function LoginPage() {
+function LoginForm() {
   const auth = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const errorRef = useRef<HTMLDivElement>(null);
   const failsafeRef = useRef<number | null>(null);
   const [email, setEmail] = useState('');
@@ -25,12 +32,22 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const apiUrl = getWebEnv().NEXT_PUBLIC_API_URL;
+  const next = searchParams.get('next');
+
+  useEffect(() => {
+    if (next) setPostAuthNext(next);
+  }, [next]);
 
   useEffect(() => {
     if (!auth.isLoading && auth.isAuthenticated && auth.user) {
-      router.replace(getPostAuthPath(auth.user));
+      const redirectTo = resolvePostAuthRedirect(
+        auth.isClient ? 'client' : 'stylist',
+        next ?? getPostAuthNext(),
+      );
+      clearPostAuthNext();
+      router.replace(redirectTo);
     }
-  }, [auth.isAuthenticated, auth.isLoading, auth.user, router]);
+  }, [auth.isAuthenticated, auth.isClient, auth.isLoading, auth.user, next, router]);
 
   useEffect(() => {
     if (error) {
@@ -61,9 +78,12 @@ export default function LoginPage() {
     }, LOGIN_UI_FAILSAFE_MS);
     try {
       const user = await auth.login({ email: email.trim(), password });
-      // Soft navigate so the session already in AuthProvider is kept — a hard reload
-      // left the dashboard stuck on "Loading…" while /auth/me re-fetched.
-      router.replace(getPostAuthPath(user));
+      const redirectTo = resolvePostAuthRedirect(
+        user.role === 'client' ? 'client' : 'stylist',
+        next ?? getPostAuthNext(),
+      );
+      clearPostAuthNext();
+      router.replace(redirectTo);
     } catch (err) {
       if (err instanceof ApiClientError && err.status === 403) {
         setError(
@@ -152,5 +172,13 @@ export default function LoginPage() {
         </Link>
       </p>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<p className="text-sm text-ink-muted">Loading…</p>}>
+      <LoginForm />
+    </Suspense>
   );
 }

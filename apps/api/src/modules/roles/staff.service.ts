@@ -202,13 +202,16 @@ export class StaffService {
     email: string | null;
     phoneNumber: string;
   }) {
-    const tokenHash = hashInviteToken(input.token);
+    const token = input.token.trim();
+    const tokenHash = hashInviteToken(token);
     const invitation = await prisma.businessStaff.findFirst({
       where: { inviteTokenHash: tokenHash },
     });
 
     if (!invitation || invitation.removedAt) {
-      throw ApiError.notFound('Invitation not found or no longer valid');
+      throw ApiError.notFound(
+        'Invitation not found or no longer valid. Ask the owner to send a new invite.',
+      );
     }
     if (invitation.acceptedAt) {
       throw new ApiError('CONFLICT', 'Invitation has already been used', 409);
@@ -220,24 +223,42 @@ export class StaffService {
       throw new ApiError('CONFLICT', 'Invitation has expired', 409);
     }
 
-    const emailMatches =
-      invitation.inviteeEmail &&
-      input.email &&
-      invitation.inviteeEmail.toLowerCase() === input.email.toLowerCase();
-    const phoneMatches =
-      invitation.inviteePhone && invitation.inviteePhone === input.phoneNumber;
-
-    if (!emailMatches && !phoneMatches) {
+    const business = await businessService.getBusinessById(invitation.businessId);
+    if (business.ownerUserId === input.userId) {
       throw new ApiError(
-        'FORBIDDEN',
-        'Sign in with the email or phone that received this invitation',
-        403,
+        'CONFLICT',
+        'You already own this business — staff invites are for other team members',
+        409,
       );
+    }
+
+    const emailMatches =
+      Boolean(invitation.inviteeEmail) &&
+      Boolean(input.email) &&
+      invitation.inviteeEmail!.toLowerCase() === input.email!.toLowerCase();
+    const phoneMatches =
+      Boolean(invitation.inviteePhone) && invitation.inviteePhone === input.phoneNumber;
+
+    // Token is the secret; email/phone match is preferred but not required so
+    // invitees can accept after phone OTP when the invite was sent to email.
+    if (!emailMatches && !phoneMatches) {
+      if (invitation.inviteeEmail && input.email) {
+        throw new ApiError(
+          'FORBIDDEN',
+          'Sign in with the email or phone that received this invitation',
+          403,
+        );
+      }
     }
 
     const user = await prisma.user.update({
       where: { id: input.userId },
-      data: { role: 'stylist_staff' },
+      data: {
+        role: 'stylist_staff',
+        ...(invitation.inviteeEmail && !input.email
+          ? { email: invitation.inviteeEmail.toLowerCase() }
+          : {}),
+      },
     });
 
     const updated = await prisma.businessStaff.update({

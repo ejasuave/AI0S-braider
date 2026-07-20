@@ -3,7 +3,7 @@
 import { useMutation } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { BusinessStaff } from '@project-braids/shared-types/api';
 import { BUSINESS_STAFF_ROLE_LABELS } from '@project-braids/shared-types/api';
 import { useAuth } from '@/features/auth/auth-context';
@@ -13,9 +13,19 @@ import { Card } from '@/shared/ui/card';
 import { FormError } from '@/shared/ui/form-error';
 import { PageHeader, PageShell } from '@/shared/ui/page-shell';
 
+function readInviteToken(raw: string | string[] | undefined): string {
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  if (!value) return '';
+  try {
+    return decodeURIComponent(value).trim();
+  } catch {
+    return value.trim();
+  }
+}
+
 export default function AcceptStaffInvitePage() {
   const params = useParams<{ token: string }>();
-  const token = params.token;
+  const token = useMemo(() => readInviteToken(params.token), [params.token]);
   const auth = useAuth();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -37,8 +47,17 @@ export default function AcceptStaffInvitePage() {
   });
 
   const nextParam = encodeURIComponent(`/invite/${token}`);
-  const loginHref = `/login/client?next=${nextParam}`;
+  const clientLoginHref = `/login/client?next=${nextParam}`;
+  const stylistLoginHref = `/login?next=${nextParam}`;
   const registerHref = `/register/client?next=${nextParam}`;
+
+  if (!token) {
+    return (
+      <PageShell>
+        <PageHeader title="Team invitation" subtitle="This invite link is missing or invalid." />
+      </PageShell>
+    );
+  }
 
   return (
     <PageShell>
@@ -53,13 +72,19 @@ export default function AcceptStaffInvitePage() {
         ) : !auth.user ? (
           <>
             <p className="text-sm text-ink-muted">
-              Sign in with the email or phone that received this invitation, then accept.
+              Sign in with the account that should join this team, then accept the invitation.
             </p>
             <Link
-              href={loginHref}
+              href={clientLoginHref}
               className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-white"
             >
-              Sign in to accept
+              Sign in with mobile number
+            </Link>
+            <Link
+              href={stylistLoginHref}
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-ink"
+            >
+              Sign in with email &amp; password
             </Link>
             <p className="text-center text-sm text-ink-muted">
               New here?{' '}
