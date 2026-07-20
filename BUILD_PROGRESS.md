@@ -235,8 +235,10 @@ Service & booking improvements from pilot stylist feedback (not a numbered chapt
 - Hierarchical style taxonomy + **Bum Length** tier
 - Hours+minutes duration UI (stored as total minutes)
 - Requirements / add-ons catalogs; expanded remaining-balance methods (7)
+- Requirements + add-ons on **Add service** (one-save create flow)
 - Vanity share URLs + Google Reviews **placeholder** fields ([docs/GOOGLE_REVIEWS.md](docs/GOOGLE_REVIEWS.md))
 - Enriched public booking payload + AI receptionist context (policy, requirements, add-ons)
+- AI receptionist conversational upgrade: session memory, FAQ topic switch, tone rules, frustration/human-request/clarification-streak escalation ([apps/api/src/modules/receptionist/README.md](apps/api/src/modules/receptionist/README.md))
 
 **Next:** Staging deploy + external wiring (Stripe/Twilio/Google webhooks) per [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) § Production readiness, then pilot onboarding.
 

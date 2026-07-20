@@ -22,7 +22,13 @@ Custom styles (`isCustomStyle: true`) are allowed but flagged lower-confidence p
 
 ## Style taxonomy
 
-Seeded reference categories live in `style_categories` (see `STYLE_TAXONOMY_SEED` in shared-types). Stylists pick from this list during onboarding; custom styles can still be created.
+Seeded reference categories live in `style_categories` (see `STYLE_TAXONOMY_SEED` in shared-types). Categories may be hierarchical via `parentId` (group → leaf). Length tiers include **Bum Length** where configured. Stylists pick from this list during onboarding; custom styles can still be created.
+
+## Catalogs & share links
+
+- Shared catalogs: `REQUIREMENTS_CATALOG` / `ADDONS_CATALOG` in `packages/shared-types` (`GET /api/v1/service-catalogs`)
+- Stylist `publicSlug` enables vanity share paths (`/stylist/{slug}/…`); UUID `/book?…` links remain valid
+- Google Reviews placeholders are documented in [GOOGLE_REVIEWS.md](./GOOGLE_REVIEWS.md)
 
 ## Policies & hours
 
@@ -30,7 +36,7 @@ Canonical policy lives on `business_policies` (not legacy JSON on stylist profil
 
 - **Enforced fields:** `depositType` / `depositValue`, `cancellationWindowHours`, `noShowFeeType` / `noShowFeeValue`
 - **Client-facing text:** cancellation, rescheduling, late arrival, no-show, refund, children, guest, deposit notes
-- **Remaining balance method:** `cash` | `card` | `cash_or_card` (how clients may settle after deposit)
+- **Remaining balance method:** `cash` | `card` | `bank_transfer` | `cash_or_card` | `cash_or_bank_transfer` | `card_or_bank_transfer` | `any`
 
 Legacy `depositPolicy` / `cancellationPolicy` JSON on `stylist_profiles` is still mirrored for older consumers.
 
@@ -38,9 +44,11 @@ Legacy `depositPolicy` / `cancellationPolicy` JSON on `stylist_profiles` is stil
 
 Each `service_offerings` row may include:
 
-- `description`, ordered `requirements` (JSON string array)
+- `description`, ordered structured `requirements` (`{ text, catalogKey? }`)
 - optional per-service `depositType` / `depositValue` (null = inherit business policy)
-- related `service_addons` (name, optional description, price, active, displayOrder)
+- related `service_addons` (name, optional description, price, active, displayOrder, optional `catalogKey`)
+
+Stylist UI: requirements and add-ons can be set on **Add service** (one save) as well as when editing an existing service.
 
 Booking holds snapshot selected add-ons into `bookings.addons_snapshot` and require policy acknowledgement (`client_direct`). Existing bookings keep their agreed price; later service edits do not rewrite history.
 

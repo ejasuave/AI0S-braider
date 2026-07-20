@@ -2,7 +2,7 @@
 
 **Every feature prompt executed in this codebase must be checked against this document.** If a prompt would require one service to reach into another service's owned data or logic directly, flag that conflict before proceeding rather than implementing it silently.
 
-**Last updated:** 2026-07-11 (Ch.17 Dashboards)
+**Last updated:** 2026-07-20 (AI receptionist session memory + FAQ topic switch; stylist catalogs/slugs)
 
 This document defines service boundaries, cross-module rules, and patterns every feature must follow. If implementation diverges from this file, update this document in the same commit.
 
@@ -46,11 +46,11 @@ Each module owns its domain logic, database tables, and HTTP routes. **Never que
 | **Profile (legacy)**   | `modules/profile/`            | Directory search, legacy `/profile/*` compat                                                                 | New Ch.6 routes (use stylist-profile)                               |
 | **Calendar**           | `modules/calendar/`           | Availability computation, buffer settings, Google Calendar sync                                              | Working-hours storage, booking state                                |
 | **Booking Engine**     | `modules/booking/`            | Slot holds, confirmations, cancellations, state machine                                                      | Payment capture                                                     |
-| **AI Receptionist**    | `modules/receptionist/`       | Conversation state, intent, escalation, booking dispatch                                                     | Calendar source of truth                                            |
+| **AI Receptionist**    | `modules/receptionist/`       | Conversation state, session memory, intent, escalation, booking dispatch                                     | Calendar source of truth                                            |
 | **Payments**           | `modules/payments/`           | Deposit capture, refunds, Stripe webhooks                                                                    | Pricing decisions                                                   |
 | **Notifications**      | `modules/notifications/`      | Reminder scheduling/delivery, lifecycle notices, preference gating at send                                   | Message content generation (stub in `content.ts`; Ch.13 may enrich) |
 | **Client preferences** | `modules/client-preferences/` | `notification_preferences`, STOP/START keywords (Ch.5.4), `client_profiles`, `saved_stylists`, opt-out audit | Notification delivery timing                                        |
-| **Messaging**          | `modules/messaging/`          | Conversations, SMS channel, `sendMessage`/`receiveMessage`, handoff                                          | AI content (Ch.13), notification jobs (Ch.12)                       |
+| **Messaging**          | `modules/messaging/`          | Conversations, SMS + in-app web chat, `sendMessage`/`receiveMessage`, handoff                                | AI content (Ch.13), notification jobs (Ch.12)                       |
 | **Realtime**           | `modules/realtime/`           | Stylist SSE fan-out from domain events (Ch.17.5)                                                             | Business logic; persists nothing                                    |
 | **Directory**          | `modules/directory/`          | Beta public stylist search (read-only)                                                                       | Profile writes, booking state                                       |
 | **System**             | `modules/system/`             | Ping, ops status, Ch.2 example jobs                                                                          | Domain features                                                     |
