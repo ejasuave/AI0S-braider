@@ -1,3 +1,5 @@
+import { ApiError } from '../errors.js';
+
 export type EmailMessage = {
   to: string;
   subject: string;
@@ -98,8 +100,8 @@ export function assertTransactionalEmailConfigured(env: {
   RESEND_API_KEY?: string;
 }): void {
   if ((env.NODE_ENV === 'staging' || env.NODE_ENV === 'production') && !env.RESEND_API_KEY) {
-    throw new Error(
-      'RESEND_API_KEY is required to send invitation emails in staging/production. Set RESEND_API_KEY and optionally EMAIL_FROM.',
+    throw ApiError.serviceUnavailable(
+      'Email invites are not configured. Set RESEND_API_KEY (and optionally EMAIL_FROM) on the API.',
     );
   }
 }

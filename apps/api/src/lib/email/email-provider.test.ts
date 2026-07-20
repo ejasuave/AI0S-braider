@@ -28,9 +28,9 @@ describe('email provider', () => {
   });
 
   it('fails closed for staging/production without Resend', () => {
-    expect(() =>
-      assertTransactionalEmailConfigured({ NODE_ENV: 'staging' }),
-    ).toThrow(/RESEND_API_KEY/);
+    expect(() => assertTransactionalEmailConfigured({ NODE_ENV: 'staging' })).toThrow(
+      /Email invites are not configured/,
+    );
     expect(() =>
       assertTransactionalEmailConfigured({ NODE_ENV: 'production', RESEND_API_KEY: 're_x' }),
     ).not.toThrow();

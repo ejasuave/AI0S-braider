@@ -67,7 +67,7 @@ export const apiEnvSchema = z.object({
   OPS_BEARER_TOKEN: z.string().min(16).optional(),
   /** When set, staff invites (and other transactional email) send via Resend. */
   RESEND_API_KEY: z.string().min(1).optional(),
-  EMAIL_FROM: z.string().email().optional(),
+  EMAIL_FROM: z.string().min(3).optional(),
 });
 
 export type ApiEnv = z.infer<typeof apiEnvSchema>;
