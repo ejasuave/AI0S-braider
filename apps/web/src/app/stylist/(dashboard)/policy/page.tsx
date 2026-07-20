@@ -2,7 +2,11 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import type { BusinessPolicy } from '@project-braids/shared-types/api';
+import type { BusinessPolicy, RemainingBalanceMethod } from '@project-braids/shared-types/api';
+import {
+  REMAINING_BALANCE_METHODS,
+  remainingBalanceMethodLabel,
+} from '@project-braids/shared-types/api';
 import { apiFetchData, getApiErrorMessage } from '@/shared/lib/api-client';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
@@ -30,9 +34,8 @@ export default function StylistPolicyPage() {
   const [depositType, setDepositType] = useState<'percentage' | 'flat'>('percentage');
   const [depositValue, setDepositValue] = useState('20');
   const [cancellationWindowHours, setCancellationWindowHours] = useState('24');
-  const [remainingBalanceMethod, setRemainingBalanceMethod] = useState<
-    'cash' | 'card' | 'cash_or_card'
-  >('cash_or_card');
+  const [remainingBalanceMethod, setRemainingBalanceMethod] =
+    useState<RemainingBalanceMethod>('cash_or_card');
   const [noShowFeeType, setNoShowFeeType] = useState<
     'forfeit_deposit' | 'flat_fee' | 'no_fee'
   >('forfeit_deposit');
@@ -166,14 +169,14 @@ export default function StylistPolicyPage() {
                 className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm"
                 value={remainingBalanceMethod}
                 onChange={(e) =>
-                  setRemainingBalanceMethod(
-                    e.target.value as 'cash' | 'card' | 'cash_or_card',
-                  )
+                  setRemainingBalanceMethod(e.target.value as RemainingBalanceMethod)
                 }
               >
-                <option value="cash">Cash only</option>
-                <option value="card">Card only (online)</option>
-                <option value="cash_or_card">Cash or card (client chooses)</option>
+                {REMAINING_BALANCE_METHODS.map((method) => (
+                  <option key={method} value={method}>
+                    {remainingBalanceMethodLabel[method]}
+                  </option>
+                ))}
               </select>
             </label>
 

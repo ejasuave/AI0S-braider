@@ -16,6 +16,7 @@ import { getEnv } from '../../config/env.js';
 import { getSystemQueue, JOB_NAMES } from '../../lib/queue.js';
 import { profileService } from '../profile/service.js';
 import { getBusinessPolicyByStylistId, resolveDepositPolicy } from '../stylist-profile/policy.js';
+import { parseRequirements, requirementTexts } from '../stylist-profile/requirements.js';
 import { expireStaleHolds, findConflictingBookingIds } from './conflict.js';
 import { calculateBalanceAmount, calculateBookingEndTime, calculateDepositAmount, toBooking } from './mappers.js';
 import { evaluateCancellationDeposit, evaluateNoShowDeposit } from './policy.js';
@@ -68,7 +69,15 @@ type CreateBookingInput = {
     price: string;
   }>;
   depositPolicyOverride?: { type: 'flat' | 'percent'; value: number } | null;
-  remainingBalanceMethod?: 'cash' | 'card' | 'cash_or_card' | null;
+  remainingBalanceMethod?:
+    | 'cash'
+    | 'card'
+    | 'bank_transfer'
+    | 'cash_or_card'
+    | 'cash_or_bank_transfer'
+    | 'card_or_bank_transfer'
+    | 'any'
+    | null;
   requirementsAcknowledgedAt?: Date | null;
   policiesAcknowledgedAt?: Date | null;
 };
@@ -85,10 +94,21 @@ async function loadClientPhones(
   return new Map(users.map((u) => [u.id, u.phoneNumber]));
 }
 
-/** Resolve stylist business name + style name for client booking history. */
+/** Resolve stylist business name + style/tier labels for client booking history. */
 async function loadClientBookingLabels(
   bookings: Array<{ id: string; stylistId: string; serviceOfferingId: string | null }>,
-): Promise<Map<string, { stylistBusinessName: string | null; serviceStyleName: string | null }>> {
+): Promise<
+  Map<
+    string,
+    {
+      stylistBusinessName: string | null;
+      serviceStyleName: string | null;
+      serviceSizeTier: string | null;
+      serviceLengthTier: string | null;
+      serviceCategoryName: string | null;
+    }
+  >
+> {
   const stylistIds = [...new Set(bookings.map((b) => b.stylistId))];
   const serviceIds = [
     ...new Set(
@@ -109,23 +129,53 @@ async function loadClientBookingLabels(
       ? Promise.resolve([])
       : prisma.serviceOffering.findMany({
           where: { id: { in: serviceIds } },
-          select: { id: true, styleName: true },
+          select: {
+            id: true,
+            styleName: true,
+            sizeTier: true,
+            lengthTier: true,
+            styleCategory: { select: { name: true, parent: { select: { name: true } } } },
+          },
         }),
   ]);
 
   const stylistNames = new Map(stylists.map((row) => [row.id, row.businessName]));
-  const styleNames = new Map(offerings.map((row) => [row.id, row.styleName]));
+  const offeringMeta = new Map(
+    offerings.map((row) => [
+      row.id,
+      {
+        styleName: row.styleName,
+        sizeTier: row.sizeTier,
+        lengthTier: row.lengthTier,
+        categoryName: row.styleCategory
+          ? row.styleCategory.parent
+            ? `${row.styleCategory.parent.name} · ${row.styleCategory.name}`
+            : row.styleCategory.name
+          : null,
+      },
+    ]),
+  );
   const labels = new Map<
     string,
-    { stylistBusinessName: string | null; serviceStyleName: string | null }
+    {
+      stylistBusinessName: string | null;
+      serviceStyleName: string | null;
+      serviceSizeTier: string | null;
+      serviceLengthTier: string | null;
+      serviceCategoryName: string | null;
+    }
   >();
 
   for (const booking of bookings) {
+    const meta = booking.serviceOfferingId
+      ? offeringMeta.get(booking.serviceOfferingId)
+      : undefined;
     labels.set(booking.id, {
       stylistBusinessName: stylistNames.get(booking.stylistId) ?? null,
-      serviceStyleName: booking.serviceOfferingId
-        ? (styleNames.get(booking.serviceOfferingId) ?? null)
-        : null,
+      serviceStyleName: meta?.styleName ?? null,
+      serviceSizeTier: meta?.sizeTier ?? null,
+      serviceLengthTier: meta?.lengthTier ?? null,
+      serviceCategoryName: meta?.categoryName ?? null,
     });
   }
   return labels;
@@ -252,6 +302,9 @@ export class BookingService {
         audience: 'client',
         stylistBusinessName: label?.stylistBusinessName ?? null,
         serviceStyleName: label?.serviceStyleName ?? null,
+        serviceSizeTier: label?.serviceSizeTier ?? null,
+        serviceLengthTier: label?.serviceLengthTier ?? null,
+        serviceCategoryName: label?.serviceCategoryName ?? null,
       });
     });
   }
@@ -339,6 +392,9 @@ export class BookingService {
       audience: 'client',
       stylistBusinessName: label?.stylistBusinessName ?? null,
       serviceStyleName: label?.serviceStyleName ?? null,
+      serviceSizeTier: label?.serviceSizeTier ?? null,
+      serviceLengthTier: label?.serviceLengthTier ?? null,
+      serviceCategoryName: label?.serviceCategoryName ?? null,
     });
   }
 
@@ -350,9 +406,7 @@ export class BookingService {
     const venue = await resolveVenueOffersForStylist(input.stylistId);
     const businessPolicy = await getBusinessPolicyByStylistId(input.stylistId);
 
-    const requirements = Array.isArray(offering.requirements)
-      ? offering.requirements.filter((item): item is string => typeof item === 'string')
-      : [];
+    const requirements = requirementTexts(parseRequirements(offering.requirements));
 
     if (input.source !== 'ai_agent') {
       if (!input.acknowledgedPolicies) {

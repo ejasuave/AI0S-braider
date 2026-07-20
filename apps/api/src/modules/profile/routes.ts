@@ -37,6 +37,31 @@ export const profileRoutes: FastifyPluginAsync = async (app) => {
     sendData(reply, page);
   });
 
+  app.get('/stylists/by-slug/:slug/booking-page', async (request, reply) => {
+    const { slug } = request.params as { slug: string };
+    const page = await profileService.getPublicBookingPageBySlug(slug);
+    sendData(reply, page);
+  });
+
+  app.get(
+    '/stylists/by-slug/:slug/services/:styleSlug/:sizeSlug/:lengthSlug',
+    async (request, reply) => {
+      const { slug, styleSlug, sizeSlug, lengthSlug } = request.params as {
+        slug: string;
+        styleSlug: string;
+        sizeSlug: string;
+        lengthSlug: string;
+      };
+      const resolved = await profileService.resolveServiceShare(
+        slug,
+        styleSlug,
+        sizeSlug,
+        lengthSlug,
+      );
+      sendData(reply, resolved);
+    },
+  );
+
   app.get('/services', { preHandler: [requireStylist] }, async (request, reply) => {
     const auth = (request as AuthenticatedRequest).auth;
     const offerings = await profileService.listServiceOfferings(auth.stylistId!);

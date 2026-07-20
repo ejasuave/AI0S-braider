@@ -1,4 +1,4 @@
-import type { DepositDisposition } from '@project-braids/shared-types/api';
+import type { DepositDisposition, RemainingBalanceMethod } from '@project-braids/shared-types/api';
 import type { NotificationStatus, NotificationType } from '@prisma/client';
 import { prisma } from '../../lib/db.js';
 import { clientPreferencesRepository } from '../client-preferences/repository.js';
@@ -32,7 +32,7 @@ export type BookingNotificationContext = {
   venueAddress: string | null;
   clientDisplayName: string | null;
   addonNames: string[];
-  remainingBalanceMethod: 'cash' | 'card' | 'cash_or_card' | null;
+  remainingBalanceMethod: RemainingBalanceMethod | null;
   balanceAmount: number | null;
 };
 

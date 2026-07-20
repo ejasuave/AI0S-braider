@@ -2,18 +2,30 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import type { ServiceOffering, StyleCategory } from '@project-braids/shared-types/api';
+import type {
+  ServiceOffering,
+  StyleCategory,
+  StylistProfile,
+} from '@project-braids/shared-types/api';
+import { formatDurationLabel } from '@project-braids/shared-types/api';
 import { useAuth } from '@/features/auth/auth-context';
+import { ServiceEditorPanel } from '@/features/stylist/service-editor-panel';
 import { apiFetchData, getApiErrorMessage } from '@/shared/lib/api-client';
-import { serviceBookingUrl, stylistBookingUrl } from '@/shared/lib/booking-links';
+import {
+  absoluteShareUrl,
+  buildServiceSharePathFromOffering,
+  serviceBookingUrl,
+  stylistBookingUrl,
+} from '@/shared/lib/booking-links';
 import { formatMoney } from '@/shared/lib/format';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
+import { DurationPicker } from '@/shared/ui/duration-picker';
+import { EmptyState } from '@/shared/ui/empty-state';
+import { HierarchicalCategorySelect } from '@/shared/ui/hierarchical-category-select';
 import { Input } from '@/shared/ui/input';
 import { PageHeader, PageShell, SectionTitle } from '@/shared/ui/page-shell';
 import { StatusBadge } from '@/shared/ui/status-badge';
-import { EmptyState } from '@/shared/ui/empty-state';
-import { ServiceEditorPanel } from '@/features/stylist/service-editor-panel';
 
 export default function StylistServicesPage() {
   const auth = useAuth();
@@ -24,7 +36,7 @@ export default function StylistServicesPage() {
   const [sizeTier, setSizeTier] = useState('');
   const [lengthTier, setLengthTier] = useState('');
   const [basePrice, setBasePrice] = useState('');
-  const [duration, setDuration] = useState('120');
+  const [durationMinutes, setDurationMinutes] = useState(120);
   const [formError, setFormError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [copiedMainLink, setCopiedMainLink] = useState(false);
@@ -39,14 +51,32 @@ export default function StylistServicesPage() {
     queryFn: () => apiFetchData<ServiceOffering[]>('/businesses/me/services'),
   });
 
+  const profileQuery = useQuery({
+    queryKey: ['profile', 'me'],
+    queryFn: () => apiFetchData<StylistProfile>('/profile/me'),
+  });
+
   const selectedCategory = categoriesQuery.data?.find((c) => c.id === styleCategoryId);
   const stylistId = auth.stylistId ?? servicesQuery.data?.[0]?.stylistId ?? '';
+  const publicSlug = profileQuery.data?.publicSlug ?? null;
 
   function mainBookingLink(): string {
     return stylistId ? stylistBookingUrl(stylistId) : '';
   }
 
   function perServiceBookingLink(service: ServiceOffering): string {
+    if (publicSlug) {
+      const category = categoriesQuery.data?.find((c) => c.id === service.styleCategoryId);
+      return absoluteShareUrl(
+        buildServiceSharePathFromOffering({
+          stylistSlug: publicSlug,
+          styleName: service.styleName,
+          styleCategorySlug: category?.slug,
+          sizeTier: service.sizeTier,
+          lengthTier: service.lengthTier,
+        }),
+      );
+    }
     return serviceBookingUrl(service.stylistId, service.id);
   }
 
@@ -81,7 +111,7 @@ export default function StylistServicesPage() {
           sizeTier: sizeTier || null,
           lengthTier: lengthTier || null,
           basePrice: Number(basePrice),
-          estimatedDurationMinutes: Number(duration),
+          estimatedDurationMinutes: durationMinutes,
         },
       }),
     onSuccess: () => {
@@ -91,7 +121,7 @@ export default function StylistServicesPage() {
       setSizeTier('');
       setLengthTier('');
       setBasePrice('');
-      setDuration('120');
+      setDurationMinutes(120);
       void queryClient.invalidateQueries({ queryKey: ['business', 'services'] });
     },
   });
@@ -114,6 +144,10 @@ export default function StylistServicesPage() {
     setFormError(null);
     if (!styleCategoryId && !customStyleName.trim()) {
       setFormError('Choose a style category or enter a custom style name.');
+      return;
+    }
+    if (durationMinutes <= 0) {
+      setFormError('Duration must be greater than zero.');
       return;
     }
     try {
@@ -154,24 +188,16 @@ export default function StylistServicesPage() {
           <Card>
             <form className="space-y-4" onSubmit={handleCreate}>
               <SectionTitle>New service</SectionTitle>
-              <label className="block text-sm font-medium text-ink">
-                Style category
-                <select
-                  className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm"
-                  value={styleCategoryId}
-                  onChange={(e) => {
-                    setStyleCategoryId(e.target.value);
-                    setCustomStyleName('');
-                  }}
-                >
-                  <option value="">Custom style…</option>
-                  {(categoriesQuery.data ?? []).map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <HierarchicalCategorySelect
+                categories={categoriesQuery.data ?? []}
+                value={styleCategoryId}
+                onChange={(id) => {
+                  setStyleCategoryId(id);
+                  setCustomStyleName('');
+                  setSizeTier('');
+                  setLengthTier('');
+                }}
+              />
               {!styleCategoryId ? (
                 <Input
                   label="Custom style name"
@@ -223,13 +249,9 @@ export default function StylistServicesPage() {
                 onChange={(e) => setBasePrice(e.target.value)}
                 required
               />
-              <Input
-                label="Duration (minutes)"
-                type="number"
-                min="30"
-                step="15"
-                value={duration}
-                onChange={(e) => setDuration(e.target.value)}
+              <DurationPicker
+                valueMinutes={durationMinutes}
+                onChange={setDurationMinutes}
                 required
               />
               {formError ? <p className="text-sm text-error">{formError}</p> : null}
@@ -255,7 +277,11 @@ export default function StylistServicesPage() {
                   <div>
                     <h3 className="font-medium text-ink">{service.styleName}</h3>
                     <p className="text-sm text-ink-muted">
-                      {formatMoney(service.basePrice)} · {service.estimatedDurationMinutes} min
+                      {formatMoney(service.basePrice)} ·{' '}
+                      {formatDurationLabel(service.estimatedDurationMinutes)}
+                      {service.sizeTier || service.lengthTier
+                        ? ` · ${[service.sizeTier, service.lengthTier].filter(Boolean).join(' · ')}`
+                        : ''}
                       {service.isCustomStyle ? ' · custom' : ''}
                     </p>
                   </div>
@@ -271,7 +297,7 @@ export default function StylistServicesPage() {
                     fullWidth
                     onClick={() => void copyBookingLink(service)}
                   >
-                    {copiedId === service.id ? 'Copied!' : 'Copy direct link'}
+                    {copiedId === service.id ? 'Copied!' : 'Copy share link'}
                   </Button>
                   <Button
                     variant="secondary"

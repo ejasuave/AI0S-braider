@@ -326,7 +326,11 @@ enum PortfolioSource {
 enum RemainingBalanceMethod {
   cash
   card
+  bank_transfer
   cash_or_card
+  cash_or_bank_transfer
+  card_or_bank_transfer
+  any
 
   @@map("remaining_balance_method")
 }
@@ -403,6 +407,8 @@ model StylistProfile {
   userId              String           @unique @map("user_id") @db.Uuid
   businessId          String?          @unique @map("business_id") @db.Uuid
   businessName        String           @default("") @map("business_name")
+  /// SEO-friendly public URL slug for vanity booking links.
+  publicSlug          String?          @unique @map("public_slug")
   bio                 String?
   locationArea        String?          @map("location_area")
   serviceAreaRadiusKm Decimal?         @map("service_area_radius_km") @db.Decimal(6, 2)
@@ -416,6 +422,10 @@ model StylistProfile {
   /// Public headshot/profile photo clients see on directory and booking pages.
   photoUrl            String?          @map("photo_url")
   photoStorageKey     String?          @map("photo_storage_key")
+  /// Google Business Profile placeholders (reviews import is Phase 2).
+  googlePlaceId              String?   @map("google_place_id")
+  googleBusinessProfileUrl   String?   @map("google_business_profile_url")
+  googleReviewsLinkedAt      DateTime? @map("google_reviews_linked_at") @db.Timestamptz(6)
   createdAt           DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -496,6 +506,8 @@ model ServiceAddon {
   price             Decimal  @db.Decimal(10, 2)
   active            Boolean  @default(true)
   displayOrder      Int      @default(0) @map("display_order")
+  /// Preloaded catalog key when enabled from ADDONS_CATALOG; null for custom.
+  catalogKey        String?  @map("catalog_key")
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -506,18 +518,22 @@ model ServiceAddon {
   @@map("service_addons")
 }
 
-/// Seeded reference taxonomy for guided pricing setup (Ch.6.4).
+/// Seeded reference taxonomy for guided pricing setup (Ch.6.4). Hierarchical groups + leaves.
 model StyleCategory {
   id          String  @id @default(uuid()) @db.Uuid
   name        String  @unique
   slug        String  @unique
+  parentId    String? @map("parent_id") @db.Uuid
   isCustom    Boolean @default(false) @map("is_custom")
   sizeTiers   Json    @default("[]") @map("size_tiers")
   lengthTiers Json    @default("[]") @map("length_tiers")
   sortOrder   Int     @default(0) @map("sort_order")
 
+  parent    StyleCategory?  @relation("StyleCategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children  StyleCategory[] @relation("StyleCategoryHierarchy")
   offerings ServiceOffering[]
 
+  @@index([parentId])
   @@map("style_categories")
 }
 

@@ -31,9 +31,18 @@ export type ConversationTurnContext = {
       basePrice: string;
       estimatedDurationMinutes: number;
       isCustomStyle: boolean;
+      requirements: string[];
+      addons: Array<{ name: string; price: string }>;
     }>;
     cancellationPolicy: unknown;
     depositPolicy: unknown;
+    remainingBalanceMethod: string | null;
+    policyNotes: {
+      cancellationWindowHours: number | null;
+      depositPolicyText: string | null;
+      childrenPolicyText: string | null;
+      guestPolicyText: string | null;
+    };
   };
   proposedSlots: Array<{ index: number; startTime: string; endTime: string }>;
   pendingBookingId: string | null;
@@ -145,7 +154,6 @@ export async function buildConversationTurnContext(
 
   const messages = conversation.messages ?? [];
   const bookingPage = await profileService.getPublicBookingPage(conversation.stylistId);
-  const offerings = await profileService.listServiceOfferings(conversation.stylistId);
   const profile = await profileService.getSchedulingSettings(conversation.stylistId);
   const fullProfile = await profileService.getProfileByStylistId(conversation.stylistId);
 
@@ -200,17 +208,28 @@ export async function buildConversationTurnContext(
     stylistContext: {
       businessName: bookingPage.businessName,
       locationArea: bookingPage.locationArea,
-      offerings: offerings.map((offering) => ({
+      offerings: bookingPage.offerings.map((offering) => ({
         id: offering.id,
         styleName: offering.styleName,
         sizeTier: offering.sizeTier,
         lengthTier: offering.lengthTier,
         basePrice: offering.basePrice,
         estimatedDurationMinutes: offering.estimatedDurationMinutes,
-        isCustomStyle: offering.isCustomStyle,
+        isCustomStyle: false,
+        requirements: offering.requirements.map((item) =>
+          typeof item === 'string' ? item : item.text,
+        ),
+        addons: offering.addons.map((addon) => ({ name: addon.name, price: addon.price })),
       })),
       cancellationPolicy: fullProfile.cancellationPolicy,
       depositPolicy: profile.depositPolicy,
+      remainingBalanceMethod: bookingPage.remainingBalanceMethod,
+      policyNotes: {
+        cancellationWindowHours: bookingPage.policy?.cancellationWindowHours ?? null,
+        depositPolicyText: bookingPage.policy?.depositPolicyText ?? null,
+        childrenPolicyText: bookingPage.policy?.childrenPolicyText ?? null,
+        guestPolicyText: bookingPage.policy?.guestPolicyText ?? null,
+      },
     },
     proposedSlots: extractProposedSlots(messages),
     pendingBookingId,

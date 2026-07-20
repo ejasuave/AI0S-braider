@@ -24,6 +24,13 @@ function baseContext(overrides: Partial<ConversationTurnContext> = {}): Conversa
       offerings: [],
       cancellationPolicy: null,
       depositPolicy: null,
+      remainingBalanceMethod: 'cash_or_card',
+      policyNotes: {
+        cancellationWindowHours: 24,
+        depositPolicyText: null,
+        childrenPolicyText: null,
+        guestPolicyText: null,
+      },
     },
     proposedSlots: [],
     pendingBookingId: null,

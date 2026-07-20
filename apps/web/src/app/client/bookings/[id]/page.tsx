@@ -27,8 +27,12 @@ import {
   formatMoney,
   paymentStatusLabel,
 } from '@/shared/lib/format';
+import { formatDurationLabel } from '@project-braids/shared-types/api';
 import { serviceVenueModeLabel } from '@/shared/lib/venue';
-import { remainingBalanceMethodLabel } from '@/shared/lib/pricing';
+import {
+  remainingBalanceAllowsOnlineCard,
+  remainingBalanceMethodLabel,
+} from '@/shared/lib/pricing';
 import { serviceBookingPath, stylistBookingPath } from '@/shared/lib/booking-links';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
@@ -324,6 +328,8 @@ function ClientBookingDetailContent() {
   const payment = paymentQuery.data;
   const needsDeposit = booking?.status === 'held' && booking.depositStatus === 'pending';
   const needsBalance = booking?.balanceStatus === 'due' && Number(booking.remainingToPay) > 0;
+  const canPayBalanceOnline =
+    needsBalance && remainingBalanceAllowsOnlineCard(booking?.remainingBalanceMethod);
   const showMockSimulate = !stripeCheckoutEnabled && process.env.NODE_ENV !== 'production';
 
   const error =
@@ -369,7 +375,31 @@ function ClientBookingDetailContent() {
               {booking.serviceStyleName ? (
                 <div>
                   <dt className="text-ink-muted">Style</dt>
-                  <dd className="font-medium text-ink">{booking.serviceStyleName}</dd>
+                  <dd className="font-medium text-ink">
+                    {[
+                      booking.serviceCategoryName,
+                      booking.serviceStyleName,
+                      booking.serviceSizeTier,
+                      booking.serviceLengthTier,
+                      formatDurationLabel(booking.agreedDurationMinutes),
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </dd>
+                </div>
+              ) : null}
+              {booking.remainingBalanceMethod ? (
+                <div>
+                  <dt className="text-ink-muted">Remaining balance</dt>
+                  <dd className="font-medium text-ink">
+                    {remainingBalanceMethodLabel(booking.remainingBalanceMethod)}
+                  </dd>
+                </div>
+              ) : null}
+              {booking.requirementsAcknowledgedAt ? (
+                <div>
+                  <dt className="text-ink-muted">Requirements</dt>
+                  <dd className="font-medium text-ink">Acknowledged</dd>
                 </div>
               ) : null}
               {(booking.addons?.length ?? 0) > 0 ? (
@@ -540,7 +570,7 @@ function ClientBookingDetailContent() {
             </div>
           ) : null}
 
-          {needsBalance &&
+          {canPayBalanceOnline &&
           balanceClientSecret &&
           stripeCheckoutEnabled &&
           !isIncompatibleMockClientSecret(balanceClientSecret) ? (
@@ -556,7 +586,7 @@ function ClientBookingDetailContent() {
             />
           ) : null}
 
-          {needsBalance && !balanceClientSecret && stripeCheckoutEnabled ? (
+          {canPayBalanceOnline && !balanceClientSecret && stripeCheckoutEnabled ? (
             <div className="space-y-2">
               <Button
                 fullWidth
@@ -573,7 +603,17 @@ function ClientBookingDetailContent() {
             </div>
           ) : null}
 
-          {needsBalance && !stripeCheckoutEnabled ? (
+          {needsBalance && !canPayBalanceOnline ? (
+            <Card>
+              <p className="text-sm text-ink-muted">
+                Remaining balance {formatMoney(booking.remainingToPay)} — pay at your appointment
+                via {remainingBalanceMethodLabel(booking.remainingBalanceMethod)}. Online card
+                payment is not available for this booking.
+              </p>
+            </Card>
+          ) : null}
+
+          {canPayBalanceOnline && !stripeCheckoutEnabled ? (
             <Card>
               <p className="text-sm text-ink-muted">
                 Remaining balance {formatMoney(booking.remainingToPay)} — pay in person at your

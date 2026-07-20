@@ -147,6 +147,19 @@ Before implementing any item below:
 | [PAYMENTS.md](./PAYMENTS.md)                                                     | Take-rate touches Ch.9                 |
 | [BOOKING.md](./BOOKING.md)                                                       | Waitlist touches Ch.7                  |
 | [BUILD_PROGRESS.md](../BUILD_PROGRESS.md)                                        | MVP complete; V2/V3 tracked separately |
+| [GOOGLE_REVIEWS.md](./GOOGLE_REVIEWS.md)                                         | Phase 1 placeholders; Phase 2 import   |
+
+---
+
+## Opportunistic — Google Reviews import
+
+**Why deferred:** Blueprint marks Reviews as V2; Phase 1 only stores Place ID / GBP URL placeholders.
+
+**Trigger:** Pilot stylists request Google social proof on directory or booking pages; Google API access approved.
+
+**Builds on:** `StylistProfile.googlePlaceId` / `googleBusinessProfileUrl` / `googleReviewsLinkedAt` (see [GOOGLE_REVIEWS.md](./GOOGLE_REVIEWS.md)).
+
+**Do not build until trigger:** review sync jobs, star badges, or scraped ratings.
 
 ---
 

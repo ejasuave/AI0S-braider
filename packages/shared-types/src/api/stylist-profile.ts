@@ -77,7 +77,15 @@ export type UpdateBusinessProfileRequest = z.infer<typeof updateBusinessProfileR
 
 export const DEPOSIT_TYPES = ['flat', 'percentage'] as const;
 export const NO_SHOW_FEE_TYPES = ['forfeit_deposit', 'flat_fee', 'no_fee'] as const;
-export const REMAINING_BALANCE_METHODS = ['cash', 'card', 'cash_or_card'] as const;
+
+export {
+  REMAINING_BALANCE_METHODS,
+  remainingBalanceMethodLabel,
+  remainingBalanceAllowsOnlineCard,
+  type RemainingBalanceMethod,
+} from './service-catalogs.js';
+
+import { REMAINING_BALANCE_METHODS } from './service-catalogs.js';
 
 export const MAX_SERVICE_REQUIREMENTS = 20;
 export const MAX_SERVICE_ADDONS = 50;
@@ -86,11 +94,24 @@ export const MAX_POLICY_TEXT_LENGTH = 2000;
 
 const policyTextSchema = z.string().trim().max(MAX_POLICY_TEXT_LENGTH).nullable();
 
-export const serviceRequirementSchema = z
-  .string()
-  .trim()
-  .min(1)
-  .max(MAX_REQUIREMENT_LENGTH);
+/** Structured requirement (catalog or custom). Legacy string[] is accepted on parse. */
+export const serviceRequirementItemSchema = z.object({
+  text: z.string().trim().min(1).max(MAX_REQUIREMENT_LENGTH),
+  catalogKey: z.string().trim().min(1).max(80).optional(),
+});
+
+export type ServiceRequirementItem = z.infer<typeof serviceRequirementItemSchema>;
+
+/** Accept legacy plain strings or structured items; always output structured. */
+export const serviceRequirementSchema = z.union([
+  z
+    .string()
+    .trim()
+    .min(1)
+    .max(MAX_REQUIREMENT_LENGTH)
+    .transform((text) => ({ text })),
+  serviceRequirementItemSchema,
+]);
 
 export const serviceAddonSchema = z.object({
   id: z.string().uuid(),
@@ -100,6 +121,8 @@ export const serviceAddonSchema = z.object({
   price: z.string(),
   active: z.boolean(),
   displayOrder: z.number().int(),
+  /** Preloaded catalog key when enabled from ADDONS_CATALOG; null for custom. */
+  catalogKey: z.string().nullable(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
@@ -111,6 +134,7 @@ export const createServiceAddonRequestSchema = z.object({
   description: z.string().trim().max(500).nullable().optional(),
   price: z.number().nonnegative().max(100_000),
   active: z.boolean().optional(),
+  catalogKey: z.string().trim().min(1).max(80).nullable().optional(),
 });
 
 export type CreateServiceAddonRequest = z.infer<typeof createServiceAddonRequestSchema>;
@@ -121,6 +145,7 @@ export const updateServiceAddonRequestSchema = z
     description: z.string().trim().max(500).nullable().optional(),
     price: z.number().nonnegative().max(100_000).optional(),
     active: z.boolean().optional(),
+    catalogKey: z.string().trim().min(1).max(80).nullable().optional(),
   })
   .refine((value) => Object.keys(value).length > 0, 'At least one field is required');
 
@@ -256,11 +281,6 @@ export const publicBusinessPolicySchema = z.object({
 
 export type PublicBusinessPolicy = z.infer<typeof publicBusinessPolicySchema>;
 
-export const remainingBalanceMethodLabel = {
-  cash: 'Cash only',
-  card: 'Card only',
-  cash_or_card: 'Cash or card',
-} as const;
 export const workingHourRowSchema = z.object({
   id: z.string().uuid().optional(),
   dayOfWeek: z.number().int().min(0).max(6),

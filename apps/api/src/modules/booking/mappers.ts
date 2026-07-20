@@ -23,6 +23,9 @@ export type BookingMapOptions = {
   clientPhoneNumber?: string | null;
   stylistBusinessName?: string | null;
   serviceStyleName?: string | null;
+  serviceSizeTier?: string | null;
+  serviceLengthTier?: string | null;
+  serviceCategoryName?: string | null;
 };
 
 function shouldRevealVenueAddress(
@@ -158,6 +161,15 @@ export function toBooking(booking: DbBooking, options?: BookingMapOptions): Book
       : {}),
     ...(options?.serviceStyleName !== undefined
       ? { serviceStyleName: options.serviceStyleName }
+      : {}),
+    ...(options?.serviceSizeTier !== undefined
+      ? { serviceSizeTier: options.serviceSizeTier }
+      : {}),
+    ...(options?.serviceLengthTier !== undefined
+      ? { serviceLengthTier: options.serviceLengthTier }
+      : {}),
+    ...(options?.serviceCategoryName !== undefined
+      ? { serviceCategoryName: options.serviceCategoryName }
       : {}),
     createdAt: toIso(booking.createdAt),
     cancelledAt: booking.cancelledAt ? toIso(booking.cancelledAt) : null,

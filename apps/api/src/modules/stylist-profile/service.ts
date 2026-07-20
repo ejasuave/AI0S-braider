@@ -18,7 +18,7 @@ import type {
   UpdateServiceAddonRequest,
   WorkingHourRow,
 } from '@project-braids/shared-types/api';
-import { MAX_SERVICE_ADDONS } from '@project-braids/shared-types/api';
+import { MAX_SERVICE_ADDONS, slugify } from '@project-braids/shared-types/api';
 import { prisma } from '../../lib/db.js';
 import { ApiError } from '../../lib/errors.js';
 import {
@@ -28,6 +28,7 @@ import {
 } from '../../lib/storage/index.js';
 import { businessService } from '../roles/business.service.js';
 import { ensureStylistProfileForUser } from '../profile/mappers.js';
+import { serializeRequirements } from './requirements.js';
 import {
   baseRulesToLegacyWorkingHours,
   ensureDefaultWorkingHoursForBusiness,
@@ -50,6 +51,37 @@ import {
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 export class StylistProfileService {
+  /** Generate a unique publicSlug when missing (used for vanity booking links). */
+  private async ensurePublicSlugForProfile(
+    stylistId: string,
+    preferredName?: string,
+  ): Promise<string> {
+    const profile = await prisma.stylistProfile.findUnique({ where: { id: stylistId } });
+    if (!profile) throw ApiError.notFound('Stylist profile not found');
+    if (profile.publicSlug) return profile.publicSlug;
+
+    const base =
+      slugify(preferredName || profile.businessName || `stylist-${stylistId.slice(0, 8)}`) ||
+      `stylist-${stylistId.slice(0, 8)}`;
+    let candidate = base;
+    let suffix = 0;
+    while (true) {
+      const existing = await prisma.stylistProfile.findUnique({
+        where: { publicSlug: candidate },
+        select: { id: true },
+      });
+      if (!existing || existing.id === stylistId) break;
+      suffix += 1;
+      candidate = `${base}-${suffix}`;
+    }
+
+    await prisma.stylistProfile.update({
+      where: { id: stylistId },
+      data: { publicSlug: candidate },
+    });
+    return candidate;
+  }
+
   async createBusinessForOwner(userId: string, businessName = ''): Promise<BusinessProfile> {
     await ensureStylistProfileForUser(userId);
     const business = await businessService.ensureBusinessForOwner(userId, businessName);
@@ -106,14 +138,24 @@ export class StylistProfileService {
     const offersComeToClient = input.offersComeToClient ?? existing.offersComeToClient;
     const offersRemote = input.offersRemote ?? existing.offersRemote;
 
-    if (!offersStylistLocation && !offersComeToClient && !offersRemote) {
+    const venueFieldsTouched =
+      input.offersStylistLocation !== undefined ||
+      input.offersComeToClient !== undefined ||
+      input.offersRemote !== undefined ||
+      input.workplaceAddress !== undefined;
+
+    if (venueFieldsTouched && !offersStylistLocation && !offersComeToClient && !offersRemote) {
       throw ApiError.validation('Select at least one venue option');
     }
 
     const nextWorkplace =
       input.workplaceAddress !== undefined ? input.workplaceAddress : existing.workplaceAddress;
 
-    if (offersStylistLocation && (!nextWorkplace || nextWorkplace.trim().length < 5)) {
+    if (
+      venueFieldsTouched &&
+      offersStylistLocation &&
+      (!nextWorkplace || nextWorkplace.trim().length < 5)
+    ) {
       throw ApiError.validation(
         'Add your workplace address when clients can come to your location',
       );
@@ -159,6 +201,9 @@ export class StylistProfileService {
             : {}),
         },
       });
+      if (input.businessName !== undefined) {
+        await this.ensurePublicSlugForProfile(business.profile.id, input.businessName);
+      }
     }
 
     return toBusinessProfile(business);
@@ -438,6 +483,7 @@ export class StylistProfileService {
   async listStyleCategories(): Promise<StyleCategory[]> {
     const categories = await prisma.styleCategory.findMany({
       where: { isCustom: false },
+      include: { parent: { select: { name: true } } },
       orderBy: { sortOrder: 'asc' },
     });
     return categories.map(toStyleCategory);
@@ -497,6 +543,11 @@ export class StylistProfileService {
       if (!category || category.isCustom) {
         throw ApiError.validation('Invalid style category');
       }
+      const sizeTiers = Array.isArray(category.sizeTiers) ? category.sizeTiers : [];
+      const lengthTiers = Array.isArray(category.lengthTiers) ? category.lengthTiers : [];
+      if (sizeTiers.length === 0 && lengthTiers.length === 0) {
+        throw ApiError.validation('Choose a specific style, not a parent category group');
+      }
       styleCategoryId = category.id;
       styleName = category.name;
       isCustomStyle = false;
@@ -534,7 +585,7 @@ export class StylistProfileService {
         hairIncluded: input.hairIncluded ?? false,
         isCustomStyle,
         description: input.description ?? null,
-        requirements: input.requirements ?? [],
+        requirements: serializeRequirements(input.requirements),
         depositType: input.depositType ?? null,
         depositValue: input.depositValue ?? null,
       },
@@ -563,6 +614,11 @@ export class StylistProfileService {
       });
       if (!category || category.isCustom) {
         throw ApiError.validation('Invalid style category');
+      }
+      const sizeTiers = Array.isArray(category.sizeTiers) ? category.sizeTiers : [];
+      const lengthTiers = Array.isArray(category.lengthTiers) ? category.lengthTiers : [];
+      if (sizeTiers.length === 0 && lengthTiers.length === 0) {
+        throw ApiError.validation('Choose a specific style, not a parent category group');
       }
       await prisma.serviceOffering.update({
         where: { id: offeringId },
@@ -597,7 +653,9 @@ export class StylistProfileService {
         ...(input.hairIncluded !== undefined ? { hairIncluded: input.hairIncluded } : {}),
         ...(input.active !== undefined ? { active: input.active } : {}),
         ...(input.description !== undefined ? { description: input.description } : {}),
-        ...(input.requirements !== undefined ? { requirements: input.requirements } : {}),
+        ...(input.requirements !== undefined
+          ? { requirements: serializeRequirements(input.requirements) }
+          : {}),
         ...(input.depositType !== undefined ? { depositType: input.depositType } : {}),
         ...(input.depositValue !== undefined ? { depositValue: input.depositValue } : {}),
         ...(input.customStyleName !== undefined
@@ -650,6 +708,7 @@ export class StylistProfileService {
         description: input.description ?? null,
         price: input.price,
         active: input.active ?? true,
+        catalogKey: input.catalogKey ?? null,
         displayOrder: (maxOrder._max.displayOrder ?? -1) + 1,
       },
     });
@@ -676,6 +735,7 @@ export class StylistProfileService {
         ...(input.description !== undefined ? { description: input.description } : {}),
         ...(input.price !== undefined ? { price: input.price } : {}),
         ...(input.active !== undefined ? { active: input.active } : {}),
+        ...(input.catalogKey !== undefined ? { catalogKey: input.catalogKey } : {}),
       },
     });
     return toServiceAddon(addon);

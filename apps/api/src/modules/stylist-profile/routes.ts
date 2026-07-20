@@ -18,6 +18,7 @@ import {
   updateScheduleExceptionRequestSchema,
   updateServiceAddonRequestSchema,
   resolveCalendarConflictRequestSchema,
+  serviceCatalogsResponseSchema,
 } from '@project-braids/shared-types/api';
 import { sendData } from '../../lib/http.js';
 import { requireRole, requireBusinessPermission } from '../roles/guards.js';
@@ -403,5 +404,11 @@ export const styleCategoryRoutes: FastifyPluginAsync = async (app) => {
   app.get('/', async (_request, reply) => {
     const categories = await stylistProfileService.listStyleCategories();
     sendData(reply, categories);
+  });
+};
+
+export const serviceCatalogRoutes: FastifyPluginAsync = async (app) => {
+  app.get('/', async (_request, reply) => {
+    sendData(reply, serviceCatalogsResponseSchema);
   });
 };

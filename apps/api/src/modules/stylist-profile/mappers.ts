@@ -3,10 +3,12 @@ import type {
   BusinessPolicy,
   BusinessProfile,
   PortfolioItem,
+  RemainingBalanceMethod,
   ServiceAddon,
   ServiceOffering,
   StyleCategory,
 } from '@project-braids/shared-types/api';
+import { parseRequirements } from './requirements.js';
 
 function toIso(date: Date): string {
   return date.toISOString();
@@ -69,7 +71,7 @@ export function toBusinessPolicy(row: {
   childrenPolicyText?: string | null;
   guestPolicyText?: string | null;
   depositPolicyText?: string | null;
-  remainingBalanceMethod?: 'cash' | 'card' | 'cash_or_card';
+  remainingBalanceMethod?: RemainingBalanceMethod;
 }): BusinessPolicy {
   return {
     businessId: row.businessId,
@@ -98,6 +100,7 @@ export function toServiceAddon(addon: {
   price: Prisma.Decimal;
   active: boolean;
   displayOrder: number;
+  catalogKey?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }): ServiceAddon {
@@ -109,18 +112,10 @@ export function toServiceAddon(addon: {
     price: addon.price.toFixed(2),
     active: addon.active,
     displayOrder: addon.displayOrder,
+    catalogKey: addon.catalogKey ?? null,
     createdAt: toIso(addon.createdAt),
     updatedAt: toIso(addon.updatedAt),
   };
-}
-
-function parseRequirements(value: Prisma.JsonValue | string[] | null | undefined): string[] {
-  if (!value || !Array.isArray(value)) return [];
-  const result: string[] = [];
-  for (const item of value) {
-    if (typeof item === 'string') result.push(item);
-  }
-  return result;
 }
 
 export function toServiceOffering(
@@ -151,6 +146,7 @@ export function toServiceOffering(
       price: Prisma.Decimal;
       active: boolean;
       displayOrder: number;
+      catalogKey?: string | null;
       createdAt: Date;
       updatedAt: Date;
     }>;
@@ -179,6 +175,7 @@ export function toServiceOffering(
     updatedAt: toIso(offering.updatedAt),
   };
 }
+
 export function toPortfolioItem(item: {
   id: string;
   stylistId: string;
@@ -203,17 +200,25 @@ export function toStyleCategory(category: {
   id: string;
   name: string;
   slug: string;
+  parentId?: string | null;
   isCustom: boolean;
   sizeTiers: Prisma.JsonValue;
   lengthTiers: Prisma.JsonValue;
   sortOrder: number;
+  parent?: { name: string } | null;
 }): StyleCategory {
+  const sizeTiers = category.sizeTiers as string[];
+  const lengthTiers = category.lengthTiers as string[];
+  const isGroup = sizeTiers.length === 0 && lengthTiers.length === 0;
   return {
     id: category.id,
     name: category.name,
     slug: category.slug,
-    sizeTiers: category.sizeTiers as string[],
-    lengthTiers: category.lengthTiers as string[],
+    parentId: category.parentId ?? null,
+    parentName: category.parent?.name ?? null,
+    isGroup,
+    sizeTiers,
+    lengthTiers,
     sortOrder: category.sortOrder,
   };
 }

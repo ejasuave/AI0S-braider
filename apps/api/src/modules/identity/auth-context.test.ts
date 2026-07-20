@@ -38,6 +38,7 @@ describe('resolveStylistId', () => {
       id: profileId,
       userId,
       businessName: '',
+      publicSlug: null,
       bio: null,
       locationArea: null,
       serviceAreaRadiusKm: null,
@@ -48,6 +49,9 @@ describe('resolveStylistId', () => {
       onboardingStatus: 'in_progress',
       directoryVisible: false,
       photoUrl: null,
+      googlePlaceId: null,
+      googleBusinessProfileUrl: null,
+      googleReviewsLinkedAt: null,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });

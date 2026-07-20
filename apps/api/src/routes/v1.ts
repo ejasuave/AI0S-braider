@@ -7,7 +7,11 @@ import { webhookRoutes } from '../modules/webhooks/routes.js';
 import { identityRoutes } from '../modules/identity/routes.js';
 import { accessRoutes } from '../modules/identity/access.routes.js';
 import { rolesRoutes, rolesAccessRoutes } from '../modules/roles/routes.js';
-import { stylistProfileRoutes, styleCategoryRoutes } from '../modules/stylist-profile/routes.js';
+import {
+  stylistProfileRoutes,
+  styleCategoryRoutes,
+  serviceCatalogRoutes,
+} from '../modules/stylist-profile/routes.js';
 import { storageRoutes } from '../modules/stylist-profile/storage.routes.js';
 import { profileRoutes } from '../modules/profile/routes.js';
 import { profileUploadRoutes } from '../modules/profile/upload.routes.js';
@@ -31,6 +35,7 @@ export const v1Routes: FastifyPluginAsync = async (app) => {
   await app.register(calendarBusinessRoutes, { prefix: '/businesses' });
   await app.register(paymentBusinessRoutes, { prefix: '/businesses' });
   await app.register(styleCategoryRoutes, { prefix: '/style-categories' });
+  await app.register(serviceCatalogRoutes, { prefix: '/service-catalogs' });
   await app.register(storageRoutes, { prefix: '/storage' });
   await app.register(profileRoutes, { prefix: '/profile' });
   await app.register(profileUploadRoutes, { prefix: '/profile' });

@@ -31,6 +31,19 @@ export async function seedReferenceData(databaseUrl: string): Promise<void> {
         },
       });
     }
+
+    for (const category of STYLE_TAXONOMY_SEED) {
+      if (!category.parentSlug) continue;
+      const parent = await prisma.styleCategory.findUnique({
+        where: { slug: category.parentSlug },
+        select: { id: true },
+      });
+      if (!parent) continue;
+      await prisma.styleCategory.update({
+        where: { slug: category.slug },
+        data: { parentId: parent.id },
+      });
+    }
   } finally {
     await prisma.$disconnect();
   }

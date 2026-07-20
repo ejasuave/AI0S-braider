@@ -4,6 +4,7 @@ import type {
   PricingLookupResponse,
   ServiceOffering,
 } from '@project-braids/shared-types/api';
+import { parseRequirements } from '../stylist-profile/requirements.js';
 
 function normalize(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -12,9 +13,6 @@ function normalize(value: string | null | undefined): string | null {
 }
 
 function toApiOffering(offering: DbServiceOffering): ServiceOffering {
-  const requirements = Array.isArray(offering.requirements)
-    ? offering.requirements.filter((item): item is string => typeof item === 'string')
-    : [];
   return {
     id: offering.id,
     stylistId: offering.stylistId,
@@ -23,7 +21,7 @@ function toApiOffering(offering: DbServiceOffering): ServiceOffering {
     sizeTier: offering.sizeTier,
     lengthTier: offering.lengthTier,
     description: offering.description,
-    requirements,
+    requirements: parseRequirements(offering.requirements),
     basePrice: offering.basePrice.toString(),
     estimatedDurationMinutes: offering.estimatedDurationMinutes,
     hairIncluded: offering.hairIncluded,

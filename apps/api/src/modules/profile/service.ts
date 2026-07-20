@@ -8,6 +8,8 @@ import type {
   PricingLookupRequest,
   PricingLookupResponse,
   PortfolioItem,
+  PublicBookingPage,
+  ResolveServiceShareResponse,
   ServiceOffering,
   StylistProfile,
   StyleCategory,
@@ -16,7 +18,11 @@ import type {
   UpdateStylistProfileRequest,
   Weekday,
 } from '@project-braids/shared-types/api';
-import { DEFAULT_WORKING_HOURS } from '@project-braids/shared-types/api';
+import {
+  buildServiceSharePathFromOffering,
+  DEFAULT_WORKING_HOURS,
+  slugify,
+} from '@project-braids/shared-types/api';
 import { prisma } from '../../lib/db.js';
 import { ApiError } from '../../lib/errors.js';
 import { getStorageProvider } from '../../lib/storage/index.js';
@@ -31,6 +37,7 @@ import {
   getBusinessPolicyByStylistId,
   policyToLegacyDeposit,
 } from '../stylist-profile/policy.js';
+import { parseRequirements } from '../stylist-profile/requirements.js';
 import {
   ensureStylistProfileForUser,
   findDuplicateOffering,
@@ -57,61 +64,7 @@ export class ProfileService {
     return toStylistProfile(profile);
   }
 
-  async getPublicBookingPage(stylistId: string): Promise<{
-    businessId: string | null;
-    stylistId: string;
-    businessName: string;
-    locationArea: string | null;
-    photoUrl: string | null;
-    smsBookingNumber: string | null;
-    portfolio: Array<{
-      id: string;
-      imageUrl: string;
-      displayOrder: number;
-      serviceOfferingId: string | null;
-    }>;
-    venueOptions: Array<'remote' | 'stylist_location' | 'come_to_client'>;
-    homeVisitSurcharge: string | null;
-    depositType: 'flat' | 'percentage';
-    depositValue: number;
-    remainingBalanceMethod: 'cash' | 'card' | 'cash_or_card';
-    policy: {
-      cancellationWindowHours: number;
-      cancellationPolicyText: string | null;
-      reschedulingPolicyText: string | null;
-      lateArrivalPolicyText: string | null;
-      noShowPolicyText: string | null;
-      refundPolicyText: string | null;
-      childrenPolicyText: string | null;
-      guestPolicyText: string | null;
-      depositPolicyText: string | null;
-      remainingBalanceMethod: 'cash' | 'card' | 'cash_or_card';
-      depositType: 'flat' | 'percentage';
-      depositValue: number;
-    } | null;
-    offerings: Array<{
-      id: string;
-      styleName: string;
-      description: string | null;
-      basePrice: string;
-      estimatedDurationMinutes: number;
-      requirements: string[];
-      depositType: 'flat' | 'percentage' | null;
-      depositValue: number | null;
-      addons: Array<{
-        id: string;
-        name: string;
-        description: string | null;
-        price: string;
-      }>;
-      portfolio: Array<{
-        id: string;
-        imageUrl: string;
-        displayOrder: number;
-        serviceOfferingId: string | null;
-      }>;
-    }>;
-  }> {
+  async getPublicBookingPage(stylistId: string): Promise<PublicBookingPage> {
     const profile = await getStylistProfileById(stylistId);
     const [business, offerings, otherWork, policy] = await Promise.all([
       profile.businessId
@@ -128,6 +81,7 @@ export class ProfileService {
       prisma.serviceOffering.findMany({
         where: { stylistId, active: true },
         include: {
+          styleCategory: { include: { parent: { select: { name: true } } } },
           portfolioItems: {
             orderBy: { displayOrder: 'asc' },
             select: {
@@ -145,6 +99,7 @@ export class ProfileService {
               name: true,
               description: true,
               price: true,
+              catalogKey: true,
             },
           },
         },
@@ -186,10 +141,12 @@ export class ProfileService {
     const depositType = policy?.depositType ?? 'percentage';
     const depositValue = policy?.depositValue?.toNumber() ?? 20;
     const remainingBalanceMethod = policy?.remainingBalanceMethod ?? 'cash_or_card';
+    const publicSlug = profile.publicSlug ?? null;
 
     return {
       businessId: profile.businessId,
       stylistId: profile.id,
+      publicSlug,
       businessName: profile.businessName,
       locationArea: profile.locationArea,
       photoUrl: profile.photoUrl,
@@ -219,12 +176,27 @@ export class ProfileService {
           }
         : null,
       offerings: offerings.map((offering) => {
-        const requirements = Array.isArray(offering.requirements)
-          ? offering.requirements.filter((item): item is string => typeof item === 'string')
-          : [];
+        const requirements = parseRequirements(offering.requirements);
+        const styleCategorySlug = offering.styleCategory?.slug ?? null;
+        const sharePath =
+          publicSlug != null
+            ? buildServiceSharePathFromOffering({
+                stylistSlug: publicSlug,
+                styleName: offering.styleName,
+                styleCategorySlug,
+                sizeTier: offering.sizeTier,
+                lengthTier: offering.lengthTier,
+              })
+            : null;
         return {
           id: offering.id,
           styleName: offering.styleName,
+          sizeTier: offering.sizeTier,
+          lengthTier: offering.lengthTier,
+          styleCategoryId: offering.styleCategoryId,
+          styleCategoryName: offering.styleCategory?.name ?? null,
+          styleCategorySlug,
+          parentCategoryName: offering.styleCategory?.parent?.name ?? null,
           description: offering.description,
           basePrice: offering.basePrice.toFixed(2),
           estimatedDurationMinutes: offering.estimatedDurationMinutes,
@@ -236,6 +208,7 @@ export class ProfileService {
             name: addon.name,
             description: addon.description,
             price: addon.price.toFixed(2),
+            catalogKey: addon.catalogKey,
           })),
           portfolio: offering.portfolioItems.map((item) => ({
             id: item.id,
@@ -243,6 +216,7 @@ export class ProfileService {
             displayOrder: item.displayOrder,
             serviceOfferingId: item.serviceOfferingId,
           })),
+          sharePath,
         };
       }),
     };
@@ -269,10 +243,21 @@ export class ProfileService {
       await stylistProfileService.replaceWorkingHours(existing.businessId, rows);
     }
 
+    if (input.publicSlug !== undefined && input.publicSlug !== null) {
+      const taken = await prisma.stylistProfile.findUnique({
+        where: { publicSlug: input.publicSlug },
+        select: { id: true },
+      });
+      if (taken && taken.id !== stylistId) {
+        throw ApiError.validation('That public booking link is already taken');
+      }
+    }
+
     const profile = await prisma.stylistProfile.update({
       where: { id: stylistId },
       data: {
         ...(input.businessName !== undefined ? { businessName: input.businessName } : {}),
+        ...(input.publicSlug !== undefined ? { publicSlug: input.publicSlug } : {}),
         ...(input.bio !== undefined ? { bio: input.bio } : {}),
         ...(input.locationArea !== undefined ? { locationArea: input.locationArea } : {}),
         ...(input.serviceAreaRadiusKm !== undefined
@@ -292,17 +277,30 @@ export class ProfileService {
         ...(input.directoryVisible !== undefined
           ? { directoryVisible: input.directoryVisible }
           : {}),
+        ...(input.googlePlaceId !== undefined ? { googlePlaceId: input.googlePlaceId } : {}),
+        ...(input.googleBusinessProfileUrl !== undefined
+          ? { googleBusinessProfileUrl: input.googleBusinessProfileUrl }
+          : {}),
       },
     });
 
-    if (profile.directoryVisible) {
+    if (
+      !profile.publicSlug &&
+      (input.businessName !== undefined || input.publicSlug === undefined)
+    ) {
+      await this.ensurePublicSlug(stylistId, profile.businessName);
+    }
+
+    const refreshed = await getStylistProfileById(stylistId);
+
+    if (refreshed.directoryVisible) {
       await this.assertDirectoryReady(stylistId, {
-        businessName: profile.businessName,
-        locationArea: profile.locationArea,
+        businessName: refreshed.businessName,
+        locationArea: refreshed.locationArea,
       });
     }
 
-    return toStylistProfile(profile);
+    return toStylistProfile(refreshed);
   }
 
   private async assertDirectoryReady(
@@ -415,6 +413,7 @@ export class ProfileService {
     const offerings = await prisma.serviceOffering.findMany({
       where: { stylistId, active: true },
       include: {
+        styleCategory: { include: { parent: { select: { name: true } } } },
         portfolioItems: {
           orderBy: { displayOrder: 'asc' },
           select: {
@@ -432,6 +431,7 @@ export class ProfileService {
             name: true,
             description: true,
             price: true,
+            catalogKey: true,
           },
         },
       },
@@ -465,6 +465,8 @@ export class ProfileService {
       ...otherWork,
     ];
 
+    const publicSlug = profile.publicSlug ?? null;
+
     return {
       stylistId: profile.id,
       businessName: profile.businessName,
@@ -474,12 +476,27 @@ export class ProfileService {
       smsBookingNumber: profile.smsBookingNumber,
       portfolio,
       offerings: offerings.map((offering) => {
-        const requirements = Array.isArray(offering.requirements)
-          ? offering.requirements.filter((item): item is string => typeof item === 'string')
-          : [];
+        const requirements = parseRequirements(offering.requirements);
+        const styleCategorySlug = offering.styleCategory?.slug ?? null;
+        const sharePath =
+          publicSlug != null
+            ? buildServiceSharePathFromOffering({
+                stylistSlug: publicSlug,
+                styleName: offering.styleName,
+                styleCategorySlug,
+                sizeTier: offering.sizeTier,
+                lengthTier: offering.lengthTier,
+              })
+            : null;
         return {
           id: offering.id,
           styleName: offering.styleName,
+          sizeTier: offering.sizeTier,
+          lengthTier: offering.lengthTier,
+          styleCategoryId: offering.styleCategoryId,
+          styleCategoryName: offering.styleCategory?.name ?? null,
+          styleCategorySlug,
+          parentCategoryName: offering.styleCategory?.parent?.name ?? null,
           description: offering.description,
           basePrice: offering.basePrice.toFixed(2),
           estimatedDurationMinutes: offering.estimatedDurationMinutes,
@@ -491,6 +508,7 @@ export class ProfileService {
             name: addon.name,
             description: addon.description,
             price: addon.price.toFixed(2),
+            catalogKey: addon.catalogKey,
           })),
           portfolio: offering.portfolioItems.map((item) => ({
             id: item.id,
@@ -498,13 +516,99 @@ export class ProfileService {
             displayOrder: item.displayOrder,
             serviceOfferingId: item.serviceOfferingId,
           })),
+          sharePath,
         };
       }),
     };
   }
 
+  async getPublicBookingPageBySlug(slug: string): Promise<PublicBookingPage> {
+    const profile = await prisma.stylistProfile.findUnique({ where: { publicSlug: slug } });
+    if (!profile) {
+      throw ApiError.notFound('Stylist not found');
+    }
+    return this.getPublicBookingPage(profile.id);
+  }
+
+  async resolveServiceShare(
+    stylistSlug: string,
+    styleSlug: string,
+    sizeSlug: string,
+    lengthSlug: string,
+  ): Promise<ResolveServiceShareResponse> {
+    const profile = await prisma.stylistProfile.findUnique({
+      where: { publicSlug: stylistSlug },
+      select: { id: true, publicSlug: true },
+    });
+    if (!profile?.publicSlug) {
+      throw ApiError.notFound('Stylist not found');
+    }
+
+    const offerings = await prisma.serviceOffering.findMany({
+      where: { stylistId: profile.id, active: true },
+      include: { styleCategory: { select: { slug: true } } },
+    });
+
+    const match = offerings.find((offering) => {
+      const segments = {
+        style: slugify(offering.styleCategory?.slug || offering.styleName),
+        size: slugify(offering.sizeTier || 'standard'),
+        length: slugify(offering.lengthTier || 'standard'),
+      };
+      return (
+        segments.style === styleSlug &&
+        segments.size === sizeSlug &&
+        segments.length === lengthSlug
+      );
+    });
+
+    if (!match) {
+      throw ApiError.notFound('Service not found');
+    }
+
+    const sharePath = buildServiceSharePathFromOffering({
+      stylistSlug: profile.publicSlug,
+      styleName: match.styleName,
+      styleCategorySlug: match.styleCategory?.slug,
+      sizeTier: match.sizeTier,
+      lengthTier: match.lengthTier,
+    });
+
+    return {
+      stylistId: profile.id,
+      serviceOfferingId: match.id,
+      publicSlug: profile.publicSlug,
+      sharePath,
+    };
+  }
+
+  async ensurePublicSlug(stylistId: string, preferredName?: string): Promise<string> {
+    const profile = await getStylistProfileById(stylistId);
+    if (profile.publicSlug) return profile.publicSlug;
+
+    const base = slugify(preferredName || profile.businessName || `stylist-${stylistId.slice(0, 8)}`);
+    let candidate = base || `stylist-${stylistId.slice(0, 8)}`;
+    let suffix = 0;
+    while (true) {
+      const existing = await prisma.stylistProfile.findUnique({
+        where: { publicSlug: candidate },
+        select: { id: true },
+      });
+      if (!existing || existing.id === stylistId) break;
+      suffix += 1;
+      candidate = `${base}-${suffix}`;
+    }
+
+    await prisma.stylistProfile.update({
+      where: { id: stylistId },
+      data: { publicSlug: candidate },
+    });
+    return candidate;
+  }
+
   async listStyleCategories(): Promise<StyleCategory[]> {
     const categories = await prisma.styleCategory.findMany({
+      include: { parent: { select: { name: true } } },
       orderBy: { sortOrder: 'asc' },
     });
     return categories.map(toStyleCategory);

@@ -1,4 +1,5 @@
-import type { DepositDisposition, NotificationType } from '@project-braids/shared-types/api';
+import type { DepositDisposition, NotificationType, RemainingBalanceMethod } from '@project-braids/shared-types/api';
+import { remainingBalanceMethodLabel } from '@project-braids/shared-types/api';
 import { formatSlotLabel } from '../../lib/scheduling/format-datetime.js';
 import { depositDispositionLabel } from './preference-gating.js';
 
@@ -17,7 +18,7 @@ export type NotificationContentContext = {
   venueLine?: string | null;
   clientDisplayName?: string | null;
   addonNames?: string[];
-  remainingBalanceMethod?: 'cash' | 'card' | 'cash_or_card' | null;
+  remainingBalanceMethod?: RemainingBalanceMethod | null;
   balanceAmount?: number | null;
 };
 
@@ -46,12 +47,10 @@ export function formatVenueLineForNotification(input: {
 }
 
 function remainingBalanceLabel(
-  method: 'cash' | 'card' | 'cash_or_card' | null | undefined,
+  method: RemainingBalanceMethod | null | undefined,
 ): string | null {
   if (!method) return null;
-  if (method === 'cash') return 'Cash only';
-  if (method === 'card') return 'Card only';
-  return 'Cash or card';
+  return remainingBalanceMethodLabel[method] ?? null;
 }
 
 /**

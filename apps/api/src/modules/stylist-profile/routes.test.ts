@@ -34,13 +34,16 @@ describe('stylist-profile routes', () => {
 
   afterEach(async () => {
     if (!databaseAvailable) return;
-    await prisma.portfolioItem.deleteMany({ where: { businessId } });
-    await prisma.serviceOffering.deleteMany({ where: { businessId } });
-    await prisma.scheduleException.deleteMany({ where: { businessId } });
-    await prisma.workingHour.deleteMany({ where: { businessId } });
-    await prisma.instagramConnection.deleteMany({ where: { businessId } });
-    await prisma.businessPolicy.deleteMany({ where: { businessId } });
-    await prisma.businessStaff.deleteMany({ where: { businessId } });
+    if (businessId) {
+      await prisma.portfolioItem.deleteMany({ where: { businessId } });
+      await prisma.serviceOffering.deleteMany({ where: { businessId } });
+      await prisma.scheduleException.deleteMany({ where: { businessId } });
+      await prisma.workingHour.deleteMany({ where: { businessId } });
+      await prisma.instagramConnection.deleteMany({ where: { businessId } });
+      await prisma.businessPolicy.deleteMany({ where: { businessId } });
+      await prisma.businessStaff.deleteMany({ where: { businessId } });
+      await prisma.business.deleteMany({ where: { id: businessId } });
+    }
     await prisma.business.deleteMany({ where: { ownerUserId } });
     await prisma.stylistProfile.deleteMany({
       where: { userId: { in: [ownerUserId, staffUserId] } },
@@ -51,8 +54,15 @@ describe('stylist-profile routes', () => {
   });
 
   async function seedOwner(): Promise<void> {
-    await prisma.user.create({
-      data: {
+    await prisma.user.upsert({
+      where: { id: ownerUserId },
+      update: {
+        role: 'stylist_owner',
+        phoneNumber: '+447700900320',
+        email: 'ch6-owner@example.com',
+        phoneVerifiedAt: new Date(),
+      },
+      create: {
         id: ownerUserId,
         role: 'stylist_owner',
         phoneNumber: '+447700900320',
@@ -221,7 +231,9 @@ describe('stylist-profile routes', () => {
       url: '/api/v1/style-categories',
       headers: auth,
     });
-    const categoryId = categories.json().data[0]?.id as string | undefined;
+    const categoryId = (categories.json().data as Array<{ id: string; isGroup?: boolean }>).find(
+      (row) => !row.isGroup,
+    )?.id;
     const serviceRes = await app.inject({
       method: 'POST',
       url: '/api/v1/businesses/me/services',

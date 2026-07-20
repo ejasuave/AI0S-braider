@@ -90,6 +90,9 @@ describe('booking routes', () => {
       where: { business: { ownerUserId: stylistUserId } },
     });
     await prisma.serviceOffering.deleteMany({ where: { id: offeringId } });
+    await prisma.businessPolicy.deleteMany({
+      where: { business: { ownerUserId: stylistUserId } },
+    });
     await prisma.business.deleteMany({ where: { ownerUserId: stylistUserId } });
     await prisma.stylistProfile.deleteMany({ where: { userId: stylistUserId } });
     await prisma.user.deleteMany({ where: { id: { in: [stylistUserId, clientUserId] } } });
@@ -117,6 +120,9 @@ describe('booking routes', () => {
     }
     await prisma.workingHour.deleteMany({ where: { business: { ownerUserId: stylistUserId } } });
     await prisma.serviceOffering.deleteMany({ where: { id: offeringId } });
+    await prisma.businessPolicy.deleteMany({
+      where: { business: { ownerUserId: stylistUserId } },
+    });
     await prisma.stylistProfile.deleteMany({ where: { userId: stylistUserId } });
     await prisma.business.deleteMany({ where: { ownerUserId: stylistUserId } });
     await prisma.user.deleteMany({ where: { id: { in: [stylistUserId, clientUserId] } } });
@@ -142,6 +148,17 @@ describe('booking routes', () => {
 
     const business = await prisma.business.create({
       data: { ownerUserId: stylistUserId, businessName: 'Booking Test Salon' },
+    });
+
+    await prisma.businessPolicy.create({
+      data: {
+        businessId: business.id,
+        depositType: 'percentage',
+        depositValue: 20,
+        cancellationWindowHours: 24,
+        noShowFeeType: 'forfeit_deposit',
+        remainingBalanceMethod: 'cash_or_card',
+      },
     });
 
     const profile = await prisma.stylistProfile.create({

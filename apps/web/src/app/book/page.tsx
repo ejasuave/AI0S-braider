@@ -20,6 +20,7 @@ import {
   calculateBookingPriceSummary,
   remainingBalanceMethodLabel,
 } from '@/shared/lib/pricing';
+import { formatDurationLabel } from '@project-braids/shared-types/api';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { Input } from '@/shared/ui/input';
@@ -170,7 +171,9 @@ function ServiceBooking({
       })
     : null;
 
-  const requirements = offering?.requirements ?? [];
+  const requirements = (offering?.requirements ?? []).map((item) =>
+    typeof item === 'string' ? item : item.text,
+  );
   const policyEntries = (
     policy
       ? [
@@ -272,19 +275,36 @@ function ServiceBooking({
           <Card className="space-y-3">
             <h2 className="font-display text-lg font-semibold text-ink">{offering.styleName}</h2>
             <p className="text-sm text-ink-muted">
-              {formatMoney(offering.basePrice)} · {offering.estimatedDurationMinutes} minutes
+              {[
+                offering.parentCategoryName,
+                offering.sizeTier,
+                offering.lengthTier,
+                formatDurationLabel(offering.estimatedDurationMinutes),
+                formatMoney(offering.basePrice),
+              ]
+                .filter(Boolean)
+                .join(' · ')}
             </p>
             {offering.description ? (
               <p className="text-sm text-ink">{offering.description}</p>
             ) : null}
             {requirements.length > 0 ? (
-              <div className="space-y-2">
-                <h3 className="text-sm font-semibold text-ink">Requirements</h3>
+              <div className="space-y-2 rounded-md border border-warning/30 bg-warning/5 p-3">
+                <h3 className="text-sm font-semibold text-ink">Before you book — requirements</h3>
                 <ul className="list-disc space-y-1 pl-5 text-sm text-ink">
                   {requirements.map((item) => (
                     <li key={item}>{item}</li>
                   ))}
                 </ul>
+                <label className="flex min-h-11 items-start gap-3 text-sm text-ink">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={ackRequirements}
+                    onChange={(e) => setAckRequirements(e.target.checked)}
+                  />
+                  <span>I acknowledge these requirements.</span>
+                </label>
               </div>
             ) : null}
             <MessageStylistButton
@@ -406,6 +426,11 @@ function ServiceBooking({
             <h3 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">
               Available times
             </h3>
+            {requirements.length > 0 && !ackRequirements ? (
+              <p className="text-sm text-warning">
+                Acknowledge the service requirements above before selecting a time.
+              </p>
+            ) : null}
             {availabilityQuery.isLoading ? (
               <p className="text-sm text-ink-muted">Finding slots…</p>
             ) : (availabilityQuery.data?.slots.length ?? 0) === 0 ? (
@@ -417,7 +442,7 @@ function ServiceBooking({
                     key={slot.startTime}
                     type="button"
                     onClick={() => setSelectedSlot(slot.startTime)}
-                    disabled={!auth.isClient}
+                    disabled={!auth.isClient || (requirements.length > 0 && !ackRequirements)}
                     className={`min-h-11 rounded-md border px-3 py-2 text-left text-sm transition-colors disabled:opacity-60 ${
                       selectedSlot === slot.startTime
                         ? 'border-primary bg-primary-subtle text-ink'
@@ -488,7 +513,10 @@ function ServiceBooking({
                     checked={ackRequirements}
                     onChange={(e) => setAckRequirements(e.target.checked)}
                   />
-                  <span>I acknowledge the service requirements listed above.</span>
+                  <span>
+                    I confirm again that I understand the service requirements listed above (before
+                    payment).
+                  </span>
                 </label>
               ) : null}
               <label className="flex min-h-11 items-start gap-3 text-sm text-ink">

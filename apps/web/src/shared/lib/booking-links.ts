@@ -21,3 +21,17 @@ export function serviceBookingUrl(
   const base = origin ?? (typeof window !== 'undefined' ? window.location.origin : '');
   return `${base}${serviceBookingPath(stylistId, serviceOfferingId)}`;
 }
+
+/** Absolute URL for a vanity share path (`/stylist/...`). */
+export function absoluteShareUrl(sharePath: string, origin?: string): string {
+  const base = origin ?? (typeof window !== 'undefined' ? window.location.origin : '');
+  return `${base}${sharePath.startsWith('/') ? sharePath : `/${sharePath}`}`;
+}
+
+export {
+  buildServiceSharePath,
+  buildServiceSharePathFromOffering,
+  servicePathSegments,
+  slugify,
+} from '@project-braids/shared-types/api';
+

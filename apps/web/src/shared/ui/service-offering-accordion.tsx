@@ -11,6 +11,9 @@ export type ServiceAccordionItem = {
   styleName: string;
   basePrice: string;
   estimatedDurationMinutes: number;
+  sizeTier?: string | null;
+  lengthTier?: string | null;
+  parentCategoryName?: string | null;
   portfolio?: PublicPortfolioImage[];
   /** Optional short line shown when expanded (tiers, custom note, etc.). */
   description?: string | null;

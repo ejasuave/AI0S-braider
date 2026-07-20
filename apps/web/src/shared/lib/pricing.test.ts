@@ -25,8 +25,11 @@ describe('pricing helpers', () => {
   });
 
   it('labels remaining balance methods', () => {
-    expect(remainingBalanceMethodLabel('cash')).toBe('Cash only');
-    expect(remainingBalanceMethodLabel('card')).toBe('Card only');
-    expect(remainingBalanceMethodLabel('cash_or_card')).toBe('Cash or card');
+    expect(remainingBalanceMethodLabel('cash')).toBe('Cash');
+    expect(remainingBalanceMethodLabel('card')).toBe('Card');
+    expect(remainingBalanceMethodLabel('cash_or_card')).toBe('Cash or Card');
+    expect(remainingBalanceMethodLabel('bank_transfer')).toBe('Bank Transfer');
+    expect(remainingBalanceMethodLabel('any')).toBe('Any Payment Method');
+    expect(remainingBalanceMethodLabel(null)).toBe('Not specified');
   });
 });

@@ -29,6 +29,7 @@ export function toStylistProfile(profile: {
   id: string;
   userId: string;
   businessName: string;
+  publicSlug?: string | null;
   bio: string | null;
   locationArea: string | null;
   serviceAreaRadiusKm: Prisma.Decimal | null;
@@ -39,6 +40,9 @@ export function toStylistProfile(profile: {
   onboardingStatus: OnboardingStatus;
   directoryVisible: boolean;
   photoUrl: string | null;
+  googlePlaceId?: string | null;
+  googleBusinessProfileUrl?: string | null;
+  googleReviewsLinkedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }): StylistProfile {
@@ -46,6 +50,7 @@ export function toStylistProfile(profile: {
     id: profile.id,
     userId: profile.userId,
     businessName: profile.businessName,
+    publicSlug: profile.publicSlug ?? null,
     bio: profile.bio,
     locationArea: profile.locationArea,
     serviceAreaRadiusKm: decimalToNumber(profile.serviceAreaRadiusKm),
@@ -56,6 +61,11 @@ export function toStylistProfile(profile: {
     onboardingStatus: profile.onboardingStatus,
     directoryVisible: profile.directoryVisible,
     photoUrl: profile.photoUrl,
+    googlePlaceId: profile.googlePlaceId ?? null,
+    googleBusinessProfileUrl: profile.googleBusinessProfileUrl ?? null,
+    googleReviewsLinkedAt: profile.googleReviewsLinkedAt
+      ? toIso(profile.googleReviewsLinkedAt)
+      : null,
     createdAt: toIso(profile.createdAt),
     updatedAt: toIso(profile.updatedAt),
   };
@@ -124,16 +134,23 @@ export function toStyleCategory(category: {
   id: string;
   name: string;
   slug: string;
+  parentId?: string | null;
   sizeTiers: Prisma.JsonValue;
   lengthTiers: Prisma.JsonValue;
   sortOrder: number;
+  parent?: { name: string } | null;
 }): StyleCategory {
+  const sizeTiers = category.sizeTiers as string[];
+  const lengthTiers = category.lengthTiers as string[];
   return {
     id: category.id,
     name: category.name,
     slug: category.slug,
-    sizeTiers: category.sizeTiers as string[],
-    lengthTiers: category.lengthTiers as string[],
+    parentId: category.parentId ?? null,
+    parentName: category.parent?.name ?? null,
+    isGroup: sizeTiers.length === 0 && lengthTiers.length === 0,
+    sizeTiers,
+    lengthTiers,
     sortOrder: category.sortOrder,
   };
 }

@@ -1,17 +1,32 @@
+import { formatDurationLabel, remainingBalanceMethodLabel } from '@project-braids/shared-types/api';
 import type { ConversationTurnContext } from './context.js';
 import { selectMessagesForPrompt } from './context.js';
 
 export function buildSystemPrompt(context: ConversationTurnContext): string {
   const offerings = context.stylistContext.offerings
-    .map(
-      (offering) =>
-        `- ${offering.styleName}${offering.sizeTier ? ` (${offering.sizeTier})` : ''}${offering.lengthTier ? `, ${offering.lengthTier}` : ''}: £${offering.basePrice}, ${offering.estimatedDurationMinutes} mins [id=${offering.id}]`,
-    )
+    .map((offering) => {
+      const tiers = [offering.sizeTier, offering.lengthTier].filter(Boolean).join(', ');
+      const req =
+        offering.requirements.length > 0
+          ? `; requirements: ${offering.requirements.join('; ')}`
+          : '';
+      const addons =
+        offering.addons.length > 0
+          ? `; add-ons: ${offering.addons.map((a) => `${a.name} £${a.price}`).join(', ')}`
+          : '';
+      return `- ${offering.styleName}${tiers ? ` (${tiers})` : ''}: £${offering.basePrice}, ${formatDurationLabel(offering.estimatedDurationMinutes)} [id=${offering.id}]${req}${addons}`;
+    })
     .join('\n');
 
   const slotList = context.proposedSlots
     .map((slot) => `${slot.index}. ${slot.startTime}`)
     .join('\n');
+
+  const balanceMethod = context.stylistContext.remainingBalanceMethod
+    ? remainingBalanceMethodLabel[
+        context.stylistContext.remainingBalanceMethod as keyof typeof remainingBalanceMethodLabel
+      ] ?? context.stylistContext.remainingBalanceMethod
+    : 'not specified';
 
   return `You are the AI receptionist for ${context.stylistContext.businessName}, a UK hair braiding stylist.
 You help clients book appointments by SMS. Be warm, direct, and concise — ask only ONE clarifying question per message.
@@ -29,10 +44,18 @@ TODAY (${context.timezone}): ${context.nowIso}
 AVAILABLE SERVICES (authoritative pricing — do not invent others):
 ${offerings || '(none configured yet — escalate new booking requests)'}
 
+LENGTH TIERS include Shoulder, Mid-back, Waist-length, Hip-length, and Bum Length when listed on a service. Match the client's requested length to an exact offering tier — do not invent a price for an unlisted tier.
+
 STYLIST CONTEXT:
 - Location area: ${context.stylistContext.locationArea ?? 'not specified'}
 - Deposit policy: ${JSON.stringify(context.stylistContext.depositPolicy)}
 - Cancellation policy: ${JSON.stringify(context.stylistContext.cancellationPolicy)}
+- Remaining balance method: ${balanceMethod}
+- Cancellation window (hours): ${context.stylistContext.policyNotes.cancellationWindowHours ?? 'not specified'}
+- Deposit notes: ${context.stylistContext.policyNotes.depositPolicyText ?? 'none'}
+- Children policy: ${context.stylistContext.policyNotes.childrenPolicyText ?? 'none'}
+- Guest policy: ${context.stylistContext.policyNotes.guestPolicyText ?? 'none'}
+- Mention service requirements and add-ons when relevant; never invent requirements not listed above.
 
 CURRENT EXTRACTED SLOTS (merged from prior turns):
 ${JSON.stringify(context.mergedSlots)}

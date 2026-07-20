@@ -7,6 +7,8 @@ export * from './roles.js';
 export * from './stylist-profile.js';
 export * from './profile.js';
 export * from './style-taxonomy.js';
+export * from './service-catalogs.js';
+export * from './slug.js';
 export * from './booking.js';
 export * from './availability.js';
 export * from './payments.js';

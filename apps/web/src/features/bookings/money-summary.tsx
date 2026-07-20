@@ -2,6 +2,10 @@
 
 import type { Booking } from '@project-braids/shared-types/api';
 import { balanceStatusLabel, formatMoney } from '@/shared/lib/format';
+import {
+  remainingBalanceAllowsOnlineCard,
+  remainingBalanceMethodLabel,
+} from '@/shared/lib/pricing';
 import { Card } from '@/shared/ui/card';
 import { StatusBadge } from '@/shared/ui/status-badge';
 
@@ -14,6 +18,8 @@ type MoneySummaryProps = {
 export function BookingMoneySummary({ booking, audience }: MoneySummaryProps) {
   const remaining = Number(booking.remainingToPay);
   const showRemaining = remaining > 0 && booking.balanceStatus === 'due';
+  const balanceMethod = remainingBalanceMethodLabel(booking.remainingBalanceMethod);
+  const onlineCardAllowed = remainingBalanceAllowsOnlineCard(booking.remainingBalanceMethod);
 
   return (
     <Card className="space-y-3">
@@ -41,12 +47,18 @@ export function BookingMoneySummary({ booking, audience }: MoneySummaryProps) {
           <dd className="font-medium text-ink">{formatMoney(booking.balanceAmount)}</dd>
         </div>
         <div className="flex justify-between gap-4">
+          <dt className="text-ink-muted">Balance payment method</dt>
+          <dd className="font-medium text-ink">{balanceMethod}</dd>
+        </div>
+        <div className="flex justify-between gap-4">
           <dt className="text-ink-muted">Paid so far</dt>
           <dd className="font-medium text-ink">{formatMoney(booking.totalPaid)}</dd>
         </div>
         {showRemaining ? (
           <div className="flex justify-between gap-4">
-            <dt className="text-ink-muted">{audience === 'client' ? 'Still to pay' : 'Client still owes'}</dt>
+            <dt className="text-ink-muted">
+              {audience === 'client' ? 'Still to pay' : 'Client still owes'}
+            </dt>
             <dd className="font-medium text-warning">{formatMoney(booking.remainingToPay)}</dd>
           </div>
         ) : null}
@@ -59,12 +71,16 @@ export function BookingMoneySummary({ booking, audience }: MoneySummaryProps) {
       </dl>
       {showRemaining && audience === 'client' ? (
         <p className="text-xs text-ink-muted">
-          Pay the remaining balance online now, or settle in person at your appointment.
+          {onlineCardAllowed
+            ? 'Pay the remaining balance online now, or settle using the accepted methods at your appointment.'
+            : `Pay the remaining balance at your appointment (${balanceMethod}). Online card payment is not available for this booking.`}
         </p>
       ) : null}
       {showRemaining && audience === 'stylist' ? (
         <p className="text-xs text-ink-muted">
-          Client can pay the balance online, or you can mark it paid when collected in person.
+          Client can settle via {balanceMethod.toLowerCase()}
+          {onlineCardAllowed ? ', including online card,' : ''} or you can mark it paid when
+          collected in person.
         </p>
       ) : null}
     </Card>

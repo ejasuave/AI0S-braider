@@ -1,3 +1,9 @@
+import type { RemainingBalanceMethod } from '@project-braids/shared-types/api';
+import {
+  remainingBalanceMethodLabel as sharedRemainingBalanceMethodLabel,
+  remainingBalanceAllowsOnlineCard,
+} from '@project-braids/shared-types/api';
+
 /** Client-side deposit/total helpers mirroring booking/mappers calculateDepositAmount. */
 
 export type DepositType = 'flat' | 'percentage';
@@ -40,10 +46,10 @@ export function calculateBookingPriceSummary(input: {
 }
 
 export function remainingBalanceMethodLabel(
-  method: 'cash' | 'card' | 'cash_or_card' | null | undefined,
+  method: RemainingBalanceMethod | null | undefined,
 ): string {
-  if (method === 'cash') return 'Cash only';
-  if (method === 'card') return 'Card only';
-  if (method === 'cash_or_card') return 'Cash or card';
-  return 'Not specified';
+  if (!method) return 'Not specified';
+  return sharedRemainingBalanceMethodLabel[method] ?? 'Not specified';
 }
+
+export { remainingBalanceAllowsOnlineCard };

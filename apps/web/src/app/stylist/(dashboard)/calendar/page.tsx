@@ -143,8 +143,7 @@ function CalendarSettingsContent() {
     return () => {
       cancelled = true;
     };
-    // Run once when OAuth code is present in the URL.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // OAuth callback: run when code appears in the URL (intentionally omit unstable deps).
   }, [searchParams]);
 
   async function handleConnect() {

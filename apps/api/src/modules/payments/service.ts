@@ -5,8 +5,10 @@ import type {
   IncomeReport,
   Payment as PaymentDto,
   PayoutHistoryItem,
+  RemainingBalanceMethod,
   StripeConnectStatus,
 } from '@project-braids/shared-types/api';
+import { remainingBalanceAllowsOnlineCard } from '@project-braids/shared-types/api';
 import type { PaymentOnboardingStatus, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/db.js';
 import { ApiError } from '../../lib/errors.js';
@@ -558,6 +560,15 @@ export class PaymentService {
     }
     if (booking.balanceStatus !== 'due') {
       throw new ApiError('CONFLICT', 'No remaining balance is due for this booking', 409);
+    }
+    if (
+      !remainingBalanceAllowsOnlineCard(
+        booking.remainingBalanceMethod as RemainingBalanceMethod | null,
+      )
+    ) {
+      throw ApiError.validation(
+        'This stylist does not accept online card payment for the remaining balance',
+      );
     }
 
     const balanceAmount = Number(booking.balanceAmount);

@@ -77,6 +77,8 @@ export const stylistProfileSchema = z.object({
   id: z.string().uuid(),
   userId: z.string().uuid(),
   businessName: z.string(),
+  /** SEO-friendly public URL slug; null until generated. */
+  publicSlug: z.string().nullable(),
   bio: z.string().nullable(),
   locationArea: z.string().nullable(),
   serviceAreaRadiusKm: z.number().nullable(),
@@ -87,6 +89,10 @@ export const stylistProfileSchema = z.object({
   onboardingStatus: z.enum(ONBOARDING_STATUSES),
   directoryVisible: z.boolean(),
   photoUrl: z.string().url().nullable(),
+  /** Google Business Profile placeholders (Phase 2 reviews). */
+  googlePlaceId: z.string().nullable(),
+  googleBusinessProfileUrl: z.string().url().nullable(),
+  googleReviewsLinkedAt: z.string().datetime().nullable(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
@@ -96,6 +102,14 @@ export type StylistProfile = z.infer<typeof stylistProfileSchema>;
 export const updateStylistProfileRequestSchema = z
   .object({
     businessName: z.string().trim().min(1).max(120).optional(),
+    publicSlug: z
+      .string()
+      .trim()
+      .min(2)
+      .max(80)
+      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Slug must be lowercase letters, numbers, and hyphens')
+      .nullable()
+      .optional(),
     bio: z.string().trim().max(2000).nullable().optional(),
     locationArea: z.string().trim().max(120).nullable().optional(),
     serviceAreaRadiusKm: z.number().positive().max(200).nullable().optional(),
@@ -105,6 +119,8 @@ export const updateStylistProfileRequestSchema = z
     bufferMinutes: z.number().int().min(0).max(240).optional(),
     onboardingStatus: z.enum(ONBOARDING_STATUSES).optional(),
     directoryVisible: z.boolean().optional(),
+    googlePlaceId: z.string().trim().min(1).max(256).nullable().optional(),
+    googleBusinessProfileUrl: z.string().url().nullable().optional(),
   })
   .refine((value) => Object.keys(value).length > 0, 'At least one field is required');
 
@@ -124,6 +140,7 @@ export const publicBookingAddonSchema = z.object({
   name: z.string(),
   description: z.string().nullable(),
   price: z.string(),
+  catalogKey: z.string().nullable().optional(),
 });
 
 export type PublicBookingAddon = z.infer<typeof publicBookingAddonSchema>;
@@ -131,21 +148,36 @@ export type PublicBookingAddon = z.infer<typeof publicBookingAddonSchema>;
 export const publicBookingOfferingSchema = z.object({
   id: z.string().uuid(),
   styleName: z.string(),
+  sizeTier: z.string().nullable(),
+  lengthTier: z.string().nullable(),
+  styleCategoryId: z.string().uuid().nullable(),
+  styleCategoryName: z.string().nullable(),
+  styleCategorySlug: z.string().nullable(),
+  parentCategoryName: z.string().nullable(),
   description: z.string().nullable(),
   basePrice: z.string(),
   estimatedDurationMinutes: z.number().int().positive(),
-  requirements: z.array(z.string()),
+  /** Structured requirements (text + optional catalogKey). */
+  requirements: z.array(
+    z.object({
+      text: z.string(),
+      catalogKey: z.string().optional(),
+    }),
+  ),
   /** Null = use business deposit policy. */
   depositType: z.enum(['flat', 'percentage']).nullable(),
   depositValue: z.number().nullable(),
   addons: z.array(publicBookingAddonSchema).default([]),
   /** Work photos for this service only. */
   portfolio: z.array(publicPortfolioImageSchema).default([]),
+  /** Vanity share path when stylist has a publicSlug. */
+  sharePath: z.string().nullable(),
 });
 
 export const publicBookingPageSchema = z.object({
   businessId: z.string().uuid().nullable(),
   stylistId: z.string().uuid(),
+  publicSlug: z.string().nullable(),
   businessName: z.string(),
   locationArea: z.string().nullable(),
   photoUrl: z.string().url().nullable(),
@@ -159,7 +191,15 @@ export const publicBookingPageSchema = z.object({
   /** Business-level deposit policy (fallback when offering has no override). */
   depositType: z.enum(['flat', 'percentage']),
   depositValue: z.number().positive(),
-  remainingBalanceMethod: z.enum(['cash', 'card', 'cash_or_card']),
+  remainingBalanceMethod: z.enum([
+    'cash',
+    'card',
+    'bank_transfer',
+    'cash_or_card',
+    'cash_or_bank_transfer',
+    'card_or_bank_transfer',
+    'any',
+  ]),
   policy: z
     .object({
       cancellationWindowHours: z.number().int().nonnegative(),
@@ -171,7 +211,15 @@ export const publicBookingPageSchema = z.object({
       childrenPolicyText: z.string().nullable(),
       guestPolicyText: z.string().nullable(),
       depositPolicyText: z.string().nullable(),
-      remainingBalanceMethod: z.enum(['cash', 'card', 'cash_or_card']),
+      remainingBalanceMethod: z.enum([
+        'cash',
+        'card',
+        'bank_transfer',
+        'cash_or_card',
+        'cash_or_bank_transfer',
+        'card_or_bank_transfer',
+        'any',
+      ]),
       depositType: z.enum(['flat', 'percentage']),
       depositValue: z.number().positive(),
     })
@@ -180,6 +228,16 @@ export const publicBookingPageSchema = z.object({
 });
 
 export type PublicBookingPage = z.infer<typeof publicBookingPageSchema>;
+export type PublicBookingOffering = z.infer<typeof publicBookingOfferingSchema>;
+
+export const resolveServiceShareResponseSchema = z.object({
+  stylistId: z.string().uuid(),
+  serviceOfferingId: z.string().uuid(),
+  publicSlug: z.string(),
+  sharePath: z.string(),
+});
+
+export type ResolveServiceShareResponse = z.infer<typeof resolveServiceShareResponseSchema>;
 
 export const portfolioItemSchema = z.object({
   id: z.string().uuid(),
@@ -201,7 +259,14 @@ export const serviceOfferingSchema = z.object({
   sizeTier: z.string().nullable(),
   lengthTier: z.string().nullable(),
   description: z.string().nullable(),
-  requirements: z.array(z.string()).default([]),
+  requirements: z
+    .array(
+      z.object({
+        text: z.string(),
+        catalogKey: z.string().optional(),
+      }),
+    )
+    .default([]),
   basePrice: z.string(),
   estimatedDurationMinutes: z.number().int().positive(),
   hairIncluded: z.boolean(),
@@ -219,6 +284,7 @@ export const serviceOfferingSchema = z.object({
         price: z.string(),
         active: z.boolean(),
         displayOrder: z.number().int(),
+        catalogKey: z.string().nullable().optional(),
         createdAt: z.string().datetime(),
         updatedAt: z.string().datetime(),
       }),
@@ -276,6 +342,9 @@ export const styleCategorySchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
   slug: z.string(),
+  parentId: z.string().uuid().nullable(),
+  parentName: z.string().nullable().optional(),
+  isGroup: z.boolean().optional(),
   sizeTiers: z.array(z.string()),
   lengthTiers: z.array(z.string()),
   sortOrder: z.number().int(),
