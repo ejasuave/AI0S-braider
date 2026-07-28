@@ -85,13 +85,21 @@ describe('calendar routes', () => {
     });
     stylistProfileId = profile.id;
 
-    await prisma.workingHour.create({
-      data: {
-        businessId,
-        dayOfWeek: 1,
-        startTime: '09:00',
-        endTime: '17:00',
-      },
+    await prisma.workingHour.createMany({
+      data: [
+        {
+          businessId,
+          dayOfWeek: 1,
+          startTime: '09:00',
+          endTime: '17:00',
+        },
+        {
+          businessId,
+          dayOfWeek: 2,
+          startTime: '09:00',
+          endTime: '17:00',
+        },
+      ],
     });
 
     await prisma.serviceOffering.create({
