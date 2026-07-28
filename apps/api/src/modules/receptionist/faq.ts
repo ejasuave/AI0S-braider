@@ -42,6 +42,23 @@ export function isRequirementsFaqQuestion(message: string): boolean {
   return REQUIREMENTS_FAQ_PATTERN.test(message);
 }
 
+/** Client is asking for different days/times rather than picking proposed slot 1/2/3. */
+export function looksLikeAvailabilityPreference(message: string): boolean {
+  if (AVAILABILITY_QUESTION_PATTERN.test(message)) return true;
+  if (
+    /\b(thursday|friday|saturday|sunday|monday|tuesday|wednesday|tomorrow|today)\b/i.test(message)
+  ) {
+    return true;
+  }
+  if (/\bbetween\b.+\b(and|&)\b/i.test(message)) return true;
+  if (/\b(morning|afternoon|evening|after\s+\d|before\s+\d|from\s+\d)\b/i.test(message)) {
+    return true;
+  }
+  if (/\b(any|other|different)\s+(times?|slots?|days?)\b/i.test(message)) return true;
+  if (/\bwhat (times?|days?)\b/i.test(message)) return true;
+  return false;
+}
+
 function formatOfferingsCatalogue(
   offerings: ConversationTurnContext['stylistContext']['offerings'],
 ): string {

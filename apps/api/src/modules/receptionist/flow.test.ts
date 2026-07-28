@@ -6,7 +6,9 @@ import {
   inferBookingPhase,
   isNonBookingTopicTurn,
   parsePreferredDateFromText,
+  wasPriceAlreadyQuoted,
 } from './flow.js';
+import { looksLikeAvailabilityPreference } from './faq.js';
 
 function emptySessionMemory(overrides: Partial<SessionMemory> = {}): SessionMemory {
   return {
@@ -367,5 +369,88 @@ describe('parsePreferredDateFromText', () => {
       new Date('2026-07-11T09:00:00.000Z'),
     );
     expect(saturday).toBe('2026-07-11');
+  });
+});
+
+describe('wasPriceAlreadyQuoted', () => {
+  it('ignores catalogue FAQ prices that only appear in message text', () => {
+    expect(
+      wasPriceAlreadyQuoted(
+        [
+          {
+            sender: 'ai',
+            content: 'Here is what we offer:\n\n• Box Braids: £30.00, about 2h',
+            structuredOutput: {
+              intent: 'faq',
+              extracted_slots: {},
+              confidence: 0.9,
+              next_action: 'answer_faq',
+              client_message: 'Here is what we offer',
+            },
+          },
+        ],
+        {},
+      ),
+    ).toBe(false);
+  });
+
+  it('detects an explicit confirm_style_price turn', () => {
+    expect(
+      wasPriceAlreadyQuoted(
+        [
+          {
+            sender: 'ai',
+            content: 'Box Braids: £30.00, about 2h',
+            structuredOutput: {
+              intent: 'new_booking',
+              extracted_slots: { styleName: 'Box Braids', quotedPrice: '30.00' },
+              confidence: 0.9,
+              next_action: 'confirm_style_price',
+              client_message: 'Box Braids: £30.00, about 2h',
+            },
+          },
+        ],
+        {},
+      ),
+    ).toBe(true);
+  });
+});
+
+describe('availability preference vs slot pick', () => {
+  it('recognises thursday time-window questions', () => {
+    expect(
+      looksLikeAvailabilityPreference('is there any times on thursday between 10 and 1'),
+    ).toBe(true);
+  });
+
+  it('re-proposes slots for thursday preference instead of create_hold', () => {
+    const result = advanceBookingFlow(
+      {
+        intent: 'slot_selection',
+        extracted_slots: { styleName: 'Box braids', serviceOfferingId: 'off-1' },
+        confidence: 0.9,
+        next_action: 'create_hold',
+        client_message: 'Booking that for you',
+      },
+      baseContext({
+        latestClientMessage: 'is there any times on thursday between 10 and 1',
+        priceAlreadyQuoted: true,
+        mergedSlots: {
+          styleName: 'Box braids',
+          serviceOfferingId: 'off-1',
+          quotedPrice: '30.00',
+          addonsConfirmed: true,
+        },
+        proposedSlots: [
+          { index: 1, startTime: '2026-07-29T08:00:00.000Z', endTime: '2026-07-29T10:00:00.000Z' },
+          { index: 2, startTime: '2026-07-29T08:15:00.000Z', endTime: '2026-07-29T10:15:00.000Z' },
+        ],
+        nowIso: '2026-07-28T21:00:00.000Z',
+      }),
+    );
+
+    expect(result.next_action).toBe('propose_slots');
+    expect(result.extracted_slots.preferredDate).toBe('2026-07-30');
+    expect(result.extracted_slots.selectedSlotIndex).toBeUndefined();
   });
 });

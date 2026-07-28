@@ -1,6 +1,7 @@
 import type { ReceptionistIntent, ReceptionistTurnOutput } from '@project-braids/shared-types/api';
 import { ALWAYS_ESCALATE_INTENTS, ESCALATION_REASONS } from '@project-braids/shared-types/api';
 import { getEnv } from '../../config/env.js';
+import { looksLikeAvailabilityPreference } from './faq.js';
 
 export type EscalationDecision = {
   escalate: boolean;
@@ -183,11 +184,16 @@ export function isAmbiguousSlotSelection(
     selectedSlotStart?: string;
     selectedSlotIndex?: number;
   },
+  latestClientMessage?: string,
 ): boolean {
   if (output.intent !== 'slot_selection' && output.next_action !== 'create_hold') {
     return false;
   }
   if (proposedSlots.length === 0) {
+    return false;
+  }
+  // Day/time preference questions are not failed slot picks — re-offer availability instead.
+  if (latestClientMessage && looksLikeAvailabilityPreference(latestClientMessage)) {
     return false;
   }
   if (mergedSlots.selectedSlotStart) {

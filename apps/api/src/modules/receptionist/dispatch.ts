@@ -210,7 +210,6 @@ export async function dispatchReceptionistTurn(
         break;
       }
 
-      const intro = output.client_message.trim();
       if (offering) {
         const quote = formatPriceQuote(offering, slots.addonNames);
         slots.quotedPrice = quote.total.toFixed(2);
@@ -219,9 +218,9 @@ export async function dispatchReceptionistTurn(
           offering.addons.length > 0 && slots.addonsConfirmed !== true
             ? `\n\n${formatAddonsPrompt(offering)}`
             : `\n\nWant me to send available times? Just say which day works, or reply "book me in".`;
-        clientMessage = `${intro}\n\n${quote.line}${quote.requirementsNote}${nextStep}`;
+        clientMessage = `${quote.line}${quote.requirementsNote}${nextStep}`;
       } else {
-        clientMessage = `${intro}\n\n${pricing.offering.styleName}: £${pricing.offering.basePrice}, about ${pricing.offering.estimatedDurationMinutes} mins.\n\nWant me to send available times? Just say which day works, or reply "book me in".`;
+        clientMessage = `${pricing.offering.styleName}: £${pricing.offering.basePrice}, about ${pricing.offering.estimatedDurationMinutes} mins.\n\nWant me to send available times? Just say which day works, or reply "book me in".`;
       }
       metadata = { pricing_lookup: pricing };
       break;

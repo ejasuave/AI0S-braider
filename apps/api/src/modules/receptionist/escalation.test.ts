@@ -138,6 +138,17 @@ describe('isAmbiguousSlotSelection', () => {
       ),
     ).toBe(false);
   });
+
+  it('does not treat day/time preference questions as ambiguous slot picks', () => {
+    expect(
+      isAmbiguousSlotSelection(
+        [{ index: 1 }, { index: 2 }],
+        turn({ intent: 'slot_selection', next_action: 'create_hold' }),
+        {},
+        'is there any times on thursday between 10 and 1',
+      ),
+    ).toBe(false);
+  });
 });
 
 describe('detectPromptInjection', () => {

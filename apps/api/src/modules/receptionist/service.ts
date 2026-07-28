@@ -186,6 +186,7 @@ export class ReceptionistService {
       context.proposedSlots,
       output,
       mergedSlots,
+      context.latestClientMessage,
     );
 
     const escalation = shouldEscalate(output, {

@@ -13,6 +13,7 @@ import {
   PRICE_INTENT_PATTERN,
   isHoursFaqQuestion,
   isServicesListQuestion,
+  looksLikeAvailabilityPreference,
 } from './faq.js';
 
 export {
@@ -21,9 +22,12 @@ export {
   PRICE_INTENT_PATTERN,
   isHoursFaqQuestion,
   isServicesListQuestion,
+  looksLikeAvailabilityPreference,
 } from './faq.js';
 
-const SLOT_PICK_PATTERN = /(?:^|\s)([1-3])(?:\s|$)|option\s*([1-3])|number\s*([1-3])/i;
+/** Explicit slot picks only — do not match times like "between 10 and 1". */
+const SLOT_PICK_PATTERN =
+  /^(?:\s*(?:option|number|slot)\s*)?([1-3])(?:\s*[.!,;?]*)?\s*$|\b(?:option|number|slot)\s*([1-3])\b/i;
 
 const WEEKDAY_NAMES = [
   'sunday',
@@ -115,7 +119,7 @@ function parsePreferredDateFromHistory(context: ConversationTurnContext): string
 function parseSelectedSlotIndex(text: string): number | undefined {
   const match = text.match(SLOT_PICK_PATTERN);
   if (!match) return undefined;
-  const value = match[1] ?? match[2] ?? match[3];
+  const value = match[1] ?? match[2];
   const index = Number(value);
   return index >= 1 && index <= 3 ? index : undefined;
 }
@@ -194,6 +198,15 @@ export function inferBookingPhase(
 
   if (slotIndex && context.proposedSlots.length > 0) {
     return 'confirm_slot';
+  }
+
+  // Asking for a different day/time window re-runs availability (do not treat as slot pick).
+  if (
+    looksLikeAvailabilityPreference(latest) &&
+    styleName &&
+    (context.priceAlreadyQuoted || context.proposedSlots.length > 0)
+  ) {
+    return 'propose_slots';
   }
 
   if (context.proposedSlots.length > 0) {
@@ -475,6 +488,12 @@ export function advanceBookingFlow(
     ...(slotIndex ? { selectedSlotIndex: slotIndex } : {}),
   };
 
+  // Re-querying availability: drop any stale slot pick from the model.
+  if (phase === 'propose_slots' && looksLikeAvailabilityPreference(context.latestClientMessage)) {
+    delete extractedSlots.selectedSlotIndex;
+    delete extractedSlots.selectedSlotStart;
+  }
+
   return {
     ...output,
     intent: phase === 'confirm_slot' ? 'slot_selection' : 'new_booking',
@@ -489,27 +508,20 @@ export function wasPriceAlreadyQuoted(
   messages: Array<{ sender: string; structuredOutput: unknown | null; content: string }>,
   mergedSlots: ExtractedSlots,
 ): boolean {
-  if (mergedSlots.serviceOfferingId) {
-    return true;
-  }
+  // Only count an explicit booking quote — not catalogue FAQ lines that also contain £.
   if (mergedSlots.quotedPrice) {
     return true;
   }
 
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index]!;
-    if (message.sender !== 'ai') continue;
-    if (/£\d/.test(message.content)) {
-      return true;
-    }
-    if (!message.structuredOutput) continue;
+    if (message.sender !== 'ai' || !message.structuredOutput) continue;
     const parsed = receptionistTurnOutputSchema.safeParse(message.structuredOutput);
     if (!parsed.success) continue;
-    if (
-      parsed.data.next_action === 'confirm_style_price' ||
-      parsed.data.next_action === 'propose_slots' ||
-      parsed.data.next_action === 'create_hold'
-    ) {
+    if (parsed.data.extracted_slots.quotedPrice) {
+      return true;
+    }
+    if (parsed.data.next_action === 'confirm_style_price') {
       return true;
     }
   }
