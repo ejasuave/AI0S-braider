@@ -14,7 +14,11 @@ import {
   resolveAddonIds,
 } from './addons.js';
 import { attachStructuredMetadata, type ConversationTurnContext } from './context.js';
-import { enrichFaqClientMessage } from './faq.js';
+import {
+  enrichFaqClientMessage,
+  filterSlotsForTimePreference,
+  parseTimeOfDayPreference,
+} from './faq.js';
 
 function getLastAiMessageContent(context: ConversationTurnContext): string {
   for (let index = context.messages.length - 1; index >= 0; index -= 1) {
@@ -91,7 +95,8 @@ async function buildProposedSlotsMessage(
   const from = slots.preferredDate ? new Date(`${slots.preferredDate}T00:00:00.000Z`) : new Date();
   const lastAi = getLastAiMessageContent(context);
   const widenSearch = /couldn't find open slots|no slots showing/i.test(lastAi);
-  const rangeDays = widenSearch ? 14 : 7;
+  const timePreference = parseTimeOfDayPreference(context.latestClientMessage);
+  const rangeDays = widenSearch || timePreference ? 14 : 7;
   const to = new Date(from.getTime() + rangeDays * 24 * 60 * 60 * 1000);
 
   const availability = await bookingService.getAvailability({
@@ -99,18 +104,33 @@ async function buildProposedSlotsMessage(
     serviceOfferingId,
     from: from.toISOString(),
     to: to.toISOString(),
-    limit: 3,
+    limit: timePreference ? 96 : 12,
   });
 
-  if (availability.slots.length === 0) {
+  const filtered = filterSlotsForTimePreference({
+    slots: availability.slots,
+    preference: timePreference,
+    previousProposed: context.proposedSlots,
+    timeZone: availability.timezone,
+  });
+
+  if (filtered.length === 0) {
+    const preferenceNote =
+      timePreference === 'later'
+        ? ' later in the day'
+        : timePreference === 'earlier'
+          ? ' earlier'
+          : timePreference
+            ? ` in the ${timePreference}`
+            : '';
     return {
-      clientMessage: buildNoSlotsMessage(context, slots.styleName),
+      clientMessage: styleAwareNoSlots(context, slots.styleName, preferenceNote),
       metadata: {},
       output: { ...output, next_action: 'ask_clarification' },
     };
   }
 
-  const proposed = availability.slots.slice(0, 3).map((slot, index) => ({
+  const proposed = filtered.slice(0, 3).map((slot, index) => ({
     index: index + 1,
     startTime: slot.startTime,
     endTime: slot.endTime,
@@ -135,6 +155,18 @@ async function buildProposedSlotsMessage(
     metadata: { proposed_slots: proposed },
     output: { ...output, next_action: 'propose_slots' },
   };
+}
+
+function styleAwareNoSlots(
+  context: ConversationTurnContext,
+  styleName: string | undefined,
+  preferenceNote: string,
+): string {
+  const base = buildNoSlotsMessage(context, styleName);
+  if (!preferenceNote) return base;
+  return styleName
+    ? `I couldn't find${preferenceNote} openings for ${styleName} in the next couple of weeks. Want a different day, or shall I ask the stylist?`
+    : `I couldn't find${preferenceNote} openings in the next couple of weeks. Want a different day, or shall I ask the stylist?`;
 }
 
 function isSlotUnavailableError(error: unknown): boolean {

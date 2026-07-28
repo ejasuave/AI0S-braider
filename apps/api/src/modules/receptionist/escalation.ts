@@ -192,7 +192,7 @@ export function isAmbiguousSlotSelection(
   if (proposedSlots.length === 0) {
     return false;
   }
-  // Day/time preference questions are not failed slot picks — re-offer availability instead.
+  // Never escalate for recoverable booking turns — flow rewrites to propose_slots / clarify.
   if (latestClientMessage && looksLikeAvailabilityPreference(latestClientMessage)) {
     return false;
   }
@@ -205,5 +205,6 @@ export function isAmbiguousSlotSelection(
   ) {
     return false;
   }
-  return true;
+  // Ambiguous create_hold without a valid pick: do not escalate — advanceBookingFlow clarifies.
+  return false;
 }

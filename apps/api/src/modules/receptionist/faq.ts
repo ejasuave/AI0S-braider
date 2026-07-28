@@ -12,7 +12,7 @@ export const PRICING_REQUIRED_ACTIONS: ReadonlySet<ReceptionistNextAction> = new
 export const PRICE_INTENT_PATTERN = /\b(price|cost|how much|£|pound)\b/i;
 
 export const AVAILABILITY_QUESTION_PATTERN =
-  /\b(what days|which days|when are you free|availability|available times|open slots|times available|free slots)\b/i;
+  /\b(what days|which days|when are you free|availability|available times|open slots|times available|free slots|other (available )?times|more (times|slots|options)|later times?|earlier times?)\b/i;
 
 export const HOURS_FAQ_PATTERN =
   /\b(hours?|opening times?|what time (do you|are you) open|when (do you|are you) open|are you open|closed)\b/i;
@@ -42,6 +42,8 @@ export function isRequirementsFaqQuestion(message: string): boolean {
   return REQUIREMENTS_FAQ_PATTERN.test(message);
 }
 
+export type TimeOfDayPreference = 'later' | 'earlier' | 'afternoon' | 'morning' | 'evening';
+
 /** Client is asking for different days/times rather than picking proposed slot 1/2/3. */
 export function looksLikeAvailabilityPreference(message: string): boolean {
   if (AVAILABILITY_QUESTION_PATTERN.test(message)) return true;
@@ -51,12 +53,92 @@ export function looksLikeAvailabilityPreference(message: string): boolean {
     return true;
   }
   if (/\bbetween\b.+\b(and|&)\b/i.test(message)) return true;
-  if (/\b(morning|afternoon|evening|after\s+\d|before\s+\d|from\s+\d)\b/i.test(message)) {
+  if (
+    /\b(morning|afternoon|evening|lunchtime|midday|later|earlier|sooner|afterwards)\b/i.test(
+      message,
+    )
+  ) {
     return true;
   }
-  if (/\b(any|other|different)\s+(times?|slots?|days?)\b/i.test(message)) return true;
-  if (/\bwhat (times?|days?)\b/i.test(message)) return true;
+  if (/\b(after|before)\s+\d{1,2}(\s*(am|pm|:))?/i.test(message)) return true;
+  if (/\b(any|other|different|more)\s+(times?|slots?|days?|options?)\b/i.test(message)) {
+    return true;
+  }
+  if (/\bwhat (other )?(times?|days?)\b/i.test(message)) return true;
+  if (/\bdo you have (any )?(later|earlier|other|more)\b/i.test(message)) return true;
   return false;
+}
+
+/** Prefer later/earlier windows when re-querying availability. */
+export function parseTimeOfDayPreference(message: string): TimeOfDayPreference | null {
+  if (/\b(evening|tonight)\b/i.test(message)) return 'evening';
+  if (/\b(afternoon|after\s*lunch|midday|lunchtime)\b/i.test(message)) return 'afternoon';
+  if (/\b(morning)\b/i.test(message) && !/\blater\b/i.test(message)) return 'morning';
+  if (/\b(later|afterwards|after\s+that|pushed\s+back)\b/i.test(message)) return 'later';
+  if (/\b(earlier|sooner|before\s+that)\b/i.test(message)) return 'earlier';
+  return null;
+}
+
+function hourInTimeZone(iso: string, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    hour: 'numeric',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(iso));
+  return Number(parts.find((part) => part.type === 'hour')?.value ?? '0');
+}
+
+/**
+ * Filter availability starts for “later / earlier / afternoon” style preferences.
+ * Uses previously offered slots as the baseline when asking for later/earlier.
+ */
+export function filterSlotsForTimePreference<T extends { startTime: string }>(input: {
+  slots: T[];
+  preference: TimeOfDayPreference | null;
+  previousProposed: Array<{ startTime: string }>;
+  timeZone: string;
+}): T[] {
+  const { slots, preference, previousProposed, timeZone } = input;
+  if (!preference || slots.length === 0) return slots;
+
+  if (preference === 'later') {
+    const baseline = previousProposed
+      .map((slot) => new Date(slot.startTime).getTime())
+      .reduce((max, value) => Math.max(max, value), 0);
+    if (baseline > 0) {
+      const after = slots.filter((slot) => new Date(slot.startTime).getTime() > baseline);
+      if (after.length > 0) return after;
+    }
+    return slots.filter((slot) => hourInTimeZone(slot.startTime, timeZone) >= 12);
+  }
+
+  if (preference === 'earlier') {
+    const baseline = previousProposed
+      .map((slot) => new Date(slot.startTime).getTime())
+      .reduce((min, value) => Math.min(min, value), Number.POSITIVE_INFINITY);
+    if (Number.isFinite(baseline)) {
+      const before = slots.filter((slot) => new Date(slot.startTime).getTime() < baseline);
+      if (before.length > 0) return before;
+    }
+    return slots.filter((slot) => hourInTimeZone(slot.startTime, timeZone) < 12);
+  }
+
+  if (preference === 'afternoon') {
+    return slots.filter((slot) => {
+      const hour = hourInTimeZone(slot.startTime, timeZone);
+      return hour >= 12 && hour < 17;
+    });
+  }
+
+  if (preference === 'evening') {
+    return slots.filter((slot) => hourInTimeZone(slot.startTime, timeZone) >= 17);
+  }
+
+  if (preference === 'morning') {
+    return slots.filter((slot) => hourInTimeZone(slot.startTime, timeZone) < 12);
+  }
+
+  return slots;
 }
 
 function formatOfferingsCatalogue(

@@ -119,14 +119,14 @@ describe('detectClientRequestedHuman', () => {
 });
 
 describe('isAmbiguousSlotSelection', () => {
-  it('flags slot selection that does not map to a proposed option', () => {
+  it('does not escalate recoverable slot confusion (clarify / re-propose instead)', () => {
     expect(
       isAmbiguousSlotSelection(
         [{ index: 1 }, { index: 2 }],
         turn({ intent: 'slot_selection', next_action: 'create_hold' }),
         {},
       ),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it('allows selection when slot index matches a proposed option', () => {
@@ -146,6 +146,17 @@ describe('isAmbiguousSlotSelection', () => {
         turn({ intent: 'slot_selection', next_action: 'create_hold' }),
         {},
         'is there any times on thursday between 10 and 1',
+      ),
+    ).toBe(false);
+  });
+
+  it('does not escalate later-times preference questions', () => {
+    expect(
+      isAmbiguousSlotSelection(
+        [{ index: 1 }, { index: 2 }],
+        turn({ intent: 'slot_selection', next_action: 'create_hold' }),
+        {},
+        'do you have any later times',
       ),
     ).toBe(false);
   });

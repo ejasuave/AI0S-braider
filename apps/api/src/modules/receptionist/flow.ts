@@ -1,5 +1,6 @@
 import type { ExtractedSlots, ReceptionistTurnOutput } from '@project-braids/shared-types/api';
 import { receptionistTurnOutputSchema } from '@project-braids/shared-types/api';
+import { formatSlotLabel } from '../../lib/scheduling/format-datetime.js';
 import {
   clientDeclinesAddons,
   findOfferingForSlots,
@@ -301,8 +302,16 @@ export function composeHumanBookingReply(
       }
       return 'Next available times:';
 
-    case 'prompt_slot_pick':
+    case 'prompt_slot_pick': {
+      if (context.proposedSlots.length > 0) {
+        const lines = context.proposedSlots.map(
+          (slot, index) =>
+            `${index + 1}. ${formatSlotLabel(slot.startTime, context.timezone)}`,
+        );
+        return `Here are the open times again:\n\n${lines.join('\n')}\n\nReply 1, 2, or 3 and I will book you in.`;
+      }
       return 'Reply 1, 2, or 3 from the times above and I will book you in.';
+    }
 
     case 'confirm_slot':
       return `Booking option ${slotIndex ?? 1} for you.`;
@@ -494,13 +503,34 @@ export function advanceBookingFlow(
     delete extractedSlots.selectedSlotStart;
   }
 
+  let resolvedAction = nextAction;
+  let resolvedMessage = humanReply || output.client_message;
+  let resolvedIntent = phase === 'confirm_slot' ? ('slot_selection' as const) : ('new_booking' as const);
+
+  // Model asked to hold without a clear pick — recover instead of escalating.
+  if (
+    resolvedAction === 'create_hold' &&
+    !extractedSlots.selectedSlotIndex &&
+    !extractedSlots.selectedSlotStart
+  ) {
+    if (looksLikeAvailabilityPreference(context.latestClientMessage)) {
+      resolvedAction = 'propose_slots';
+      resolvedIntent = 'new_booking';
+      resolvedMessage = composeHumanBookingReply('propose_slots', context, slots) || resolvedMessage;
+    } else if (context.proposedSlots.length > 0) {
+      resolvedAction = 'ask_clarification';
+      resolvedIntent = 'new_booking';
+      resolvedMessage = composeHumanBookingReply('prompt_slot_pick', context, slots);
+    }
+  }
+
   return {
     ...output,
-    intent: phase === 'confirm_slot' ? 'slot_selection' : 'new_booking',
-    next_action: nextAction,
+    intent: resolvedIntent,
+    next_action: resolvedAction,
     confidence: Math.max(output.confidence, 0.9),
     extracted_slots: extractedSlots,
-    client_message: humanReply || output.client_message,
+    client_message: resolvedMessage,
   };
 }
 

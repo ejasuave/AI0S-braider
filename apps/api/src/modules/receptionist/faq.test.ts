@@ -3,8 +3,11 @@ import { ESCALATION_REASONS, type ReceptionistTurnOutput } from '@project-braids
 import { shouldEscalate } from './escalation.js';
 import {
   enrichFaqClientMessage,
+  filterSlotsForTimePreference,
   isHoursFaqQuestion,
   isServicesListQuestion,
+  looksLikeAvailabilityPreference,
+  parseTimeOfDayPreference,
   shouldRunPricingLookup,
 } from './faq.js';
 import { advanceBookingFlow } from './flow.js';
@@ -159,5 +162,31 @@ describe('services-list FAQ does not escalate on bogus styleName', () => {
     });
     expect(decision.escalate).toBe(false);
     expect(decision.reason).not.toBe(ESCALATION_REASONS.customStyleUnresolvable);
+  });
+});
+
+describe('later / earlier availability preferences', () => {
+  it('detects later-times questions', () => {
+    expect(looksLikeAvailabilityPreference('do you have any later times')).toBe(true);
+    expect(parseTimeOfDayPreference('do you have any later times')).toBe('later');
+  });
+
+  it('filters proposed slots to later than the previous offer', () => {
+    const filtered = filterSlotsForTimePreference({
+      preference: 'later',
+      timeZone: 'Europe/London',
+      previousProposed: [{ startTime: '2026-07-31T08:30:00.000Z' }],
+      slots: [
+        { startTime: '2026-07-31T08:00:00.000Z' },
+        { startTime: '2026-07-31T08:15:00.000Z' },
+        { startTime: '2026-07-31T08:30:00.000Z' },
+        { startTime: '2026-07-31T11:00:00.000Z' },
+        { startTime: '2026-07-31T14:00:00.000Z' },
+      ],
+    });
+    expect(filtered.map((slot) => slot.startTime)).toEqual([
+      '2026-07-31T11:00:00.000Z',
+      '2026-07-31T14:00:00.000Z',
+    ]);
   });
 });

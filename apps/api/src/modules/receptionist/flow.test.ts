@@ -453,4 +453,37 @@ describe('availability preference vs slot pick', () => {
     expect(result.extracted_slots.preferredDate).toBe('2026-07-30');
     expect(result.extracted_slots.selectedSlotIndex).toBeUndefined();
   });
+
+  it('re-proposes for later-times questions instead of escalating create_hold', () => {
+    const result = advanceBookingFlow(
+      {
+        intent: 'slot_selection',
+        extracted_slots: { styleName: 'Box braids', serviceOfferingId: 'off-1' },
+        confidence: 0.9,
+        next_action: 'create_hold',
+        client_message: 'Booking that',
+      },
+      baseContext({
+        latestClientMessage: 'do you have any later times',
+        priceAlreadyQuoted: true,
+        mergedSlots: {
+          styleName: 'Box braids',
+          serviceOfferingId: 'off-1',
+          quotedPrice: '30.00',
+          preferredDate: '2026-07-31',
+          addonsConfirmed: true,
+        },
+        proposedSlots: [
+          {
+            index: 1,
+            startTime: '2026-07-31T08:00:00.000Z',
+            endTime: '2026-07-31T10:00:00.000Z',
+          },
+        ],
+      }),
+    );
+
+    expect(result.next_action).toBe('propose_slots');
+    expect(looksLikeAvailabilityPreference('do you have any later times')).toBe(true);
+  });
 });
