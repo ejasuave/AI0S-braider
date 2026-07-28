@@ -44,6 +44,16 @@ Deposit capture is Chapter 9 — `confirm` does not charge yet.
 
 ## Availability (Chapter 8)
 
+Public booking page (`/book`) uses:
+
+```
+GET /api/v1/businesses/:businessId/availability?serviceOfferingId=…&groupBy=day&limit=96&from=…&to=…
+```
+
+Clients pick a **day** (all open days in the next 14 days with free capacity), then a **time**. Slots exclude overlaps with held/confirmed bookings for the full service duration + buffer.
+
+Legacy authenticated query:
+
 ```
 GET /api/v1/bookings/availability?stylistId=...&serviceOfferingId=...&from=...&to=...&limit=20
 ```

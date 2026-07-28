@@ -32,7 +32,7 @@ Mobile-first Next.js app at `apps/web` — tokens from `reference/design/visual-
 | `/client/inbox`, `/client/inbox/[id]`                                  | Client SMS conversation history (Ch.11.1)                                                       |
 | `/client/notifications`                                                | Reminder + marketing preferences (Ch.5.4 / Ch.12)                                               |
 | `/directory`, `/directory/[stylistId]`                                 | **Beta** public stylist search (opt-in)                                                         |
-| `/book?stylistId=&serviceOfferingId=`                                  | Public booking link → hold → deposit                                                            |
+| `/book?stylistId=&serviceOfferingId=`                                  | Public booking — day then time picker (14-day window, duration conflicts) → hold → deposit      |
 | `/stylist/{slug}/{style}/{size}/{length}`                              | Vanity share path → redirects to `/book?…` (UUID links still work)                              |
 | `/status`                                                              | API / DB health (dev)                                                                           |
 
@@ -220,7 +220,7 @@ Frontend: `/stylist/payments` — Connect, income summary, payout history.
 | 8.3    | `buffer_minutes` (default 15), padded slot generation                            |
 | 8.4    | `calendar.reconcile` job every 30 minutes                                        |
 
-Frontend: `/stylist/calendar`, public slots on `/book` before sign-in.
+Frontend: `/stylist/calendar`, public day+time slots on `/book` (`groupBy=day`) before sign-in.
 
 ## Pending chapters (MVP critical path)
 

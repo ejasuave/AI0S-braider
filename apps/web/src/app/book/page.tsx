@@ -12,9 +12,9 @@ import type {
 } from '@project-braids/shared-types/api';
 import { useAuth } from '@/features/auth/auth-context';
 import { SignOutButton } from '@/features/auth/sign-out-button';
-import { apiFetchData, getApiErrorMessage } from '@/shared/lib/api-client';
+import { formatDateTime, formatDayLabel, formatMoney, formatTime } from '@/shared/lib/format';
+import { ApiClientError, apiFetchData, getApiErrorMessage } from '@/shared/lib/api-client';
 import { serviceBookingPath, stylistBookingPath } from '@/shared/lib/booking-links';
-import { formatDateTime, formatMoney } from '@/shared/lib/format';
 import { serviceVenueModeLabel } from '@/shared/lib/venue';
 import { calculateBookingPriceSummary, remainingBalanceMethodLabel } from '@/shared/lib/pricing';
 import { formatDurationLabel } from '@project-braids/shared-types/api';
@@ -107,6 +107,7 @@ function ServiceBooking({
   const router = useRouter();
   const auth = useAuth();
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [clientDisplayName, setClientDisplayName] = useState('');
   const [clientVisitAddress, setClientVisitAddress] = useState('');
   const [chosenVenueMode, setChosenVenueMode] = useState<ServiceVenueMode | null>(null);
@@ -134,13 +135,47 @@ function ServiceBooking({
 
   const availabilityQuery = useQuery({
     queryKey: ['availability', businessId, serviceOfferingId],
-    queryFn: () =>
-      apiFetchData<BusinessAvailabilityResponse>(
-        `/businesses/${businessId}/availability?serviceOfferingId=${serviceOfferingId}&limit=12`,
+    queryFn: () => {
+      const from = new Date();
+      const to = new Date(from.getTime() + 14 * 24 * 60 * 60 * 1000);
+      const params = new URLSearchParams({
+        serviceOfferingId,
+        groupBy: 'day',
+        limit: '96',
+        from: from.toISOString(),
+        to: to.toISOString(),
+      });
+      return apiFetchData<BusinessAvailabilityResponse>(
+        `/businesses/${businessId}/availability?${params}`,
         { auth: false },
-      ),
+      );
+    },
     enabled: Boolean(businessId && serviceOfferingId),
   });
+
+  const availableDays = availabilityQuery.data?.days;
+
+  useEffect(() => {
+    const days = availableDays ?? [];
+    if (days.length === 0) {
+      setSelectedDay(null);
+      return;
+    }
+    setSelectedDay((current) => {
+      if (current && days.some((day) => day.date === current)) {
+        return current;
+      }
+      return days[0]!.date;
+    });
+  }, [availableDays]);
+
+  const daySlots = availableDays?.find((day) => day.date === selectedDay)?.slots ?? [];
+
+  useEffect(() => {
+    if (selectedSlot && !daySlots.some((slot) => slot.startTime === selectedSlot)) {
+      setSelectedSlot(null);
+    }
+  }, [daySlots, selectedSlot]);
 
   const depositType =
     offering?.depositType ?? pageQuery.data?.depositType ?? policy?.depositType ?? 'percentage';
@@ -249,6 +284,10 @@ function ServiceBooking({
       router.push(`/client/bookings/${booking.id}`);
     } catch (err) {
       setError(getApiErrorMessage(err));
+      if (err instanceof ApiClientError && err.status === 409) {
+        setSelectedSlot(null);
+        void availabilityQuery.refetch();
+      }
     }
   }
 
@@ -417,9 +456,9 @@ function ServiceBooking({
         ) : null}
 
         {offering ? (
-          <div className="space-y-2">
+          <div className="space-y-3">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">
-              Available times
+              Choose a day
             </h3>
             {requirements.length > 0 && !ackRequirements ? (
               <p className="text-sm text-warning">
@@ -427,27 +466,67 @@ function ServiceBooking({
               </p>
             ) : null}
             {availabilityQuery.isLoading ? (
-              <p className="text-sm text-ink-muted">Finding slots…</p>
-            ) : (availabilityQuery.data?.slots.length ?? 0) === 0 ? (
-              <p className="text-sm text-ink-muted">No slots available right now.</p>
+              <p className="text-sm text-ink-muted">Finding available days…</p>
+            ) : !availableDays || availableDays.length === 0 ? (
+              <p className="text-sm text-ink-muted">
+                No availability in the next 14 days for this service.
+              </p>
             ) : (
-              <div className="grid gap-2">
-                {availabilityQuery.data!.slots.map((slot) => (
-                  <button
-                    key={slot.startTime}
-                    type="button"
-                    onClick={() => setSelectedSlot(slot.startTime)}
-                    disabled={!auth.isClient || (requirements.length > 0 && !ackRequirements)}
-                    className={`min-h-11 rounded-md border px-3 py-2 text-left text-sm transition-colors disabled:opacity-60 ${
-                      selectedSlot === slot.startTime
-                        ? 'border-primary bg-primary-subtle text-ink'
-                        : 'border-border bg-surface hover:bg-surface-raised'
-                    }`}
-                  >
-                    {formatDateTime(slot.startTime)}
-                  </button>
-                ))}
-              </div>
+              <>
+                <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+                  {availableDays.map((day) => (
+                    <button
+                      key={day.date}
+                      type="button"
+                      onClick={() => {
+                        setSelectedDay(day.date);
+                        setSelectedSlot(null);
+                        void availabilityQuery.refetch();
+                      }}
+                      disabled={!auth.isClient || (requirements.length > 0 && !ackRequirements)}
+                      className={`min-h-11 shrink-0 rounded-md border px-3 py-2 text-sm transition-colors disabled:opacity-60 ${
+                        selectedDay === day.date
+                          ? 'border-primary bg-primary-subtle text-ink'
+                          : 'border-border bg-surface hover:bg-surface-raised'
+                      }`}
+                    >
+                      <span className="block font-medium">{formatDayLabel(day.date)}</span>
+                      <span className="block text-xs text-ink-muted">
+                        {day.slots.length} time{day.slots.length === 1 ? '' : 's'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">
+                  Available times
+                  {selectedDay ? ` · ${formatDayLabel(selectedDay)}` : ''}
+                </h3>
+                {daySlots.length === 0 ? (
+                  <p className="text-sm text-ink-muted">No free times on this day.</p>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                    {daySlots.map((slot) => (
+                      <button
+                        key={slot.startTime}
+                        type="button"
+                        onClick={() => setSelectedSlot(slot.startTime)}
+                        disabled={!auth.isClient || (requirements.length > 0 && !ackRequirements)}
+                        className={`min-h-11 rounded-md border px-2 py-2 text-center text-sm transition-colors disabled:opacity-60 ${
+                          selectedSlot === slot.startTime
+                            ? 'border-primary bg-primary-subtle text-ink'
+                            : 'border-border bg-surface hover:bg-surface-raised'
+                        }`}
+                      >
+                        {formatTime(slot.startTime)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {selectedSlot ? (
+                  <p className="text-sm text-ink-muted">Selected: {formatDateTime(selectedSlot)}</p>
+                ) : null}
+              </>
             )}
           </div>
         ) : null}

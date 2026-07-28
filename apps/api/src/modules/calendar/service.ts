@@ -64,6 +64,7 @@ export class CalendarService {
       from: query.from,
       to: query.to,
       limit: query.limit,
+      groupBy: query.groupBy,
     });
 
     return {
@@ -72,6 +73,7 @@ export class CalendarService {
       serviceOfferingId: availability.serviceOfferingId,
       timezone: availability.timezone,
       slots: availability.slots,
+      ...(availability.days ? { days: availability.days } : {}),
     };
   }
 
@@ -84,7 +86,8 @@ export class CalendarService {
     from?: string;
     to?: string;
     limit?: number;
-  }): Promise<AvailabilityResponse> {
+    groupBy?: 'day';
+  }): Promise<AvailabilityResponse & { days?: BusinessAvailabilityResponse['days'] }> {
     const env = getEnv();
     const { from, to } = this.parseDateRange(input.from, input.to);
 
@@ -122,7 +125,7 @@ export class CalendarService {
     const rules = await getBaseAvailabilityRules(businessId, fromKey, toKey);
     const blockingBookings = await this.getBlockingBookings(input.stylistId, from, to);
 
-    const slots = generateAvailabilitySlots({
+    const generated = generateAvailabilitySlots({
       from,
       to,
       timeZone: env.PLATFORM_TIMEZONE,
@@ -132,13 +135,15 @@ export class CalendarService {
       slotIntervalMinutes: env.AVAILABILITY_SLOT_INTERVAL_MINUTES,
       blockingBookings,
       limit: input.limit ?? 20,
+      groupBy: input.groupBy,
     });
 
     return {
       stylistId: input.stylistId,
       serviceOfferingId,
       timezone: env.PLATFORM_TIMEZONE,
-      slots,
+      slots: generated.slots,
+      ...(generated.days ? { days: generated.days } : {}),
     };
   }
 

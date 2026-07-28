@@ -122,6 +122,27 @@ describe('calendar routes', () => {
     await app.close();
   });
 
+  it('returns days when groupBy=day so later open days are not truncated', async ({ skip }) => {
+    if (!databaseAvailable) skip();
+    await seedCalendarFixtures();
+    const app = await buildApp();
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/v1/businesses/${businessId}/availability?durationMinutes=60&from=2026-08-03T00:00:00.000Z&to=2026-08-08T00:00:00.000Z&limit=12&groupBy=day`,
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json().data;
+    expect(body.days?.length).toBeGreaterThan(1);
+    expect(body.days[0].slots.length).toBeLessThanOrEqual(12);
+    expect(body.slots.length).toBe(
+      body.days.reduce((sum: number, day: { slots: unknown[] }) => sum + day.slots.length, 0),
+    );
+
+    await app.close();
+  });
+
   it('rejects availability queries exceeding the configured maximum range', async ({ skip }) => {
     if (!databaseAvailable) skip();
     await seedCalendarFixtures();

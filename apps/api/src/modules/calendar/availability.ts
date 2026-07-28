@@ -18,7 +18,22 @@ export type GenerateAvailabilityInput = {
   bufferMinutes: number;
   slotIntervalMinutes: number;
   blockingBookings: BlockingBooking[];
+  /**
+   * Flat mode: max slots across the whole range.
+   * `groupBy: 'day'`: max slots **per calendar day**.
+   */
   limit: number;
+  groupBy?: 'day';
+};
+
+export type AvailabilityDaySlots = {
+  date: string;
+  slots: AvailabilitySlot[];
+};
+
+export type GeneratedAvailability = {
+  slots: AvailabilitySlot[];
+  days?: AvailabilityDaySlots[];
 };
 
 /** Ch.8.3 — pad existing bookings by buffer on both sides for client-facing availability. */
@@ -36,16 +51,30 @@ export function padBlockingBookings(
   }));
 }
 
-export function generateAvailabilitySlots(input: GenerateAvailabilityInput): AvailabilitySlot[] {
+function candidateOverlaps(
+  candidate: Date,
+  slotEnd: Date,
+  paddedBookings: BlockingBooking[],
+): boolean {
+  return paddedBookings.some((booking) =>
+    intervalsOverlap(candidate, slotEnd, booking.startTime, booking.endTime),
+  );
+}
+
+export function generateAvailabilitySlots(input: GenerateAvailabilityInput): GeneratedAvailability {
   const now = input.now ?? new Date();
   const totalBlockMinutes = input.durationMinutes + input.bufferMinutes;
   const paddedBookings = padBlockingBookings(input.blockingBookings, input.bufferMinutes);
+  const groupByDay = input.groupBy === 'day';
+  const days: AvailabilityDaySlots[] = [];
   const slots: AvailabilitySlot[] = [];
 
   for (const day of input.dayRules) {
     if (day.isClosed) {
       continue;
     }
+
+    const daySlots: AvailabilitySlot[] = [];
 
     for (const range of day.ranges) {
       const windowStart = wallClockToUtc(day.date, range.start, input.timeZone);
@@ -65,27 +94,46 @@ export function generateAvailabilitySlots(input: GenerateAvailabilityInput): Ava
         }
 
         const slotEnd = new Date(candidate.getTime() + totalBlockMinutes * 60_000);
-        const overlaps = paddedBookings.some((booking) =>
-          intervalsOverlap(candidate, slotEnd, booking.startTime, booking.endTime),
-        );
-
-        if (!overlaps) {
-          slots.push({
-            startTime: candidate.toISOString(),
-            endTime: slotEnd.toISOString(),
-            durationMinutes: input.durationMinutes,
-            bufferMinutes: input.bufferMinutes,
-          });
+        if (candidateOverlaps(candidate, slotEnd, paddedBookings)) {
+          continue;
         }
 
-        if (slots.length >= input.limit) {
-          return slots;
+        const slot: AvailabilitySlot = {
+          startTime: candidate.toISOString(),
+          endTime: slotEnd.toISOString(),
+          durationMinutes: input.durationMinutes,
+          bufferMinutes: input.bufferMinutes,
+        };
+
+        if (groupByDay) {
+          daySlots.push(slot);
+          if (daySlots.length >= input.limit) {
+            break;
+          }
+        } else {
+          slots.push(slot);
+          if (slots.length >= input.limit) {
+            return { slots };
+          }
         }
       }
+
+      if (groupByDay && daySlots.length >= input.limit) {
+        break;
+      }
+    }
+
+    if (groupByDay && daySlots.length > 0) {
+      days.push({ date: day.date, slots: daySlots });
+      slots.push(...daySlots);
     }
   }
 
-  return slots;
+  if (groupByDay) {
+    return { slots, days };
+  }
+
+  return { slots };
 }
 
 export function slotMatchesAvailability(slots: AvailabilitySlot[], startTime: Date): boolean {

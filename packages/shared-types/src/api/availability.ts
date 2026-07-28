@@ -7,7 +7,7 @@ export const availabilityQuerySchema = z
     durationMinutes: z.coerce.number().int().positive().optional(),
     from: z.string().datetime().optional(),
     to: z.string().datetime().optional(),
-    limit: z.coerce.number().int().positive().max(50).default(20),
+    limit: z.coerce.number().int().positive().max(96).default(20),
   })
   .superRefine((value, ctx) => {
     if (!value.serviceOfferingId && !value.durationMinutes) {

@@ -14,7 +14,10 @@ export const businessAvailabilityQuerySchema = z
     to: z.string().datetime().optional(),
     serviceOfferingId: z.string().uuid().optional(),
     durationMinutes: z.coerce.number().int().positive().optional(),
-    limit: z.coerce.number().int().positive().max(50).default(20),
+    /** Flat list: global max. With `groupBy=day`: max starts **per day** (full open day ≈ 96×15m). */
+    limit: z.coerce.number().int().positive().max(96).default(20),
+    /** When `day`, returns `days[]` with per-day truncation instead of stopping on the first day. */
+    groupBy: z.enum(['day']).optional(),
   })
   .superRefine((value, ctx) => {
     if (!value.serviceOfferingId && !value.durationMinutes) {
@@ -28,12 +31,21 @@ export const businessAvailabilityQuerySchema = z
 
 export type BusinessAvailabilityQuery = z.infer<typeof businessAvailabilityQuerySchema>;
 
+export const availabilityDaySchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  slots: z.array(availabilitySlotSchema),
+});
+
+export type AvailabilityDay = z.infer<typeof availabilityDaySchema>;
+
 export const businessAvailabilityResponseSchema = z.object({
   businessId: z.string().uuid(),
   stylistId: z.string().uuid(),
   serviceOfferingId: z.string().uuid().nullable(),
   timezone: z.string(),
   slots: z.array(availabilitySlotSchema),
+  /** Present when `groupBy=day` — only days with ≥1 free slot. */
+  days: z.array(availabilityDaySchema).optional(),
 });
 
 export type BusinessAvailabilityResponse = z.infer<typeof businessAvailabilityResponseSchema>;

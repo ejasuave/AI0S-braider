@@ -21,6 +21,24 @@ export function formatDateTime(iso: string): string {
   }).format(new Date(iso));
 }
 
+/** Calendar day label for booking day picker (`YYYY-MM-DD` or any parseable date). */
+export function formatDayLabel(dateKey: string): string {
+  const iso = /^\d{4}-\d{2}-\d{2}$/.test(dateKey) ? `${dateKey}T12:00:00.000Z` : dateKey;
+  return new Intl.DateTimeFormat('en-GB', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'Europe/London',
+  }).format(new Date(iso));
+}
+
+export function formatTime(iso: string): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(iso));
+}
+
 export function bookingStatusLabel(status: BookingStatus): string {
   const labels: Record<BookingStatus, string> = {
     held: 'On hold',

@@ -23,9 +23,15 @@ Module: `apps/api/src/modules/calendar/`. See [ARCHITECTURE.md](../ARCHITECTURE.
 
 **Range cap:** `AVAILABILITY_MAX_DAYS` (default 60).
 
+**Query `limit`:** max **96** (enough for a full open day at 15-minute intervals). Default 20.
+
+**`groupBy=day`:** optional. Returns `days: [{ date, slots }]` with the limit applied **per day**, so later working days are not truncated by early slots on day one. Flat `slots` is still the concatenation of those days. Without `groupBy`, behaviour remains a single flat list that stops at `limit` (used by the AI receptionist).
+
+**What blocks a slot:** working hours, schedule exceptions, and platform bookings (held/confirmed) for the service duration + buffer. Google Calendar busy events are **not** silent-blocked (flag-only conflicts — see below).
+
 ## Endpoints
 
-- **Public:** `GET /businesses/:businessId/availability?serviceOfferingId=…` or `durationMinutes=…`
+- **Public:** `GET /businesses/:businessId/availability?serviceOfferingId=…` or `durationMinutes=…` (`from`, `to`, `limit`, `groupBy=day`)
 - **Legacy (authenticated):** `GET /bookings/availability` — delegates to the same engine
 - **Scheduling:** `GET/PATCH /businesses/me/scheduling` — buffer configuration
 
@@ -61,7 +67,7 @@ Disconnect any previous **dev mock** connection after enabling live keys, then C
 ## Frontend
 
 - `/stylist/calendar` — connect Google, buffer minutes, conflict list
-- `/book` — public availability before client sign-in (hold still requires auth)
+- `/book` — public day-then-time picker (`groupBy=day`, 14-day window, limit 96 per day) before client sign-in (hold still requires auth). Times refresh after a hold conflict.
 
 ## Manual stylist bookings
 
