@@ -26,6 +26,7 @@ export type SessionMemory = {
   quotedPrice: string | null;
   quotedDurationMinutes: number | null;
   addonNames: string[];
+  addonsConfirmed: boolean;
   preferredDate: string | null;
   selectedSlotIndex: number | null;
   selectedSlotStart: string | null;
@@ -62,7 +63,7 @@ export type ConversationTurnContext = {
       estimatedDurationMinutes: number;
       isCustomStyle: boolean;
       requirements: string[];
-      addons: Array<{ name: string; price: string }>;
+      addons: Array<{ id: string; name: string; price: string }>;
     }>;
     cancellationPolicy: unknown;
     depositPolicy: unknown;
@@ -95,6 +96,7 @@ const STALE_SLOT_FIELDS: Array<keyof ExtractedSlots> = [
   'quotedPrice',
   'quotedDurationMinutes',
   'addonNames',
+  'addonsConfirmed',
   'bookingStatus',
 ];
 
@@ -255,6 +257,7 @@ export function buildSessionMemory(input: {
     quotedPrice: mergedSlots.quotedPrice ?? null,
     quotedDurationMinutes: mergedSlots.quotedDurationMinutes ?? null,
     addonNames: mergedSlots.addonNames ?? [],
+    addonsConfirmed: mergedSlots.addonsConfirmed === true,
     preferredDate: mergedSlots.preferredDate ?? null,
     selectedSlotIndex: mergedSlots.selectedSlotIndex ?? null,
     selectedSlotStart: mergedSlots.selectedSlotStart ?? null,
@@ -415,7 +418,11 @@ export async function buildConversationTurnContext(
         requirements: offering.requirements.map((item) =>
           typeof item === 'string' ? item : item.text,
         ),
-        addons: offering.addons.map((addon) => ({ name: addon.name, price: addon.price })),
+        addons: offering.addons.map((addon) => ({
+          id: addon.id,
+          name: addon.name,
+          price: addon.price,
+        })),
       })),
       cancellationPolicy: fullProfile.cancellationPolicy,
       depositPolicy: profile.depositPolicy,

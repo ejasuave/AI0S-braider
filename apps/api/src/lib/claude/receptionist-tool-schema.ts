@@ -31,6 +31,7 @@ export const RECEPTIONIST_TOOL_PARAMETERS = {
         bookingId: { type: 'string' },
         clientName: { type: 'string' },
         addonNames: { type: 'array', items: { type: 'string' } },
+        addonsConfirmed: { type: 'boolean' },
         quotedPrice: { type: 'string' },
         quotedDurationMinutes: { type: 'number' },
         bookingStatus: {

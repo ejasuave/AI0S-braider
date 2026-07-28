@@ -7,7 +7,14 @@ import { messagingService } from '../messaging/service.js';
 import { paymentService } from '../payments/service.js';
 import { profileService } from '../profile/service.js';
 import { formatSlotLabel } from '../../lib/scheduling/format-datetime.js';
+import {
+  findOfferingForSlots,
+  formatAddonsPrompt,
+  formatPriceQuote,
+  resolveAddonIds,
+} from './addons.js';
 import { attachStructuredMetadata, type ConversationTurnContext } from './context.js';
+import { enrichFaqClientMessage } from './faq.js';
 
 function getLastAiMessageContent(context: ConversationTurnContext): string {
   for (let index = context.messages.length - 1; index >= 0; index -= 1) {
@@ -115,14 +122,11 @@ async function buildProposedSlotsMessage(
 
   let intro = introMessage;
   if (!context.priceAlreadyQuoted && slots.styleName) {
-    const pricing = await profileService.lookupPricing(context.stylistId, {
-      styleName: slots.styleName,
-      sizeTier: slots.sizeTier,
-      lengthTier: slots.lengthTier,
-    });
-    if (pricing.offering) {
-      slots.serviceOfferingId = pricing.offering.id;
-      intro = `${slots.styleName} is £${pricing.offering.basePrice} (about ${pricing.offering.estimatedDurationMinutes} mins). ${introMessage}`;
+    const offering = findOfferingForSlots(context.stylistContext.offerings, slots);
+    if (offering) {
+      slots.serviceOfferingId = offering.id;
+      const quote = formatPriceQuote(offering, slots.addonNames);
+      intro = `${quote.line} ${introMessage}`;
     }
   }
 
@@ -139,6 +143,14 @@ function isSlotUnavailableError(error: unknown): boolean {
     error.statusCode === 409 &&
     /not available|no longer available/i.test(error.message)
   );
+}
+
+function depositMetadata(payment: { id: string; amount: string }, bookingId: string) {
+  return {
+    booking_id: bookingId,
+    payment_id: payment.id,
+    deposit_amount: payment.amount,
+  };
 }
 
 export async function dispatchReceptionistTurn(
@@ -171,8 +183,20 @@ export async function dispatchReceptionistTurn(
         break;
       }
       slots.serviceOfferingId = pricing.offering.id;
+      const offering =
+        findOfferingForSlots(context.stylistContext.offerings, slots) ??
+        context.stylistContext.offerings.find((item) => item.id === pricing.offering!.id);
 
       if (context.priceAlreadyQuoted) {
+        if (offering && offering.addons.length > 0 && slots.addonsConfirmed !== true) {
+          clientMessage = formatAddonsPrompt(offering);
+          output = {
+            ...output,
+            next_action: 'ask_clarification',
+            extracted_slots: slots,
+          };
+          break;
+        }
         const proposed = await buildProposedSlotsMessage(
           context,
           { ...output, next_action: 'propose_slots' },
@@ -187,12 +211,29 @@ export async function dispatchReceptionistTurn(
       }
 
       const intro = output.client_message.trim();
-      clientMessage = `${intro}\n\n${pricing.offering.styleName}: £${pricing.offering.basePrice}, about ${pricing.offering.estimatedDurationMinutes} mins.\n\nWant me to send available times? Just say which day works, or reply "book me in".`;
+      if (offering) {
+        const quote = formatPriceQuote(offering, slots.addonNames);
+        slots.quotedPrice = quote.total.toFixed(2);
+        slots.quotedDurationMinutes = offering.estimatedDurationMinutes;
+        const nextStep =
+          offering.addons.length > 0 && slots.addonsConfirmed !== true
+            ? `\n\n${formatAddonsPrompt(offering)}`
+            : `\n\nWant me to send available times? Just say which day works, or reply "book me in".`;
+        clientMessage = `${intro}\n\n${quote.line}${quote.requirementsNote}${nextStep}`;
+      } else {
+        clientMessage = `${intro}\n\n${pricing.offering.styleName}: £${pricing.offering.basePrice}, about ${pricing.offering.estimatedDurationMinutes} mins.\n\nWant me to send available times? Just say which day works, or reply "book me in".`;
+      }
       metadata = { pricing_lookup: pricing };
       break;
     }
 
     case 'propose_slots': {
+      const offering = findOfferingForSlots(context.stylistContext.offerings, slots);
+      if (offering && offering.addons.length > 0 && slots.addonsConfirmed !== true) {
+        clientMessage = formatAddonsPrompt(offering);
+        output = { ...output, next_action: 'ask_clarification', extracted_slots: slots };
+        break;
+      }
       const proposed = await buildProposedSlotsMessage(
         context,
         output,
@@ -215,12 +256,23 @@ export async function dispatchReceptionistTurn(
         throw ApiError.validation('serviceOfferingId and selected slot required to create hold');
       }
 
+      const offering = findOfferingForSlots(context.stylistContext.offerings, slots);
+      if (offering && offering.addons.length > 0 && slots.addonsConfirmed !== true) {
+        clientMessage = formatAddonsPrompt(offering);
+        output = { ...output, next_action: 'ask_clarification', extracted_slots: slots };
+        break;
+      }
+
+      const addonIds = resolveAddonIds(offering, slots.addonNames);
+
       try {
         const booking = await bookingService.createHold(context.clientId, {
           stylistId: context.stylistId,
           serviceOfferingId: slots.serviceOfferingId,
           startTime,
           source: 'ai_agent',
+          addonIds,
+          clientDisplayName: slots.clientName,
         });
 
         slots.bookingId = booking.id;
@@ -239,8 +291,8 @@ export async function dispatchReceptionistTurn(
         const cancellationNote = context.stylistContext.cancellationPolicy
           ? ` Cancellation policy applies — see your booking page.`
           : '';
-        clientMessage = `${clientMessage}\n\nPay your £${payment.amount} deposit here: ${depositUrl}.${cancellationNote}`;
-        metadata = { ...metadata, payment_id: payment.id };
+        clientMessage = `${clientMessage}\n\nPay your £${payment.amount} deposit here: ${depositUrl}.${cancellationNote}\n\nYou can also pay securely in this chat.`;
+        metadata = depositMetadata(payment, booking.id);
         output = { ...output, next_action: 'send_deposit_link' };
       } catch (error) {
         if (!isSlotUnavailableError(error)) {
@@ -268,14 +320,17 @@ export async function dispatchReceptionistTurn(
 
       const payment = await paymentService.createDepositPayment(context.clientId, bookingId);
       const depositUrl = `${env.WEB_APP_URL}/client/bookings/${bookingId}`;
-      clientMessage = `${output.client_message}\n\nPay your £${payment.amount} deposit here: ${depositUrl}`;
-      metadata = { booking_id: bookingId, payment_id: payment.id };
+      clientMessage = `${output.client_message}\n\nPay your £${payment.amount} deposit here: ${depositUrl}\n\nYou can also pay securely in this chat.`;
+      metadata = depositMetadata(payment, bookingId);
       break;
     }
 
     case 'ask_clarification':
-    case 'answer_faq':
     case 'noop':
+      break;
+
+    case 'answer_faq':
+      clientMessage = enrichFaqClientMessage(context, clientMessage);
       break;
 
     case 'escalate':

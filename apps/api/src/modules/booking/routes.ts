@@ -19,6 +19,7 @@ import { bookingService } from './service.js';
 import { paymentService } from '../payments/service.js';
 import '../payments/events.js';
 import '../notifications/events.js';
+import '../receptionist/booking-confirmed-chat.js';
 
 export const bookingRoutes: FastifyPluginAsync = async (app) => {
   app.get('/mine', { preHandler: [requireClient] }, async (request, reply) => {

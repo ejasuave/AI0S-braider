@@ -1,0 +1,20 @@
+{
+  "id": "services-list-faq",
+  "type": "functional",
+  "description": "Catalogue FAQ uses answer_faq without inventing booking slots",
+  "turns": [
+    {
+      "mockOutput": {
+        "intent": "faq",
+        "extracted_slots": {},
+        "confidence": 0.91,
+        "next_action": "answer_faq",
+        "client_message": "Here’s what we offer — Knotless, Box braids, and more."
+      },
+      "expectedMergedSlots": {},
+      "assertClientMessage": {
+        "mustNotContain": ["Thank you for your question"]
+      }
+    }
+  ]
+}

@@ -18,6 +18,7 @@ function emptySessionMemory(overrides: Partial<SessionMemory> = {}): SessionMemo
     quotedPrice: null,
     quotedDurationMinutes: null,
     addonNames: [],
+    addonsConfirmed: false,
     preferredDate: null,
     selectedSlotIndex: null,
     selectedSlotStart: null,
@@ -189,6 +190,110 @@ describe('advanceBookingFlow', () => {
     expect(result.intent).toBe('faq');
     expect(result.client_message).toContain('Peckham');
     expect(result.extracted_slots.styleName).toBe('Knotless braids');
+  });
+
+  it('blocks propose_slots until add-ons are confirmed', () => {
+    const result = advanceBookingFlow(
+      {
+        intent: 'new_booking',
+        extracted_slots: { styleName: 'Box braids', serviceOfferingId: 'off-1' },
+        confidence: 0.9,
+        next_action: 'propose_slots',
+        client_message: 'Finding times',
+      },
+      baseContext({
+        latestClientMessage: 'book me in',
+        priceAlreadyQuoted: true,
+        mergedSlots: { styleName: 'Box braids', serviceOfferingId: 'off-1' },
+        stylistContext: {
+          businessName: 'Test',
+          locationArea: null,
+          workingHoursSummary: 'monday: 09:00–18:00',
+          offerings: [
+            {
+              id: 'off-1',
+              styleName: 'Box braids',
+              sizeTier: null,
+              lengthTier: null,
+              basePrice: '80',
+              estimatedDurationMinutes: 180,
+              isCustomStyle: false,
+              requirements: [],
+              addons: [{ id: 'addon-1', name: 'Boho curls', price: '25' }],
+            },
+          ],
+          cancellationPolicy: null,
+          depositPolicy: null,
+          remainingBalanceMethod: 'cash_or_card',
+          policyNotes: {
+            cancellationWindowHours: 24,
+            cancellationPolicyText: null,
+            reschedulingPolicyText: null,
+            depositPolicyText: null,
+            childrenPolicyText: null,
+            guestPolicyText: null,
+            refundPolicyText: null,
+            lateArrivalPolicyText: null,
+            noShowPolicyText: null,
+          },
+        },
+      }),
+    );
+
+    expect(result.next_action).toBe('ask_clarification');
+    expect(result.client_message).toMatch(/add-ons/i);
+  });
+
+  it('treats none as add-ons confirmed and allows propose_slots', () => {
+    const result = advanceBookingFlow(
+      {
+        intent: 'new_booking',
+        extracted_slots: { styleName: 'Box braids', serviceOfferingId: 'off-1' },
+        confidence: 0.9,
+        next_action: 'propose_slots',
+        client_message: 'Finding times',
+      },
+      baseContext({
+        latestClientMessage: 'none',
+        priceAlreadyQuoted: true,
+        mergedSlots: { styleName: 'Box braids', serviceOfferingId: 'off-1' },
+        stylistContext: {
+          businessName: 'Test',
+          locationArea: null,
+          workingHoursSummary: 'monday: 09:00–18:00',
+          offerings: [
+            {
+              id: 'off-1',
+              styleName: 'Box braids',
+              sizeTier: null,
+              lengthTier: null,
+              basePrice: '80',
+              estimatedDurationMinutes: 180,
+              isCustomStyle: false,
+              requirements: [],
+              addons: [{ id: 'addon-1', name: 'Boho curls', price: '25' }],
+            },
+          ],
+          cancellationPolicy: null,
+          depositPolicy: null,
+          remainingBalanceMethod: 'cash_or_card',
+          policyNotes: {
+            cancellationWindowHours: 24,
+            cancellationPolicyText: null,
+            reschedulingPolicyText: null,
+            depositPolicyText: null,
+            childrenPolicyText: null,
+            guestPolicyText: null,
+            refundPolicyText: null,
+            lateArrivalPolicyText: null,
+            noShowPolicyText: null,
+          },
+        },
+      }),
+    );
+
+    expect(result.extracted_slots.addonsConfirmed).toBe(true);
+    expect(result.next_action).toBe('propose_slots');
   });
 });
 

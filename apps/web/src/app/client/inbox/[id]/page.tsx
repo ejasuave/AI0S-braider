@@ -2,9 +2,13 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ConversationDetail } from '@project-braids/shared-types/api';
 import { fetchClientConversation, sendClientMessage } from '@/features/messaging/api';
+import {
+  ChatDepositCard,
+  parseChatDepositPayload,
+} from '@/features/messaging/chat-deposit-card';
 import { getApiErrorMessage } from '@/shared/lib/api-client';
 import { formatDateTime } from '@/shared/lib/format';
 import { Button } from '@/shared/ui/button';
@@ -70,6 +74,18 @@ export default function ClientConversationPage() {
   const isEscalated = conversation?.status === 'escalated';
   const canCompose = conversation?.channel === 'web' && isOpen;
 
+  const latestDepositMessageId = useMemo(() => {
+    if (!conversation) return null;
+    for (let index = conversation.messages.length - 1; index >= 0; index -= 1) {
+      const message = conversation.messages[index]!;
+      if (message.sender !== 'ai' && message.sender !== 'system') continue;
+      if (parseChatDepositPayload(message.structuredOutput)) {
+        return message.id;
+      }
+    }
+    return null;
+  }, [conversation]);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [conversation?.messages.length, sendMutation.isPending]);
@@ -105,17 +121,26 @@ export default function ClientConversationPage() {
         {conversationQuery.isLoading ? (
           <p className="text-sm text-ink-muted">Loading…</p>
         ) : (
-          conversation?.messages.map((message) => (
-            <Card key={message.id} className={messageCardClass(message.sender)}>
-              <div className="space-y-1">
-                <div className="flex items-center justify-between gap-2 text-xs text-ink-muted">
-                  <span>{senderLabel(message.sender)}</span>
-                  <span>{formatDateTime(message.createdAt)}</span>
+          conversation?.messages.map((message) => {
+            const depositPayload =
+              message.id === latestDepositMessageId
+                ? parseChatDepositPayload(message.structuredOutput)
+                : null;
+            return (
+              <Card key={message.id} className={messageCardClass(message.sender)}>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-2 text-xs text-ink-muted">
+                    <span>{senderLabel(message.sender)}</span>
+                    <span>{formatDateTime(message.createdAt)}</span>
+                  </div>
+                  <p className="whitespace-pre-wrap text-sm text-ink">{message.content}</p>
+                  {depositPayload ? (
+                    <ChatDepositCard conversationId={params.id} payload={depositPayload} />
+                  ) : null}
                 </div>
-                <p className="whitespace-pre-wrap text-sm text-ink">{message.content}</p>
-              </div>
-            </Card>
-          ))
+              </Card>
+            );
+          })
         )}
         <div ref={messagesEndRef} className="h-1 shrink-0" aria-hidden />
       </div>

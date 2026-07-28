@@ -1,0 +1,43 @@
+{
+  "id": "mid-booking-services-faq",
+  "type": "functional",
+  "description": "Mid-booking services list FAQ keeps prior style memory",
+  "turns": [
+    {
+      "mockOutput": {
+        "intent": "new_booking",
+        "extracted_slots": {
+          "styleName": "Knotless braids",
+          "quotedPrice": "120",
+          "bookingStatus": "quoting"
+        },
+        "confidence": 0.94,
+        "next_action": "confirm_style_price",
+        "client_message": "Knotless braids are £120."
+      },
+      "expectedMergedSlots": {
+        "styleName": "Knotless braids",
+        "quotedPrice": "120",
+        "bookingStatus": "quoting"
+      }
+    },
+    {
+      "mockOutput": {
+        "intent": "faq",
+        "extracted_slots": {
+          "styleName": "Knotless braids",
+          "quotedPrice": "120",
+          "bookingStatus": "quoting"
+        },
+        "confidence": 0.9,
+        "next_action": "answer_faq",
+        "client_message": "Here’s everything we offer right now."
+      },
+      "expectedMergedSlots": {
+        "styleName": "Knotless braids",
+        "quotedPrice": "120",
+        "bookingStatus": "quoting"
+      }
+    }
+  ]
+}

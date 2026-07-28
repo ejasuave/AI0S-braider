@@ -15,6 +15,7 @@ import { dispatchReceptionistTurn } from './dispatch.js';
 import { detectPromptInjection, isAmbiguousSlotSelection, shouldEscalate } from './escalation.js';
 import { buildSystemPrompt, buildUserPrompt } from './prompt.js';
 import { advanceBookingFlow } from './flow.js';
+import { isServicesListQuestion, shouldRunPricingLookup } from './faq.js';
 
 const log = createLogger().child({ module: 'receptionist' });
 
@@ -150,15 +151,25 @@ export class ReceptionistService {
       }
     }
 
-    const mergedSlots = { ...context.mergedSlots, ...output.extracted_slots };
+    const turnExtracted = { ...output.extracted_slots };
+    if (isServicesListQuestion(context.latestClientMessage)) {
+      // Catalogue FAQs must not invent a styleName that fails pricing and escalates.
+      delete turnExtracted.styleName;
+    }
+
+    const mergedSlots = { ...context.mergedSlots, ...turnExtracted };
     let pricingConfidence: number | undefined;
     let customStyleUnresolvable = false;
 
-    if (output.extracted_slots.styleName && output.next_action !== 'escalate') {
+    if (
+      turnExtracted.styleName &&
+      shouldRunPricingLookup(output.next_action) &&
+      output.next_action !== 'escalate'
+    ) {
       const pricing = await profileService.lookupPricing(context.stylistId, {
-        styleName: output.extracted_slots.styleName,
-        sizeTier: output.extracted_slots.sizeTier,
-        lengthTier: output.extracted_slots.lengthTier,
+        styleName: turnExtracted.styleName,
+        sizeTier: turnExtracted.sizeTier,
+        lengthTier: turnExtracted.lengthTier,
       });
       pricingConfidence = pricing.confidence;
       if (!pricing.offering) {

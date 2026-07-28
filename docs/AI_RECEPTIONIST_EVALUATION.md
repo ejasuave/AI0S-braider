@@ -38,7 +38,9 @@ pnpm --filter @project-braids/api receptionist:evaluate
 
 ### Functional coverage (beyond booking)
 
-Fixtures include multi-turn size follow-ups (“medium ones”), context-switch FAQ (location/payment), add-ons + deposit FAQ, ambiguous third-party style clarification, and reschedule. Adversarial fixtures also cover client frustration heuristics (not only prompt injection).
+Fixtures include multi-turn size follow-ups (“medium ones”), context-switch FAQ (location/payment), **services-list / hours FAQ**, mid-booking “what do you offer?”, add-ons + deposit FAQ, ambiguous third-party style clarification, and reschedule. Adversarial fixtures also cover client frustration heuristics (not only prompt injection).
+
+**Escalation false-positive rule:** catalogue FAQs must not escalate via `custom_style_unresolvable`. That reason means a booking action could not match a listed offering — not “client sent a style photo” (Chapter 14).
 
 ## Session persistence
 

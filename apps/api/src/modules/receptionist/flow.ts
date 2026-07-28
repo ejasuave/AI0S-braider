@@ -1,13 +1,29 @@
 import type { ExtractedSlots, ReceptionistTurnOutput } from '@project-braids/shared-types/api';
 import { receptionistTurnOutputSchema } from '@project-braids/shared-types/api';
+import {
+  clientDeclinesAddons,
+  findOfferingForSlots,
+  formatAddonsPrompt,
+  missingTierClarification,
+} from './addons.js';
 import type { ConversationTurnContext } from './context.js';
+import {
+  AVAILABILITY_QUESTION_PATTERN,
+  FAQ_TOPIC_PATTERN,
+  PRICE_INTENT_PATTERN,
+  isHoursFaqQuestion,
+  isServicesListQuestion,
+} from './faq.js';
 
-const PRICE_INTENT_PATTERN = /\b(price|cost|how much|£|pound)/i;
-const AVAILABILITY_QUESTION_PATTERN =
-  /\b(what days|which days|when are you|availability|available times|open slots|times available)\b/i;
+export {
+  AVAILABILITY_QUESTION_PATTERN,
+  FAQ_TOPIC_PATTERN,
+  PRICE_INTENT_PATTERN,
+  isHoursFaqQuestion,
+  isServicesListQuestion,
+} from './faq.js';
+
 const SLOT_PICK_PATTERN = /(?:^|\s)([1-3])(?:\s|$)|option\s*([1-3])|number\s*([1-3])/i;
-const FAQ_TOPIC_PATTERN =
-  /\b(where|located|location|address|park|parking|hours?|open|closed|deposit|cancel|reschedul|policy|policies|requirement|bank transfer|card|cash|pay|payment|balance|review|direction|how long|take|duration|addon|add-on|recommend|face shape|maintenance)\b/i;
 
 const WEEKDAY_NAMES = [
   'sunday',
@@ -144,6 +160,9 @@ export function isNonBookingTopicTurn(
   output: ReceptionistTurnOutput,
   latestClientMessage: string,
 ): boolean {
+  if (isServicesListQuestion(latestClientMessage) || isHoursFaqQuestion(latestClientMessage)) {
+    return true;
+  }
   if (output.intent === 'faq' || output.intent === 'reschedule') {
     return true;
   }
@@ -321,9 +340,46 @@ export function advanceBookingFlow(
     return output;
   }
 
-  const slots = mergedSlots(context, output);
+  // Catalogue / hours FAQs always stay on answer_faq (do not invent a style for pricing).
+  if (
+    isServicesListQuestion(context.latestClientMessage) ||
+    isHoursFaqQuestion(context.latestClientMessage)
+  ) {
+    const slots = mergedSlots(context, {
+      ...output,
+      extracted_slots: isServicesListQuestion(context.latestClientMessage)
+        ? { ...output.extracted_slots, styleName: undefined }
+        : output.extracted_slots,
+    });
+    return {
+      ...output,
+      intent: 'faq',
+      next_action: 'answer_faq',
+      extracted_slots: {
+        ...slots,
+        // Preserve prior booking style memory; drop turn hallucination on list questions.
+        ...(isServicesListQuestion(context.latestClientMessage)
+          ? { styleName: context.mergedSlots.styleName }
+          : {}),
+      },
+    };
+  }
+
+  let slots = mergedSlots(context, output);
   const preferredDate = parsePreferredDateFromHistory(context);
   const slotIndex = parseSelectedSlotIndex(context.latestClientMessage);
+
+  if (clientDeclinesAddons(context.latestClientMessage)) {
+    slots = { ...slots, addonNames: [], addonsConfirmed: true };
+  } else if (slots.addonNames && slots.addonNames.length > 0) {
+    slots = { ...slots, addonsConfirmed: true };
+  } else if (output.extracted_slots.addonsConfirmed === true) {
+    slots = { ...slots, addonsConfirmed: true };
+  }
+
+  const addonsJustSettled =
+    clientDeclinesAddons(context.latestClientMessage) ||
+    Boolean(slots.addonNames && slots.addonNames.length > 0);
 
   if (
     NON_BOOKING_INTENTS.has(output.intent) ||
@@ -338,7 +394,34 @@ export function advanceBookingFlow(
     };
   }
 
-  const phase = inferBookingPhase(context, slots);
+  const tierNeed = missingTierClarification(context.stylistContext.offerings, slots);
+  if (tierNeed && slots.styleName) {
+    const label = tierNeed.field === 'sizeTier' ? 'size' : 'length';
+    return {
+      ...output,
+      intent: 'new_booking',
+      next_action: 'ask_clarification',
+      confidence: Math.max(output.confidence, 0.9),
+      extracted_slots: {
+        ...slots,
+        ...(preferredDate ? { preferredDate } : {}),
+      },
+      client_message: `Which ${label} for ${slots.styleName}? Options: ${tierNeed.options.join(', ')}.`,
+    };
+  }
+
+  const offering = findOfferingForSlots(context.stylistContext.offerings, slots);
+  const needsAddons =
+    offering && offering.addons.length > 0 && slots.addonsConfirmed !== true;
+
+  const phase =
+    addonsJustSettled &&
+    slots.styleName &&
+    context.priceAlreadyQuoted &&
+    slots.addonsConfirmed === true &&
+    inferBookingPhase(context, slots) === 'general'
+      ? 'propose_slots'
+      : inferBookingPhase(context, slots);
 
   if (phase === 'general') {
     return {
@@ -362,6 +445,23 @@ export function advanceBookingFlow(
     return {
       ...output,
       extracted_slots: slots,
+    };
+  }
+
+  if (
+    needsAddons &&
+    (phase === 'propose_slots' || phase === 'prompt_slot_pick' || phase === 'confirm_slot')
+  ) {
+    return {
+      ...output,
+      intent: 'new_booking',
+      next_action: 'ask_clarification',
+      confidence: Math.max(output.confidence, 0.9),
+      extracted_slots: {
+        ...slots,
+        ...(preferredDate ? { preferredDate } : {}),
+      },
+      client_message: formatAddonsPrompt(offering!),
     };
   }
 

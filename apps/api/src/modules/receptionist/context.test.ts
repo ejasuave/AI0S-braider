@@ -172,6 +172,7 @@ describe('buildSessionMemory', () => {
     expect(memory.clientName).toBe('Aisha');
     expect(memory.styleName).toBe('Knotless braids');
     expect(memory.addonNames).toEqual(['Boho curls']);
+    expect(memory.addonsConfirmed).toBe(false);
     expect(memory.idleGapMinutes).toBe(45);
     expect(memory.channel).toBe('web');
   });

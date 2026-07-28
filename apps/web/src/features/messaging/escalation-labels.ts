@@ -4,7 +4,7 @@ const REASON_LABELS: Record<string, string> = {
   [ESCALATION_REASONS.confidenceBelowThreshold]: 'Low AI confidence',
   [ESCALATION_REASONS.structuredOutputValidationFailed]: 'AI validation failed',
   [ESCALATION_REASONS.ambiguousSlotSelection]: 'Ambiguous slot choice',
-  [ESCALATION_REASONS.customStyleUnresolvable]: 'Unrecognized style',
+  [ESCALATION_REASONS.customStyleUnresolvable]: 'Couldn’t match a listed service',
   [ESCALATION_REASONS.pricingLookupLowConfidence]: 'Pricing unclear',
   [ESCALATION_REASONS.intentRequiresHuman]: 'Needs human review',
   [ESCALATION_REASONS.smsOptOut]: 'Client opted out of AI',
@@ -21,7 +21,8 @@ export function formatEscalationReason(reason: string): string {
   return reason.replaceAll('_', ' ');
 }
 
+/** Chapter 14 photo recognition only — not text style-name lookup failures. */
 export function isStyleRecognitionEscalation(reason: string): boolean {
   const base = reason.split(':')[0] ?? reason;
-  return base === ESCALATION_REASONS.customStyleUnresolvable || base === 'unrecognized_style_image';
+  return base === 'unrecognized_style_image';
 }

@@ -66,6 +66,14 @@ export const extractedSlotsSchema = z.object({
     },
     z.array(z.string().trim().min(1).max(120)).max(5).optional(),
   ),
+  /** True once the client picked add-ons or explicitly said none (so we do not re-ask). */
+  addonsConfirmed: z.preprocess(
+    (value) => {
+      if (value === null || value === '' || value === undefined) return undefined;
+      return value;
+    },
+    z.boolean().optional(),
+  ),
   quotedPrice: optionalNonEmptyString,
   quotedDurationMinutes: z.preprocess(
     (value) => (value === null || value === '' ? undefined : value),

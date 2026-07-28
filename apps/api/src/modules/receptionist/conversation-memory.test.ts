@@ -15,6 +15,7 @@ function emptySessionMemory(overrides: Partial<SessionMemory> = {}): SessionMemo
     quotedPrice: '120',
     quotedDurationMinutes: 240,
     addonNames: [],
+    addonsConfirmed: false,
     preferredDate: null,
     selectedSlotIndex: null,
     selectedSlotStart: null,
@@ -72,7 +73,7 @@ function baseContext(overrides: Partial<ConversationTurnContext> = {}): Conversa
           estimatedDurationMinutes: 240,
           isCustomStyle: false,
           requirements: ['Wash hair the night before'],
-          addons: [{ name: 'Boho curls', price: '25' }],
+          addons: [{ id: 'addon-1', name: 'Boho curls', price: '25' }],
         },
         {
           id: '22222222-2222-4222-8222-222222222222',

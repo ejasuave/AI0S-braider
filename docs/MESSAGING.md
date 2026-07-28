@@ -77,4 +77,13 @@ Authenticated in-app web chat (above) is **not** the V2 widget.
 
 AI receptionist context (Ch.13) loads public booking offerings with **size/length tiers** (including Bum Length), structured **requirements**, active **add-ons**, **working hours**, and **business policy** (including remaining balance method). Session memory (merged slots + transcript) persists for the conversation; web chat recovers after refresh via `conversationId`. Vanity share links (`/stylist/{slug}/…`) resolve via profile slug APIs; UUID `/book?…` links remain valid.
 
+### AI booking + dual deposit (web chat)
+
+1. Style → size/length when ambiguous → price quote (requirements surfaced) → add-ons or “none” → numbered slots → hold with selected `addonIds`.
+2. Deposit message includes the booking-page URL **and** `structuredOutput` (`booking_id`, `payment_id`, `deposit_amount`, `next_action: send_deposit_link`).
+3. Client inbox mounts Stripe Elements on that message (pay in chat) plus an “Open booking page” link.
+4. After deposit capture, `onBookingConfirmed` posts an idempotent system message into the AI conversation (“You’re booked…”).
+
+SMS keeps the deposit URL only (no Stripe Elements in SMS).
+
 See `apps/api/src/modules/messaging/README.md` for implementation file map.

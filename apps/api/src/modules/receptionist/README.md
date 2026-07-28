@@ -13,9 +13,10 @@ Owns AI receptionist orchestration (Ch.13): structured-output turns, escalation 
 - Merge multi-turn `extracted_slots` in application code (style/size/length changes invalidate stale quotes)
 - Keep FAQ / policy / location / payment topic switches on the model reply (do not force booking copy over them)
 - Enforce consolidated `shouldEscalate()` at 0.8 threshold + injection, frustration, human-request, and repeated-clarification detection
-- Dispatch actions: clarify, price lookup, propose slots (max 3), create hold, deposit link
+- Dispatch actions: clarify, price lookup, collect add-ons (or none), propose slots (max 3), create hold with `addonIds`, deposit link (+ web in-chat pay metadata)
 - Re-offer slots on `SLOT_UNAVAILABLE` race (Ch.13.5)
 - Record `model_confidence` / `model_next_action` on escalation rows
+- After deposit confirms an `ai_agent` booking, post an idempotent “You’re booked” system message into the open conversation
 
 ## Conversation memory
 
@@ -71,3 +72,7 @@ The model is **stateless**. Memory is application-owned:
 The prompt library references `style_category_id` and `check_availability`; this codebase uses Blueprint-aligned `styleName` / `serviceOfferingId` and `confirm_style_price` / `propose_slots` action names. Behaviour matches Ch.13 intent; only naming differs.
 
 **In-scope FAQ vs Blueprint “out_of_scope chit-chat”:** light courtesy and basic hair recommendations from listed services use `faq`/`general` + `answer_faq`. Medical/legal/unrelated topics remain `out_of_scope` and escalate.
+
+**Catalogue / hours FAQ (do not escalate):** questions like “what styles do you do”, “what services”, or “what are your hours” force `answer_faq`. The app enriches the reply from `stylistContext.offerings` / working hours. Pricing lookup / `custom_style_unresolvable` runs only for booking actions (`confirm_style_price`, `propose_slots`, `create_hold`, `send_deposit_link`) — not FAQ/clarify. Escalate is a last resort (human request, frustration, dispute/injection, or booking cannot proceed).
+
+**Add-ons + dual deposit:** offerings with add-ons require `addonsConfirmed` (selected names or “none”) before slots/hold. Holds pass resolved `addonIds`. Deposit replies include booking-page URL and structured metadata for in-chat Stripe pay on web.

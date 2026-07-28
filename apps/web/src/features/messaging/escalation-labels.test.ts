@@ -6,7 +6,9 @@ describe('formatEscalationReason', () => {
     expect(formatEscalationReason('structured_output_validation_failed')).toBe(
       'AI validation failed',
     );
-    expect(formatEscalationReason('custom_style_unresolvable')).toBe('Unrecognized style');
+    expect(formatEscalationReason('custom_style_unresolvable')).toBe(
+      'Couldn’t match a listed service',
+    );
   });
 
   it('strips suffix after colon for compound reasons', () => {
@@ -17,8 +19,8 @@ describe('formatEscalationReason', () => {
 });
 
 describe('isStyleRecognitionEscalation', () => {
-  it('detects style-related escalation reasons', () => {
-    expect(isStyleRecognitionEscalation('custom_style_unresolvable')).toBe(true);
+  it('only treats photo recognition reasons as Chapter 14', () => {
+    expect(isStyleRecognitionEscalation('custom_style_unresolvable')).toBe(false);
     expect(isStyleRecognitionEscalation('unrecognized_style_image')).toBe(true);
     expect(isStyleRecognitionEscalation('sms_opt_out')).toBe(false);
   });

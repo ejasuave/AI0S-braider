@@ -1,0 +1,17 @@
+{
+  "id": "hours-faq",
+  "type": "functional",
+  "description": "Hours FAQ stays on answer_faq",
+  "turns": [
+    {
+      "mockOutput": {
+        "intent": "faq",
+        "extracted_slots": {},
+        "confidence": 0.93,
+        "next_action": "answer_faq",
+        "client_message": "We’re open Mon–Fri 9–5."
+      },
+      "expectedMergedSlots": {}
+    }
+  ]
+}
