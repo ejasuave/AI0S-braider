@@ -63,18 +63,19 @@ describe('OpenAICompatibleClaudeProvider', () => {
                   function: {
                     name: 'receptionist_turn',
                     arguments: JSON.stringify({
-                      intent: 'new_booking',
+                      intent: 'general',
                       extracted_slots: {
-                        styleName: 'Box Braids',
+                        styleName: null,
                         selectedSlotIndex: null,
                         selectedSlotStart: null,
                         quotedDurationMinutes: null,
                         addonsConfirmed: null,
                         addonNames: null,
+                        bookingStatus: null,
                       },
                       confidence: 0.93,
-                      next_action: 'confirm_style_price',
-                      client_message: 'Box braids — pricing:',
+                      next_action: 'ask_clarification',
+                      client_message: 'Hi — what style are you after?',
                     }),
                   },
                 },
@@ -94,11 +95,12 @@ describe('OpenAICompatibleClaudeProvider', () => {
 
     const result = await provider.completeStructuredTurn({
       systemPrompt: 'You are a receptionist.',
-      messages: [{ role: 'user', content: 'CLIENT: i want the box braids' }],
+      messages: [{ role: 'user', content: 'CLIENT: hi' }],
     });
 
-    expect(result.next_action).toBe('confirm_style_price');
-    expect(result.extracted_slots).toEqual({ styleName: 'Box Braids' });
+    expect(result.next_action).toBe('ask_clarification');
+    expect(result.extracted_slots).toEqual({});
+    expect(result.client_message).toMatch(/style/i);
   });
 
   it('surfaces provider HTTP errors', async () => {

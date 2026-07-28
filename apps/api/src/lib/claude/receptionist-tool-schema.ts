@@ -2,13 +2,27 @@
 
 export const RECEPTIONIST_TOOL_NAME = 'receptionist_turn';
 
-/** Optional JSON Schema types — Groq models often emit `null` for unused fields. */
+/**
+ * Optional JSON Schema helpers — Groq models often emit `null` for unused fields.
+ * For enums, `type: ['string','null']` + enum-without-null fails Groq validation;
+ * use `anyOf` so null is explicitly allowed.
+ */
 const optionalString = { type: ['string', 'null'] } as const;
 const optionalNumber = { type: ['number', 'null'] } as const;
 const optionalBoolean = { type: ['boolean', 'null'] } as const;
 const optionalStringArray = {
   type: ['array', 'null'],
   items: { type: 'string' },
+} as const;
+
+const optionalBookingStatus = {
+  anyOf: [
+    {
+      type: 'string',
+      enum: ['none', 'quoting', 'slots_offered', 'held', 'deposit_pending', 'confirmed'],
+    },
+    { type: 'null' },
+  ],
 } as const;
 
 export const RECEPTIONIST_TOOL_PARAMETERS = {
@@ -44,10 +58,7 @@ export const RECEPTIONIST_TOOL_PARAMETERS = {
         addonsConfirmed: optionalBoolean,
         quotedPrice: optionalString,
         quotedDurationMinutes: optionalNumber,
-        bookingStatus: {
-          type: ['string', 'null'],
-          enum: ['none', 'quoting', 'slots_offered', 'held', 'deposit_pending', 'confirmed'],
-        },
+        bookingStatus: optionalBookingStatus,
       },
       additionalProperties: false,
     },
@@ -86,7 +97,7 @@ export function stripNullsDeep(value: unknown): unknown {
     const result: Record<string, unknown> = {};
     for (const [key, child] of Object.entries(value)) {
       const cleaned = stripNullsDeep(child);
-      if (cleaned !== undefined) {
+      if (cleaned !== undefined && cleaned !== '') {
         result[key] = cleaned;
       }
     }
