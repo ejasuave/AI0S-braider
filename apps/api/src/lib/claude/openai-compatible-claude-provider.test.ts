@@ -51,6 +51,56 @@ describe('OpenAICompatibleClaudeProvider', () => {
     expect(fetchMock).toHaveBeenCalledOnce();
   });
 
+  it('accepts null optional extracted_slots fields from Groq-style tool calls', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              tool_calls: [
+                {
+                  function: {
+                    name: 'receptionist_turn',
+                    arguments: JSON.stringify({
+                      intent: 'new_booking',
+                      extracted_slots: {
+                        styleName: 'Box Braids',
+                        selectedSlotIndex: null,
+                        selectedSlotStart: null,
+                        quotedDurationMinutes: null,
+                        addonsConfirmed: null,
+                        addonNames: null,
+                      },
+                      confidence: 0.93,
+                      next_action: 'confirm_style_price',
+                      client_message: 'Box braids — pricing:',
+                    }),
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const provider = new OpenAICompatibleClaudeProvider(
+      'test-key',
+      'https://api.groq.com/openai/v1',
+      'llama-3.3-70b-versatile',
+    );
+
+    const result = await provider.completeStructuredTurn({
+      systemPrompt: 'You are a receptionist.',
+      messages: [{ role: 'user', content: 'CLIENT: i want the box braids' }],
+    });
+
+    expect(result.next_action).toBe('confirm_style_price');
+    expect(result.extracted_slots).toEqual({ styleName: 'Box Braids' });
+  });
+
   it('surfaces provider HTTP errors', async () => {
     vi.stubGlobal(
       'fetch',

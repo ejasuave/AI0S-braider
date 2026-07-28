@@ -6,6 +6,7 @@ import type { ClaudeCompletionRequest, ClaudeProvider } from './claude-provider.
 import {
   RECEPTIONIST_TOOL_NAME,
   RECEPTIONIST_TOOL_PARAMETERS,
+  stripNullsDeep,
 } from './receptionist-tool-schema.js';
 
 type OpenAiChatCompletionResponse = {
@@ -78,7 +79,7 @@ export class OpenAICompatibleClaudeProvider implements ClaudeProvider {
 
     let raw: unknown;
     try {
-      raw = JSON.parse(toolCall.function.arguments) as unknown;
+      raw = stripNullsDeep(JSON.parse(toolCall.function.arguments) as unknown);
     } catch {
       throw ApiError.validation('AI provider returned non-JSON tool arguments');
     }
